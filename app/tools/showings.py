@@ -5,9 +5,6 @@ from uuid import UUID
 
 from app.db.connection import get_db_connection
 from app.models.schemas import Showing
-from app.services.google_service import create_event
-from app.services.agent_config import get_agent_by_id
-from app.tools.listings import get_listing
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +74,11 @@ def confirm_showing(hold_id: UUID) -> dict:
                 conn.commit()
             return {"error": "Hold has expired"}
 
-    # Create calendar event
+    # Create calendar event (lazy imports to avoid cryptography import at module level)
+    from app.services.agent_config import get_agent_by_id
+    from app.services.google_service import create_event
+    from app.tools.listings import get_listing
+
     agent = get_agent_by_id(showing.agent_id)
     listing = get_listing(showing.agent_id, listing_id=showing.listing_id)
 
