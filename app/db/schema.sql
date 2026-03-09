@@ -47,6 +47,14 @@ CREATE TABLE contacts (
     notes           TEXT,
     last_contact_at TIMESTAMPTZ,
     silent_mode     BOOLEAN DEFAULT false,
+    consent_status  TEXT DEFAULT 'pending',
+    consent_granted_at TIMESTAMPTZ,
+    consent_revoked_at TIMESTAMPTZ,
+    consent_method  TEXT,
+    consent_message TEXT,
+    consent_response TEXT,
+    language_detected TEXT DEFAULT 'en',
+    interaction_count INT DEFAULT 0,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
@@ -54,6 +62,23 @@ CREATE TABLE contacts (
 CREATE UNIQUE INDEX idx_contacts_agent_phone ON contacts(agent_id, phone);
 CREATE INDEX idx_contacts_agent_lifecycle ON contacts(agent_id, lifecycle_stage);
 CREATE INDEX idx_contacts_agent_last_contact ON contacts(agent_id, last_contact_at);
+
+-- ============================================================
+-- 2A. consent_log
+-- ============================================================
+CREATE TABLE consent_log (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id        UUID NOT NULL REFERENCES agents(id),
+    contact_id      UUID NOT NULL REFERENCES contacts(id),
+    event_type      TEXT NOT NULL,
+    message_text    TEXT,
+    response_text   TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE consent_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY agent_isolation ON consent_log
+    FOR ALL USING (agent_id = current_setting('app.current_agent_id')::uuid);
 
 -- ============================================================
 -- 3. lead_preferences

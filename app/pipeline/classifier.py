@@ -7,13 +7,14 @@ from app.services.anthropic_service import get_anthropic_client
 
 logger = logging.getLogger(__name__)
 
-CLASSIFY_PROMPT = """Classify this message's intent and sender type.
+CLASSIFY_PROMPT = """Classify this message's intent, sender type, and language.
 
 Return JSON with these exact fields:
 {
-  "intent": one of: "scheduling", "listing_qa", "lead_qualification", "agent_command", "transaction", "personal", "escalation", "noise",
+  "intent": one of: "scheduling", "listing_qa", "lead_qualification", "agent_command", "transaction", "personal", "escalation", "noise", "feedback",
   "confidence": float 0-1,
-  "needs_full_context": boolean
+  "needs_full_context": boolean,
+  "language_code": ISO 639-1 code (e.g., "en", "es", "ko", "zh")
 }
 
 Intent definitions:
@@ -25,10 +26,11 @@ Intent definitions:
 - personal: casual chat, thanks, greetings with no action needed
 - escalation: asking about offers, pricing strategy, legal matters, expressing frustration, wanting to talk to the agent
 - noise: spam, wrong number, unintelligible
+- feedback: a standalone "1" or "2" response (client feedback score)
 
 needs_full_context rules:
 - true for: scheduling, lead_qualification, transaction, escalation
-- false for: listing_qa, noise, personal
+- false for: listing_qa, noise, personal, feedback
 
 Return ONLY valid JSON, no other text."""
 
@@ -112,6 +114,17 @@ def classify_intent(
         else:
             sender_type = "unknown_general"
 
+    # Check for feedback response (standalone "1" or "2")
+    stripped = event.body.strip()
+    if stripped in ("1", "2") and contact:
+        return IntentClassification(
+            intent="feedback",
+            sender_type=sender_type,
+            confidence=1.0,
+            needs_full_context=False,
+            language_code=contact.language_detected if contact else "en",
+        )
+
     # Try LLM classification
     try:
         client = get_anthropic_client()
@@ -123,19 +136,30 @@ def classify_intent(
         intent = result.get("intent", "personal")
         confidence = result.get("confidence", 0.5)
         needs_full_context = result.get("needs_full_context", True)
+        language_code = result.get("language_code", "en")
 
         # Validate intent is in allowed set
         valid_intents = {"scheduling", "listing_qa", "lead_qualification",
-                         "agent_command", "transaction", "personal", "escalation", "noise"}
+                         "agent_command", "transaction", "personal", "escalation",
+                         "noise", "feedback"}
         if intent not in valid_intents:
             intent = _keyword_classify(event.body)
             confidence = 0.5
+
+        # Update contact language if different
+        if contact and language_code != contact.language_detected:
+            try:
+                from app.tools.contacts import update_contact
+                update_contact(contact.id, language_detected=language_code)
+            except Exception:
+                pass
 
         return IntentClassification(
             intent=intent,
             sender_type=sender_type,
             confidence=confidence,
             needs_full_context=needs_full_context,
+            language_code=language_code,
         )
 
     except Exception as e:

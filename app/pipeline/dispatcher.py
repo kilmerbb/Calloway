@@ -29,8 +29,31 @@ def dispatch(
     """
     Send the AI response via the correct channel and log everything.
     """
+    # 0. CONSENT GATE — NEVER send to a contact with revoked consent
+    if contact and not is_agent_command:
+        from app.pipeline.consent import check_consent_before_send
+        if not check_consent_before_send(contact):
+            logger.warning(
+                f"Blocked outbound message to {contact.name} — consent not granted "
+                f"(status: {contact.consent_status})"
+            )
+            # Still log the interaction, but don't send
+            _log_conversation(event, decision, contact, agent, is_agent_command)
+            _update_usage_metrics(agent.id, event, decision, is_agent_command)
+            return
+
     # 1. Send response text
     if decision.response_text:
+        # Step 23A: Feedback pulse — every 10th substantive AI response
+        if (
+            contact
+            and not is_agent_command
+            and decision.model_used not in ("template", None)
+        ):
+            decision.response_text = _maybe_append_feedback_prompt(
+                decision.response_text, contact, agent
+            )
+
         if is_agent_command:
             # Reply to agent via SMS
             send_sms(
@@ -227,3 +250,34 @@ def _update_usage_metrics(
             conn.commit()
     except Exception as e:
         logger.error(f"Failed to update usage metrics: {e}")
+
+
+FEEDBACK_INTERVAL = 10  # Append feedback prompt every N substantive responses
+
+
+def _maybe_append_feedback_prompt(
+    response_text: str, contact: Contact, agent: AgentConfig
+) -> str:
+    """
+    Step 23A: Every FEEDBACK_INTERVAL-th substantive AI response,
+    append a feedback pulse question.
+    """
+    try:
+        with get_db_connection() as conn:
+            # Increment interaction_count and return new value
+            row = conn.execute(
+                """UPDATE contacts SET interaction_count = interaction_count + 1
+                   WHERE id = %s RETURNING interaction_count""",
+                [str(contact.id)],
+            ).fetchone()
+            conn.commit()
+
+        count = row["interaction_count"] if row else 0
+        if count > 0 and count % FEEDBACK_INTERVAL == 0:
+            response_text += (
+                "\n\nPS — Was this helpful? Tap 1 for yes, 2 for not really."
+            )
+    except Exception as e:
+        logger.debug(f"Feedback pulse check skipped: {e}")
+
+    return response_text

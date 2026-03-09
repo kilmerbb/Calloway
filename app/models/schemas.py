@@ -48,6 +48,14 @@ class Contact(BaseModel):
     notes: str | None = None
     last_contact_at: datetime | None = None
     silent_mode: bool = False
+    consent_status: str = "pending"
+    consent_granted_at: datetime | None = None
+    consent_revoked_at: datetime | None = None
+    consent_method: str | None = None
+    consent_message: str | None = None
+    consent_response: str | None = None
+    language_detected: str = "en"
+    interaction_count: int = 0
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -107,6 +115,7 @@ class Message(BaseModel):
     ai_generated: bool = False
     model_used: str | None = None
     tokens_used: int | None = None
+    feedback_score: int | None = None
     created_at: datetime | None = None
 
 
@@ -201,7 +210,8 @@ class NormalizedEvent(BaseModel):
 class IntentClassification(BaseModel):
     intent: Literal[
         "scheduling", "listing_qa", "lead_qualification",
-        "agent_command", "transaction", "personal", "escalation", "noise"
+        "agent_command", "transaction", "personal", "escalation", "noise",
+        "feedback"
     ]
     sender_type: Literal[
         "known_client", "known_agent", "unknown_listing_inquiry",
@@ -209,6 +219,7 @@ class IntentClassification(BaseModel):
     ]
     confidence: float
     needs_full_context: bool
+    language_code: str = "en"
 
 
 class AssembledContext(BaseModel):

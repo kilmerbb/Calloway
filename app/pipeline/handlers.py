@@ -39,6 +39,9 @@ Command types:
 - trigger: "Remind me to follow up with Sarah Friday"
 - cascade: "Open house Saturday 1-3" / "Sarah's deal: inspection March 10"
 - offer: "Sarah wants to offer on 123 Oak"
+- handoff_return: "Back from Sarah. We're seeing 123 Oak Saturday 11am." / "Back from Mike. He's pre-approved up to 500K."
+- note: "Note on Sarah: lease ends June 30" / "Note on Mike: prefers morning showings"
+- connect: "Connect Sarah Chen +12675551234" / "Connect John Doe +15551234567 buyer in Fishtown"
 
 Return JSON:
 {
@@ -100,6 +103,12 @@ def handle_agent_command(
         return _handle_cascade_command(agent, listing_address, contact_name, time_ref, details, body)
     elif cmd_type == "offer":
         return _handle_offer_command(agent, contact_name, listing_address)
+    elif cmd_type == "handoff_return":
+        return _handle_handoff_return(agent, contact_name, details, listing_address, time_ref, body)
+    elif cmd_type == "note":
+        return _handle_note_command(agent, contact_name, details)
+    elif cmd_type == "connect":
+        return _handle_connect_command(event, agent, contact_name, details, body)
     else:
         return AgentDecision(
             response_text=f"I received your message but wasn't sure what to do with it. Could you rephrase?",
@@ -587,6 +596,155 @@ def _handle_offer_command(
             "tier": "action_needed",
             "title": f"Offer prep: {contact.name}",
             "body": f"{contact.name} wants to offer{' on ' + listing_address if listing_address else ''}. Docs requested. Call them to discuss strategy.",
+        }],
+        model_used="template",
+    )
+
+
+# ============================================================
+# Step 10A: Handoff Return, Note, and Connect commands
+# ============================================================
+
+def _handle_handoff_return(
+    agent: AgentConfig, contact_name: str | None, details: str,
+    listing_address: str | None, time_ref: str | None, body: str,
+) -> AgentDecision:
+    """Handle 'Back from [Name]' command — reactivate contact, extract commitments."""
+    if not contact_name:
+        return AgentDecision(response_text="Which client are you back from?", model_used="template")
+
+    contact = lookup_contact(agent.id, name=contact_name)
+    if contact is None:
+        return AgentDecision(
+            response_text=f"I don't have a contact named {contact_name}.",
+            model_used="template",
+        )
+    if isinstance(contact, list):
+        names = ", ".join(c.name for c in contact)
+        return AgentDecision(response_text=f"Which one? {names}", model_used="template")
+
+    # Reactivate contact (silent_mode = false)
+    update_contact(contact.id, silent_mode=False)
+
+    updates_made = [f"Reactivated AI messaging for {contact.name}"]
+    triggers_to_create = []
+
+    # Parse for showing commitments
+    if listing_address and time_ref:
+        listing = get_listing(agent.id, address=listing_address)
+        if listing:
+            try:
+                from dateutil import parser as dateutil_parser
+                showing_time = dateutil_parser.parse(time_ref, fuzzy=True)
+                triggers_to_create.append({
+                    "entity_type": "contact",
+                    "entity_id": str(contact.id),
+                    "trigger_type": "showing_reminder",
+                    "scheduled_at": showing_time.isoformat(),
+                    "action_type": "both",
+                    "message_template": f"Reminder: showing at {listing.address} today",
+                })
+                updates_made.append(f"Showing scheduled: {listing.address} at {time_ref}")
+            except Exception:
+                pass
+
+    # Add notes with the details
+    if details:
+        existing_notes = contact.notes or ""
+        from datetime import datetime, timezone
+        timestamp = datetime.now(timezone.utc).strftime("%m/%d")
+        new_notes = f"{existing_notes}\n[{timestamp}] Agent handoff: {details}".strip()
+        update_contact(contact.id, notes=new_notes)
+        updates_made.append(f"Notes updated")
+
+    response = f"Got it. I've updated {contact.name}'s profile:\n" + "\n".join(f"- {u}" for u in updates_made)
+    response += f"\nI'm back on with {contact.name}."
+
+    return AgentDecision(
+        response_text=response,
+        triggers_to_create=triggers_to_create,
+        model_used="template",
+    )
+
+
+def _handle_note_command(
+    agent: AgentConfig, contact_name: str | None, details: str,
+) -> AgentDecision:
+    """Handle 'Note on [Name]' — add timestamped note without changing status."""
+    if not contact_name:
+        return AgentDecision(response_text="Which client should I note this on?", model_used="template")
+
+    contact = lookup_contact(agent.id, name=contact_name)
+    if contact is None:
+        return AgentDecision(
+            response_text=f"I don't have a contact named {contact_name}.",
+            model_used="template",
+        )
+    if isinstance(contact, list):
+        names = ", ".join(c.name for c in contact)
+        return AgentDecision(response_text=f"Which one? {names}", model_used="template")
+
+    existing_notes = contact.notes or ""
+    from datetime import datetime, timezone
+    timestamp = datetime.now(timezone.utc).strftime("%m/%d %I:%M%p")
+    new_notes = f"{existing_notes}\n[{timestamp}] {details}".strip()
+    update_contact(contact.id, notes=new_notes)
+
+    return AgentDecision(
+        response_text=f"Noted on {contact.name}: {details}",
+        model_used="template",
+    )
+
+
+def _handle_connect_command(
+    event, agent: AgentConfig, contact_name: str | None,
+    details: str, body: str,
+) -> AgentDecision:
+    """Handle 'Connect [Name] [Phone]' — create contact + send consent request."""
+    if not contact_name:
+        return AgentDecision(response_text="Who should I connect?", model_used="template")
+
+    # Extract phone from body
+    import re
+    phone_match = re.search(r'\+?\d[\d\s-]{9,}', body)
+    phone = phone_match.group().strip().replace(" ", "").replace("-", "") if phone_match else None
+
+    if not phone:
+        return AgentDecision(
+            response_text=f"I need a phone number for {contact_name}.",
+            model_used="template",
+        )
+
+    # Check if contact already exists
+    existing = lookup_contact(agent.id, phone=phone)
+    if existing:
+        return AgentDecision(
+            response_text=f"I already have {existing.name} at {phone}.",
+            model_used="template",
+        )
+
+    # Create contact with consent_status = pending
+    contact = create_contact(
+        agent_id=agent.id,
+        name=contact_name,
+        phone=phone,
+        role="lead",
+        lifecycle_stage="new_lead",
+    )
+
+    # Send consent request (Step 13A)
+    from app.pipeline.consent import send_consent_request
+    consent_msg = send_consent_request(agent, contact)
+
+    return AgentDecision(
+        response_text=f"Created {contact_name} ({phone}). Sent intro message — waiting for their opt-in reply.",
+        tool_calls=[{
+            "tool_name": "send_client_message",
+            "input": {
+                "agent_id": str(agent.id),
+                "contact_id": str(contact.id),
+                "message": consent_msg,
+            },
         }],
         model_used="template",
     )

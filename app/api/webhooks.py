@@ -27,7 +27,11 @@ async def process_inbound_message(agent_id: str, payload: dict):
     from app.pipeline.classifier import classify_intent
     from app.pipeline.router import route_and_handle
     from app.pipeline.dispatcher import dispatch
+    from app.pipeline.consent import check_tcpa_keywords
+    from app.pipeline.rate_limiter import check_rate_limits
     from app.services.agent_config import get_agent_by_id
+    from app.services.twilio_service import send_sms
+    from app.db.connection import get_db_connection
 
     try:
         aid = UUID(agent_id)
@@ -42,19 +46,83 @@ async def process_inbound_message(agent_id: str, payload: dict):
         # 2. Resolve contact
         contact, is_agent_command = resolve_contact(event, agent)
 
+        # 2A. TCPA keyword check (STOP/HELP/START) — before any pipeline processing
+        if not is_agent_command:
+            tcpa_result = check_tcpa_keywords(event, contact, agent)
+            if tcpa_result:
+                if tcpa_result.get("response_text"):
+                    send_sms(
+                        to=event.sender_phone, from_=agent.twilio_number,
+                        body=tcpa_result["response_text"], agent_id=agent.id,
+                    )
+                if tcpa_result.get("notify_agent") and tcpa_result.get("notification"):
+                    try:
+                        from app.services.firebase_service import send_push_notification
+                        n = tcpa_result["notification"]
+                        send_push_notification(agent.id, n["tier"], n["title"], n["body"])
+                    except Exception:
+                        pass
+                return
+
+        # 2B. Rate limiting check
+        if not is_agent_command:
+            rate_result = check_rate_limits(event, contact, agent)
+            if rate_result:
+                if rate_result.get("response_text"):
+                    send_sms(
+                        to=event.sender_phone, from_=agent.twilio_number,
+                        body=rate_result["response_text"], agent_id=agent.id,
+                    )
+                return
+
+        # 2C. Consent gate — block messages from contacts with revoked consent
+        if contact and not is_agent_command and contact.consent_status == "revoked":
+            logger.info(f"Blocked message from revoked contact {contact.name}")
+            return
+
         # 3. Classify intent
         intent = classify_intent(event, contact, agent, is_agent_command)
+
+        # 3A. Handle feedback intent (Step 23A)
+        if intent.intent == "feedback":
+            _log_feedback(event, contact, agent)
+            return
 
         # 4. Route and handle
         decision = route_and_handle(event, contact, intent, agent)
 
-        # 5. Dispatch
+        # 5. Dispatch (consent check is inside dispatcher)
         dispatch(decision, event, contact, agent, is_agent_command)
 
         logger.info(f"Processed message: intent={intent.intent}, model={decision.model_used}")
 
     except Exception as e:
         logger.error(f"Pipeline error: {e}", exc_info=True)
+
+
+def _log_feedback(event, contact, agent):
+    """Log client feedback score without sending a response (Step 23A)."""
+    from app.db.connection import get_db_connection
+
+    body = event.body.strip()
+    score = 1 if body == "1" else (0 if body == "2" else None)
+    if score is not None and contact:
+        try:
+            with get_db_connection() as conn:
+                conn.execute(
+                    """UPDATE messages SET feedback_score = %s
+                       WHERE conversation_id IN (
+                           SELECT id FROM conversations
+                           WHERE contact_id = %s AND agent_id = %s
+                       )
+                       AND ai_generated = true
+                       ORDER BY created_at DESC LIMIT 1""",
+                    [score, str(contact.id), str(agent.id)],
+                )
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to log feedback: {e}")
+        logger.info(f"Feedback logged from {contact.name}: score={score}")
 
 
 @router.post("/twilio/inbound")

@@ -125,6 +125,9 @@ def update_contact(contact_id: UUID, **updates) -> Contact:
     valid_fields = {
         "name", "phone", "email", "role", "lifecycle_stage",
         "linked_listing_id", "preferences", "notes", "silent_mode",
+        "consent_status", "consent_granted_at", "consent_revoked_at",
+        "consent_method", "consent_message", "consent_response",
+        "language_detected", "interaction_count",
     }
     filtered = {k: v for k, v in updates.items() if k in valid_fields and v is not None}
 

@@ -1,6 +1,6 @@
 """Token monitor — tracks LLM usage and alerts on budget thresholds."""
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 from uuid import UUID
 
 from app.db.connection import get_db_connection
@@ -143,3 +143,116 @@ def get_usage_summary(agent_id: UUID, days: int = 30) -> dict:
             for r in rows[:7]  # Last 7 days detail
         ],
     }
+
+
+# ============================================================
+# Step 44C: Monthly Value Report
+# ============================================================
+
+def generate_monthly_value_report(agent_id: UUID) -> dict:
+    """
+    Generate a monthly performance/value report for churn prevention.
+    Shows the agent the value the AI provided over the past month.
+    """
+    with get_db_connection() as conn:
+        # Monthly aggregates
+        monthly = conn.execute(
+            """SELECT
+                COALESCE(SUM(messages_sent), 0) as msgs_sent,
+                COALESCE(SUM(messages_received), 0) as msgs_received,
+                COALESCE(SUM(llm_calls), 0) as llm_calls,
+                COALESCE(SUM(llm_tokens_used), 0) as tokens,
+                COALESCE(SUM(llm_cost_cents), 0) as cost,
+                COALESCE(SUM(voice_minutes), 0) as voice_mins,
+                COALESCE(SUM(showings_booked), 0) as showings,
+                COALESCE(SUM(triggers_fired), 0) as triggers,
+                COUNT(DISTINCT date) as active_days
+               FROM usage_metrics
+               WHERE agent_id = %s
+               AND date >= date_trunc('month', CURRENT_DATE - interval '1 month')
+               AND date < date_trunc('month', CURRENT_DATE)""",
+            [str(agent_id)],
+        ).fetchone()
+
+        # Contact activity
+        contacts_added = conn.execute(
+            """SELECT COUNT(*) as cnt FROM contacts
+               WHERE agent_id = %s
+               AND created_at >= date_trunc('month', CURRENT_DATE - interval '1 month')
+               AND created_at < date_trunc('month', CURRENT_DATE)""",
+            [str(agent_id)],
+        ).fetchone()
+
+        # Conversations handled
+        convos = conn.execute(
+            """SELECT COUNT(DISTINCT id) as cnt FROM conversations
+               WHERE agent_id = %s
+               AND created_at >= date_trunc('month', CURRENT_DATE - interval '1 month')
+               AND created_at < date_trunc('month', CURRENT_DATE)""",
+            [str(agent_id)],
+        ).fetchone()
+
+    total_msgs = monthly["msgs_sent"] + monthly["msgs_received"]
+    cost_dollars = round(monthly["cost"] / 100, 2)
+
+    # Estimate value: each auto-handled message saves ~2 min of agent time
+    minutes_saved = monthly["msgs_sent"] * 2
+    hours_saved = round(minutes_saved / 60, 1)
+
+    return {
+        "agent_id": str(agent_id),
+        "period": "last_month",
+        "messages_handled": total_msgs,
+        "messages_sent": monthly["msgs_sent"],
+        "messages_received": monthly["msgs_received"],
+        "conversations": convos["cnt"] if convos else 0,
+        "showings_booked": monthly["showings"],
+        "new_contacts": contacts_added["cnt"] if contacts_added else 0,
+        "triggers_fired": monthly["triggers"],
+        "llm_cost_dollars": cost_dollars,
+        "voice_minutes": float(monthly["voice_mins"]),
+        "active_days": monthly["active_days"],
+        "estimated_hours_saved": hours_saved,
+    }
+
+
+def format_monthly_value_report(report: dict) -> str:
+    """Format the monthly value report as agent-friendly text."""
+    lines = [
+        "Monthly Performance Report",
+        "=" * 30,
+        "",
+        f"Messages handled: {report['messages_handled']}",
+        f"  - Sent: {report['messages_sent']}",
+        f"  - Received: {report['messages_received']}",
+        f"Conversations: {report['conversations']}",
+        f"Showings booked: {report['showings_booked']}",
+        f"New contacts added: {report['new_contacts']}",
+        f"Triggers fired: {report['triggers_fired']}",
+        "",
+        f"Estimated time saved: {report['estimated_hours_saved']} hours",
+        f"AI cost: ${report['llm_cost_dollars']}",
+        f"Active days: {report['active_days']}",
+        "",
+        "Keep it up! Reply with any questions.",
+    ]
+    return "\n".join(lines)
+
+
+def send_monthly_value_report(agent_id: UUID) -> None:
+    """Send the monthly value report as a push notification."""
+    try:
+        report = generate_monthly_value_report(agent_id)
+        text = format_monthly_value_report(report)
+
+        from app.services.firebase_service import send_push_notification
+        send_push_notification(
+            agent_id=agent_id,
+            tier="informational",
+            title="Your Monthly AI Report",
+            body=f"Handled {report['messages_handled']} messages, "
+                 f"booked {report['showings_booked']} showings, "
+                 f"saved ~{report['estimated_hours_saved']} hours.",
+        )
+    except Exception as e:
+        logger.error(f"Failed to send monthly value report: {e}")
