@@ -1,0 +1,230 @@
+"""Pydantic models for all data types in the Solo Realtor AI system."""
+from datetime import datetime, date, time
+from decimal import Decimal
+from typing import Literal
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+
+# ============================================================
+# Core Data Models (mirror database tables)
+# ============================================================
+
+class AgentConfig(BaseModel):
+    id: UUID
+    name: str
+    email: str
+    phone: str
+    brokerage: str | None = None
+    market: str | None = None
+    timezone: str = "America/New_York"
+    twilio_number: str
+    google_oauth: dict | None = None
+    vapi_assistant: str | None = None
+    scheduling_prefs: dict = Field(default_factory=dict)
+    style_profile: dict = Field(default_factory=dict)
+    autonomy_rules: dict = Field(default_factory=dict)
+    listing_rules: dict = Field(default_factory=dict)
+    system_prompt: str | None = None
+    google_review_link: str | None = None
+    briefing_time: time = time(7, 30)
+    current_status: str = "available"
+    status_until: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class Contact(BaseModel):
+    id: UUID
+    agent_id: UUID
+    name: str
+    phone: str
+    email: str | None = None
+    role: str = "lead"
+    lifecycle_stage: str = "new_lead"
+    linked_listing_id: UUID | None = None
+    preferences: dict = Field(default_factory=dict)
+    notes: str | None = None
+    last_contact_at: datetime | None = None
+    silent_mode: bool = False
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class LeadPreferences(BaseModel):
+    contact_id: UUID
+    areas: list[str] | None = None
+    timeline: str | None = None
+    preapproved: bool | None = None
+    property_type: str | None = None
+    bedrooms_min: int | None = None
+    bathrooms_min: Decimal | None = None
+    price_min: int | None = None
+    price_max: int | None = None
+
+
+class Listing(BaseModel):
+    id: UUID
+    agent_id: UUID
+    address: str
+    price: int
+    beds: int | None = None
+    baths: Decimal | None = None
+    sqft: int | None = None
+    hoa: int | None = None
+    features: list[str] = Field(default_factory=list)
+    showing_instructions: str | None = None
+    lockbox: str | None = None
+    access_rules: dict = Field(default_factory=dict)
+    open_house_dates: list[dict] = Field(default_factory=list)
+    list_date: date | None = None
+    status: str = "active"
+    notes: str | None = None
+    last_updated_at: datetime | None = None
+    created_at: datetime | None = None
+    freshness_warning: str | None = None
+
+
+class Conversation(BaseModel):
+    id: UUID
+    agent_id: UUID
+    contact_id: UUID | None = None
+    channel: str
+    stage: str = "open"
+    active_handler: str | None = None
+    last_message_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class Message(BaseModel):
+    id: UUID | None = None
+    agent_id: UUID
+    conversation_id: UUID
+    sender_type: str
+    body: str
+    intent: str | None = None
+    ai_generated: bool = False
+    model_used: str | None = None
+    tokens_used: int | None = None
+    created_at: datetime | None = None
+
+
+class Showing(BaseModel):
+    id: UUID | None = None
+    agent_id: UUID
+    contact_id: UUID
+    listing_id: UUID
+    start_time: datetime
+    end_time: datetime
+    status: str = "hold"
+    hold_expires_at: datetime | None = None
+    calendar_event_id: str | None = None
+    requesting_agent_id: UUID | None = None
+    feedback: str | None = None
+    created_at: datetime | None = None
+
+
+class Trigger(BaseModel):
+    id: UUID | None = None
+    agent_id: UUID
+    entity_type: str
+    entity_id: UUID
+    trigger_type: str
+    scheduled_at: datetime
+    recurrence: str | None = None
+    action_type: str
+    message_template: str | None = None
+    autonomy_level: str = "ask_agent"
+    status: str = "pending"
+    notes: str | None = None
+    created_at: datetime | None = None
+
+
+class Email(BaseModel):
+    id: UUID | None = None
+    agent_id: UUID
+    from_address: str | None = None
+    to_address: str | None = None
+    subject: str | None = None
+    body: str | None = None
+    received_at: datetime | None = None
+    classification: str | None = None
+    linked_contact_id: UUID | None = None
+    linked_listing_id: UUID | None = None
+    action_taken: str | None = None
+    created_at: datetime | None = None
+
+
+class ToolExecution(BaseModel):
+    id: UUID | None = None
+    agent_id: UUID
+    conversation_id: UUID | None = None
+    tool_name: str
+    input_json: dict
+    output_json: dict | None = None
+    status: str
+    error_message: str | None = None
+    latency_ms: int | None = None
+    created_at: datetime | None = None
+
+
+class UsageMetrics(BaseModel):
+    id: UUID | None = None
+    agent_id: UUID
+    date: date
+    messages_sent: int = 0
+    messages_received: int = 0
+    llm_calls: int = 0
+    llm_tokens_used: int = 0
+    llm_cost_cents: int = 0
+    voice_minutes: Decimal = Decimal("0")
+    showings_booked: int = 0
+    triggers_fired: int = 0
+
+
+# ============================================================
+# Pipeline Models
+# ============================================================
+
+class NormalizedEvent(BaseModel):
+    sender_phone: str
+    sender_name: str | None = None
+    channel: Literal["rcs", "sms", "sms_command", "vapi", "email", "portal"]
+    body: str
+    timestamp: datetime
+    provider_message_id: str
+    raw_payload: dict
+    agent_id: UUID
+
+
+class IntentClassification(BaseModel):
+    intent: Literal[
+        "scheduling", "listing_qa", "lead_qualification",
+        "agent_command", "transaction", "personal", "escalation", "noise"
+    ]
+    sender_type: Literal[
+        "known_client", "known_agent", "unknown_listing_inquiry",
+        "unknown_general", "agent_command"
+    ]
+    confidence: float
+    needs_full_context: bool
+
+
+class AssembledContext(BaseModel):
+    agent: AgentConfig
+    contact: Contact | None = None
+    listings: list[Listing] = Field(default_factory=list)
+    calendar_slots: list[dict] | None = None
+    triggers: list[Trigger] = Field(default_factory=list)
+    conversation_history: list[Message] = Field(default_factory=list)
+    intent: IntentClassification
+
+
+class AgentDecision(BaseModel):
+    response_text: str | None = None
+    tool_calls: list[dict] = Field(default_factory=list)
+    triggers_to_create: list[dict] = Field(default_factory=list)
+    notifications: list[dict] = Field(default_factory=list)
+    model_used: str = "template"
+    tokens_used: int = 0
