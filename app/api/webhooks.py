@@ -20,8 +20,41 @@ def validate_twilio_signature(request_url: str, params: dict, signature: str) ->
 
 
 async def process_inbound_message(agent_id: str, payload: dict):
-    """Process an inbound message asynchronously. Full pipeline in later steps."""
-    logger.info(f"Processing inbound message for agent {agent_id}: {payload.get('Body', '')[:50]}")
+    """Process an inbound message through the full pipeline."""
+    from uuid import UUID
+    from app.pipeline.normalizer import normalize_twilio_event
+    from app.pipeline.resolver import resolve_contact
+    from app.pipeline.classifier import classify_intent
+    from app.pipeline.router import route_and_handle
+    from app.pipeline.dispatcher import dispatch
+    from app.services.agent_config import get_agent_by_id
+
+    try:
+        aid = UUID(agent_id)
+        agent = get_agent_by_id(aid)
+        if not agent:
+            logger.error(f"Agent {agent_id} not found")
+            return
+
+        # 1. Normalize
+        event = normalize_twilio_event(payload, aid)
+
+        # 2. Resolve contact
+        contact, is_agent_command = resolve_contact(event, agent)
+
+        # 3. Classify intent
+        intent = classify_intent(event, contact, agent, is_agent_command)
+
+        # 4. Route and handle
+        decision = route_and_handle(event, contact, intent, agent)
+
+        # 5. Dispatch
+        dispatch(decision, event, contact, agent, is_agent_command)
+
+        logger.info(f"Processed message: intent={intent.intent}, model={decision.model_used}")
+
+    except Exception as e:
+        logger.error(f"Pipeline error: {e}", exc_info=True)
 
 
 @router.post("/twilio/inbound")
