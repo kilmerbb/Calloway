@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<div hx-get="/console/health" hx-trigger="every 30s" hx-select=".content" hx-target=".content" hx-swap="outerHTML">
+
+<!-- Service Connectivity -->
+<div class="section">
+    <div class="section-title">Service Connectivity</div>
+    <div class="card-grid">
+        {% for service, color in health.services.items() %}
+        <div class="card">
+            <div class="card-label">{{ service|capitalize }}</div>
+            <div class="card-value">
+                <span class="status-dot status-{{ color }}"></span>
+                {{ color }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Pipeline Performance -->
+<div class="section">
+    <div class="section-title">Pipeline Performance (24h)</div>
+    <div class="card-grid">
+        <div class="card">
+            <div class="card-label">Avg Latency</div>
+            <div class="card-value">{{ health.pipeline.avg_latency_ms }}ms</div>
+        </div>
+        <div class="card">
+            <div class="card-label">p50</div>
+            <div class="card-value">{{ health.pipeline.p50_ms }}ms</div>
+        </div>
+        <div class="card">
+            <div class="card-label">p95</div>
+            <div class="card-value">{{ health.pipeline.p95_ms }}ms</div>
+        </div>
+    </div>
+</div>
+
+<!-- Manual Actions -->
+<div class="section">
+    <div class="section-title">Manual Actions</div>
+    <p style="color: var(--text-muted); margin-bottom: 0.5rem;">Run daily scan for a specific agent:</p>
+    <form method="get" action="/console/health" style="display: flex; gap: 0.5rem; max-width: 400px;">
+        <select id="scan-agent" style="flex:1;">
+            <option value="">Select agent...</option>
+        </select>
+        <button type="button" class="btn btn-outline btn-sm" onclick="runScan()">Run Scan</button>
+    </form>
+    <script>
+    fetch('/console/tenants').then(r => r.text()).then(() => {});
+    function runScan() {
+        const agentId = document.getElementById('scan-agent').value;
+        if (agentId) {
+            fetch('/console/health/run-scan/' + agentId, {method:'POST'}).then(() => location.reload());
+        }
+    }
+    </script>
+</div>
+
+</div>
+{% endblock %}

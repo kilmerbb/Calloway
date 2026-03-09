@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/console/tenants/new" style="max-width: 600px;">
+    <div class="section">
+        <div class="section-title">Agent Profile</div>
+        <div class="form-group"><label>Name *</label><input type="text" name="name" required></div>
+        <div class="form-group"><label>Email *</label><input type="email" name="email" required></div>
+        <div class="form-group"><label>Phone *</label><input type="tel" name="phone" required placeholder="+15551234567"></div>
+        <div class="form-group"><label>Brokerage</label><input type="text" name="brokerage"></div>
+        <div class="form-group"><label>Market</label><input type="text" name="market" placeholder="e.g. Philadelphia"></div>
+        <div class="form-group"><label>Timezone</label>
+            <select name="timezone">
+                <option value="America/New_York">Eastern</option>
+                <option value="America/Chicago">Central</option>
+                <option value="America/Denver">Mountain</option>
+                <option value="America/Los_Angeles">Pacific</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Twilio Configuration</div>
+        <div class="form-group"><label>Twilio Phone Number *</label><input type="tel" name="twilio_number" required placeholder="+15559876543"></div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Style & Autonomy</div>
+        <div class="form-group"><label>Tone</label>
+            <select name="tone">
+                <option value="professional">Professional</option>
+                <option value="friendly">Friendly</option>
+                <option value="casual">Casual</option>
+            </select>
+        </div>
+        <div class="form-group"><label>Emoji Usage</label>
+            <select name="emoji"><option value="no">No</option><option value="yes">Yes</option></select>
+        </div>
+        <div class="form-group"><label>Autonomy Level</label>
+            <select name="autonomy_level">
+                <option value="supervised">Supervised</option>
+                <option value="autonomous">Autonomous</option>
+                <option value="manual">Manual</option>
+            </select>
+        </div>
+        <div class="form-group"><label>Buffer Minutes</label><input type="text" name="buffer_minutes" value="30"></div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Optional</div>
+        <div class="form-group"><label>Google Review Link</label><input type="text" name="google_review_link"></div>
+        <div class="form-group"><label>Briefing Time</label><input type="time" name="briefing_time" value="07:30"></div>
+        <div class="form-group"><label>System Prompt Override</label><textarea name="system_prompt"></textarea></div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Create Tenant</button>
+    <a href="/console/tenants" class="btn btn-outline" style="margin-left: 0.5rem;">Cancel</a>
+</form>
+{% endblock %}

@@ -335,3 +335,19 @@ CREATE POLICY agent_isolation ON embeddings
 ALTER TABLE usage_metrics ENABLE ROW LEVEL SECURITY;
 CREATE POLICY agent_isolation ON usage_metrics
     FOR ALL USING (agent_id = current_setting('app.current_agent_id')::uuid);
+
+-- ============================================================
+-- 14. error_log (Operator Console)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS error_log (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id        UUID REFERENCES agents(id),
+    module          TEXT NOT NULL,
+    severity        TEXT NOT NULL DEFAULT 'error',
+    message         TEXT NOT NULL,
+    stack_trace     TEXT,
+    context_json    JSONB,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_error_log_created ON error_log(created_at DESC);
+CREATE INDEX idx_error_log_agent ON error_log(agent_id);

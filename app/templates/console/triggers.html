@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+<form method="get" class="filters">
+    <div class="form-group">
+        <label>Status</label>
+        <select name="status">
+            {% for s in ['pending', 'completed', 'error', 'cancelled', 'all'] %}
+            <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|capitalize }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Agent</label>
+        <select name="agent">
+            <option value="">All</option>
+            {% for a in agents %}
+            <option value="{{ a.id }}" {% if agent_filter == a.id|string %}selected{% endif %}>{{ a.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn btn-outline btn-sm">Filter</button>
+</form>
+
+<table>
+    <thead>
+        <tr>
+            <th>Agent</th>
+            <th>Type</th>
+            <th>Scheduled</th>
+            <th>Status</th>
+            <th>Action</th>
+            <th>Autonomy</th>
+            <th>Recurrence</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for t in triggers %}
+        <tr>
+            <td>{{ t.agent_name }}</td>
+            <td>{{ t.trigger_type }}</td>
+            <td style="font-size:12px;">{{ t.scheduled_at.strftime('%b %d %H:%M') if t.scheduled_at else '—' }}</td>
+            <td>
+                {% if t.status == 'pending' %}<span class="badge badge-blue">pending</span>
+                {% elif t.status == 'completed' %}<span class="badge badge-green">completed</span>
+                {% elif t.status == 'error' %}<span class="badge badge-red">error</span>
+                {% elif t.status == 'cancelled' %}<span class="badge badge-gray">cancelled</span>
+                {% else %}<span class="badge badge-gray">{{ t.status }}</span>{% endif %}
+            </td>
+            <td>{{ t.action_type }}</td>
+            <td>{{ t.autonomy_level }}</td>
+            <td>{{ t.recurrence or '—' }}</td>
+            <td>
+                {% if t.status == 'error' %}
+                <form method="post" action="/console/triggers/{{ t.id }}/retry" style="display:inline;">
+                    <button type="submit" class="btn btn-outline btn-sm">Retry</button>
+                </form>
+                {% endif %}
+                {% if t.status == 'pending' %}
+                <form method="post" action="/console/triggers/{{ t.id }}/fire-now" style="display:inline;">
+                    <button type="submit" class="btn btn-outline btn-sm">Fire Now</button>
+                </form>
+                <form method="post" action="/console/triggers/{{ t.id }}/cancel" style="display:inline;">
+                    <button type="submit" class="btn btn-danger btn-sm">Cancel</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        {% if not triggers %}
+        <tr><td colspan="8" style="color:var(--text-muted); text-align:center;">No triggers found.</td></tr>
+        {% endif %}
+    </tbody>
+</table>
+{% endblock %}

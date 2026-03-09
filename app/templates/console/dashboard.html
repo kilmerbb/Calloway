@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- Pulse Cards -->
+<div class="card-grid">
+    <div class="card">
+        <div class="card-label">Active Tenants</div>
+        <div class="card-value">{{ pulse.total_agents }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Messages Today</div>
+        <div class="card-value">{{ pulse.messages_today }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Messages 24h</div>
+        <div class="card-value">{{ pulse.messages_24h }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Errors 24h</div>
+        <div class="card-value" {% if pulse.errors_24h > 0 %}style="color: var(--red)"{% endif %}>{{ pulse.errors_24h }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">LLM Cost Today</div>
+        <div class="card-value">${{ pulse.cost_today_dollars }}</div>
+    </div>
+</div>
+
+<div class="detail-grid">
+    <!-- Activity Feed -->
+    <div class="section">
+        <div class="section-title">Recent Activity</div>
+        <div id="activity-feed" hx-get="/console/dashboard/activity-feed" hx-trigger="load, every 15s" hx-swap="innerHTML">
+            Loading...
+        </div>
+    </div>
+
+    <!-- Attention -->
+    <div class="detail-sidebar">
+        <div class="section">
+            <div class="section-title">Needs Attention</div>
+            {% if attention.error_agents %}
+            <div style="margin-bottom: 1rem;">
+                <strong style="color: var(--red);">Errors</strong>
+                {% for a in attention.error_agents %}
+                <div class="feed-item">
+                    <a href="/console/tenants/{{ a.id }}">{{ a.name }}</a>
+                    <span class="badge badge-red">{{ a.error_count }} errors</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if attention.inactive_agents %}
+            <div>
+                <strong style="color: var(--yellow);">Inactive 48h+</strong>
+                {% for a in attention.inactive_agents %}
+                <div class="feed-item">
+                    <a href="/console/tenants/{{ a.id }}">{{ a.name }}</a>
+                    <span style="color: var(--text-muted); font-size: 12px;">Last: {{ a.last_active or 'never' }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if not attention.error_agents and not attention.inactive_agents %}
+            <div style="color: var(--text-muted);">All clear.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

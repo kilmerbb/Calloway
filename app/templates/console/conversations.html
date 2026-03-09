@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<form method="get" class="filters">
+    <div class="form-group">
+        <label>Agent</label>
+        <select name="agent">
+            <option value="">All</option>
+            {% for a in agents %}
+            <option value="{{ a.id }}" {% if agent_filter == a.id|string %}selected{% endif %}>{{ a.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Channel</label>
+        <select name="channel">
+            <option value="">All</option>
+            {% for ch in ['sms', 'rcs', 'vapi', 'email'] %}
+            <option value="{{ ch }}" {% if channel_filter == ch %}selected{% endif %}>{{ ch }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Search</label>
+        <input type="text" name="search" value="{{ search }}" placeholder="Contact name or phone...">
+    </div>
+    <button type="submit" class="btn btn-outline btn-sm">Filter</button>
+</form>
+
+<table>
+    <thead>
+        <tr>
+            <th>Agent</th>
+            <th>Contact</th>
+            <th>Phone</th>
+            <th>Channel</th>
+            <th>Messages</th>
+            <th>Last Message</th>
+            <th>Time</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for c in conversations %}
+        <tr>
+            <td>{{ c.agent_name }}</td>
+            <td><a href="/console/conversations/{{ c.id }}">{{ c.contact_name or 'Unknown' }}</a></td>
+            <td style="font-size:12px;">{{ c.phone or '—' }}</td>
+            <td><span class="badge badge-gray">{{ c.channel }}</span></td>
+            <td>{{ c.msg_count }}</td>
+            <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ (c.last_message or '')[:80] }}</td>
+            <td style="font-size:12px; color: var(--text-muted);">{{ c.last_message_at.strftime('%b %d %H:%M') if c.last_message_at else '—' }}</td>
+        </tr>
+        {% endfor %}
+        {% if not conversations %}
+        <tr><td colspan="7" style="color:var(--text-muted); text-align:center;">No conversations found.</td></tr>
+        {% endif %}
+    </tbody>
+</table>
+{% endblock %}

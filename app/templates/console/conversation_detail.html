@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+{% set conv = detail.conversation %}
+<div class="detail-grid">
+    <div>
+        <div class="section">
+            <div class="section-title">{{ conv.contact_name or 'Unknown' }} — {{ conv.agent_name }} <span class="badge badge-gray">{{ conv.channel }}</span></div>
+            <div class="chat-thread">
+                {% for m in detail.messages %}
+                <div class="chat-msg {% if m.sender_type == 'client' %}chat-client{% elif m.sender_type == 'ai' %}chat-ai{% else %}chat-system{% endif %}">
+                    <div>{{ m.body }}</div>
+                    <div class="chat-meta">
+                        {{ m.sender_type }}
+                        {% if m.model_used %} | {{ m.model_used }}{% endif %}
+                        {% if m.tokens_used %} | {{ m.tokens_used }} tokens{% endif %}
+                        {% if m.intent %} | intent: {{ m.intent }}{% endif %}
+                        {% if m.feedback_score is not none %} | feedback: {{ m.feedback_score }}{% endif %}
+                        | {{ m.created_at.strftime('%b %d %H:%M:%S') if m.created_at else '' }}
+                    </div>
+                </div>
+
+                {# Inline tool executions #}
+                {% for te in detail.tool_executions %}
+                {% if te.created_at and m.created_at and te.created_at >= m.created_at %}
+                {% if loop.first or te.created_at <= (detail.messages[loop.index].created_at if loop.index < detail.messages|length else te.created_at) %}
+                <details style="margin: 0.25rem 0; font-size: 12px;">
+                    <summary>Tool: {{ te.tool_name }} {% if te.error_message %}<span class="badge badge-red">error</span>{% else %}<span class="badge badge-green">ok</span>{% endif %}</summary>
+                    <pre style="font-size:11px; padding:0.5rem; background:var(--bg); border-radius:4px;">Input: {{ te.input_json }}
+Output: {{ te.output_json }}
+{% if te.error_message %}Error: {{ te.error_message }}{% endif %}
+{% if te.latency_ms %}Latency: {{ te.latency_ms }}ms{% endif %}</pre>
+                </details>
+                {% endif %}
+                {% endif %}
+                {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="detail-sidebar">
+        {% if conv.contact_name %}
+        <div class="section">
+            <div class="section-title">Contact</div>
+            <table>
+                <tr><td style="color:var(--text-muted)">Name</td><td>{{ conv.contact_name }}</td></tr>
+                <tr><td style="color:var(--text-muted)">Phone</td><td>{{ conv.contact_phone or '—' }}</td></tr>
+                <tr><td style="color:var(--text-muted)">Role</td><td>{{ conv.role or '—' }}</td></tr>
+                <tr><td style="color:var(--text-muted)">Stage</td><td>{{ conv.lifecycle_stage or '—' }}</td></tr>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if detail.triggers %}
+        <div class="section">
+            <div class="section-title">Active Triggers</div>
+            {% for t in detail.triggers %}
+            <div class="feed-item" style="font-size:13px;">
+                {{ t.trigger_type }} — {{ t.scheduled_at.strftime('%b %d %H:%M') if t.scheduled_at else '' }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

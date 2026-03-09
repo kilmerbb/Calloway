@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} — Console</title>
+    <link rel="stylesheet" href="/static/console/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+<div class="layout">
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            Solo Realtor AI
+            <small>Operator Console</small>
+        </div>
+        <a href="/console/dashboard" class="nav-item {% if active_nav == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="/console/tenants" class="nav-item {% if active_nav == 'tenants' %}active{% endif %}">Tenants</a>
+        <a href="/console/conversations" class="nav-item {% if active_nav == 'conversations' %}active{% endif %}">Conversations</a>
+        <a href="/console/triggers" class="nav-item {% if active_nav == 'triggers' %}active{% endif %}">Triggers</a>
+        <a href="/console/errors" class="nav-item {% if active_nav == 'errors' %}active{% endif %}">Errors</a>
+        <a href="/console/costs" class="nav-item {% if active_nav == 'costs' %}active{% endif %}">Costs</a>
+        <a href="/console/health" class="nav-item {% if active_nav == 'health' %}active{% endif %}">Health</a>
+        <a href="/console/logout" class="nav-item" style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 1rem;">Logout</a>
+    </nav>
+
+    <div class="main-content">
+        <header class="topbar">
+            <h1>{{ page_title }}</h1>
+            <div hx-get="/console/health/status-dot" hx-trigger="load, every 30s" hx-swap="innerHTML">
+                <span class="status-dot status-yellow" title="Loading..."></span>
+            </div>
+        </header>
+        <main class="content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{% for event in activity %}
+<div class="feed-item">
+    <span class="feed-time">{{ event.created_at.strftime('%b %d %H:%M') if event.created_at else '' }}</span>
+    <span class="feed-agent">{{ event.agent_name }}</span>
+    {% if event.sender_type == 'client' %}
+    <span class="badge badge-green">inbound</span>
+    {% elif event.ai_generated %}
+    <span class="badge badge-blue">ai</span>
+    {% else %}
+    <span class="badge badge-gray">{{ event.sender_type }}</span>
+    {% endif %}
+    {{ (event.body or '')[:80] }}{% if event.body and event.body|length > 80 %}...{% endif %}
+    {% if event.contact_name %}<span style="color: var(--text-muted);"> — {{ event.contact_name }}</span>{% endif %}
+</div>
+{% endfor %}
+{% if not activity %}
+<div class="feed-item" style="color: var(--text-muted);">No recent activity.</div>
+{% endif %}

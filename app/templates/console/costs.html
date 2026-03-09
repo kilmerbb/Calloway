@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- Summary Cards -->
+<div class="card-grid">
+    <div class="card">
+        <div class="card-label">Total LLM Cost (30d)</div>
+        <div class="card-value">${{ summary.total_cost_dollars }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Total Messages</div>
+        <div class="card-value">{{ summary.total_messages }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Voice Minutes</div>
+        <div class="card-value">{{ summary.total_voice_minutes|round(1) }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Showings Booked</div>
+        <div class="card-value">{{ summary.total_showings }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">LLM Calls</div>
+        <div class="card-value">{{ summary.total_llm_calls }}</div>
+    </div>
+</div>
+
+<!-- Daily Cost Chart -->
+<div class="section">
+    <div class="section-title">Daily Cost (30 days)</div>
+    {% if summary.daily %}
+    {% set max_cost = namespace(val=1) %}
+    {% for d in summary.daily %}
+        {% if d.cost > max_cost.val %}{% set max_cost.val = d.cost %}{% endif %}
+    {% endfor %}
+    <div class="bar-chart">
+        {% for d in summary.daily %}
+        <div class="bar" style="height: {{ (d.cost / max_cost.val * 100)|int }}%;" title="{{ d.date }}: ${{ (d.cost / 100)|round(2) }}"></div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="color: var(--text-muted);">No cost data yet.</div>
+    {% endif %}
+</div>
+
+<!-- Model Tier Breakdown -->
+<div class="section">
+    <div class="section-title">Model Tier Breakdown</div>
+    <table style="max-width: 400px;">
+        <thead><tr><th>Model</th><th>Count</th><th>%</th></tr></thead>
+        <tbody>
+            {% for model, data in model_tiers.items() %}
+            {% if model != '_total' %}
+            <tr>
+                <td><span class="badge {% if model == 'template' %}badge-gray{% elif model == 'haiku' %}badge-green{% elif model == 'sonnet' %}badge-blue{% else %}badge-yellow{% endif %}">{{ model }}</span></td>
+                <td>{{ data.count }}</td>
+                <td>{{ data.pct }}%</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Per-Agent Costs -->
+<div class="section">
+    <div class="section-title">Per-Agent Costs (30 days)</div>
+    <table>
+        <thead>
+            <tr><th>Agent</th><th>Messages</th><th>LLM Calls</th><th>Tokens</th><th>Cost</th><th>Voice Min</th><th>$/msg</th></tr>
+        </thead>
+        <tbody>
+            {% for a in per_agent %}
+            <tr>
+                <td>{{ a.name }}</td>
+                <td>{{ a.messages }}</td>
+                <td>{{ a.llm_calls }}</td>
+                <td>{{ a.tokens }}</td>
+                <td {% if a.cost_dollars > 15 %}style="color: var(--red); font-weight: 600;"{% endif %}>${{ a.cost_dollars }}</td>
+                <td>{{ a.voice_minutes }}</td>
+                <td>${{ a.cost_per_message }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # Console
+    CONSOLE_PASSWORD: str = "changeme"
+    CONSOLE_SESSION_SECRET: str = "console-secret-change-in-production"
+
     # Environment
     ENVIRONMENT: str = "development"
 
