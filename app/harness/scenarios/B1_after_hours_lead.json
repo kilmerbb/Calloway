@@ -1,0 +1,20 @@
+{
+  "id": "B1_after_hours_lead",
+  "name": "After-Hours Lead Engagement",
+  "description": "Unknown number texts about a listing at 9pm. Expected: listing info, qualification question.",
+  "category": "lead_response",
+  "preconditions": {},
+  "steps": [
+    {
+      "sender": {"type": "unknown", "phone": "+15559990001"},
+      "message": "Hi, is the house on Oak Street still available?",
+      "channel": "sms",
+      "expected": {
+        "intent": "listing_qa",
+        "response_contains": ["available", "showing"],
+        "response_not_contains": ["sorry", "error"],
+        "model_tier": "haiku"
+      }
+    }
+  ]
+}

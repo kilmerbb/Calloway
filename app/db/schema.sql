@@ -351,3 +351,20 @@ CREATE TABLE IF NOT EXISTS error_log (
 );
 CREATE INDEX idx_error_log_created ON error_log(created_at DESC);
 CREATE INDEX idx_error_log_agent ON error_log(agent_id);
+
+-- ============================================================
+-- 15. harness_traces (Testing Harness)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS harness_traces (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    trace_json      JSONB NOT NULL,
+    agent_id        UUID REFERENCES agents(id),
+    sender_phone    TEXT,
+    message_body    TEXT,
+    intent_detected TEXT,
+    model_used      TEXT,
+    total_duration_ms INT,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_harness_traces_created ON harness_traces(created_at DESC);
+CREATE INDEX idx_harness_traces_agent ON harness_traces(agent_id);

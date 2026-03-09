@@ -1,0 +1,19 @@
+{
+  "id": "C2_query_schedule",
+  "name": "Agent Schedule Query",
+  "description": "Agent asks 'What's my day look like?'. Expected: schedule summary.",
+  "category": "command",
+  "preconditions": {},
+  "steps": [
+    {
+      "sender": {"type": "agent"},
+      "message": "What's my day look like?",
+      "channel": "sms",
+      "expected": {
+        "intent": "agent_command",
+        "handler": "agent_command",
+        "model_tier": "template"
+      }
+    }
+  ]
+}

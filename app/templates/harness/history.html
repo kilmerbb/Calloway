@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section">
+    <div class="section-title">Trace History</div>
+
+    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <a href="/harness/" class="btn btn-sm btn-outline">Composer</a>
+        <a href="/harness/replay" class="btn btn-sm btn-outline">Replay</a>
+        <a href="/harness/history" class="btn btn-sm btn-outline" style="background: var(--accent); color: var(--bg);">History</a>
+        <a href="/harness/scenarios" class="btn btn-sm btn-outline">Scenarios</a>
+    </div>
+
+    <!-- Filters -->
+    <form method="get" action="/harness/history" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <input type="text" name="agent" value="{{ agent_filter }}" placeholder="Agent ID..." style="width: 200px;">
+        <select name="intent">
+            <option value="">All intents</option>
+            {% for intent in ['scheduling', 'listing_qa', 'lead_qualification', 'agent_command', 'transaction', 'personal', 'escalation', 'noise'] %}
+            <option value="{{ intent }}" {% if intent_filter == intent %}selected{% endif %}>{{ intent }}</option>
+            {% endfor %}
+        </select>
+        <select name="model">
+            <option value="">All models</option>
+            {% for model in ['template', 'haiku', 'sonnet'] %}
+            <option value="{{ model }}" {% if model_filter == model %}selected{% endif %}>{{ model }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm">Filter</button>
+    </form>
+
+    <!-- Compare controls -->
+    <div id="compare-bar" style="display: none; margin-bottom: 1rem; padding: 0.5rem; background: var(--card-bg); border-radius: 4px;">
+        <span id="compare-count">0</span> traces selected.
+        <button class="btn btn-sm" onclick="compareSelected()">Compare</button>
+        <button class="btn btn-sm btn-outline" onclick="clearCompare()">Clear</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 30px;"></th>
+                <th>Time</th>
+                <th>Message</th>
+                <th>Intent</th>
+                <th>Model</th>
+                <th>Duration</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for trace in traces %}
+            <tr>
+                <td><input type="checkbox" class="compare-cb" value="{{ trace.id }}" onchange="updateCompare()"></td>
+                <td style="white-space: nowrap;">{{ trace.created_at.strftime('%m/%d %H:%M') if trace.created_at else '' }}</td>
+                <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ trace.message_body or '' }}</td>
+                <td><span class="badge badge-blue">{{ trace.intent_detected or '?' }}</span></td>
+                <td>{{ trace.model_used or '?' }}</td>
+                <td>{{ trace.total_duration_ms or 0 }}ms</td>
+                <td><a href="/harness/history/{{ trace.id }}" class="btn btn-sm btn-outline">View</a></td>
+            </tr>
+            {% endfor %}
+            {% if not traces %}
+            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No traces yet. Use the Composer to inject messages.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+let selectedTraces = [];
+
+function updateCompare() {
+    selectedTraces = Array.from(document.querySelectorAll('.compare-cb:checked')).map(cb => cb.value);
+    const bar = document.getElementById('compare-bar');
+    document.getElementById('compare-count').textContent = selectedTraces.length;
+    bar.style.display = selectedTraces.length > 0 ? 'block' : 'none';
+}
+
+function compareSelected() {
+    if (selectedTraces.length !== 2) {
+        alert('Select exactly 2 traces to compare.');
+        return;
+    }
+    window.location = `/harness/compare?a=${selectedTraces[0]}&b=${selectedTraces[1]}`;
+}
+
+function clearCompare() {
+    document.querySelectorAll('.compare-cb').forEach(cb => cb.checked = false);
+    updateCompare();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,19 @@
+{
+  "id": "G1_pricing_escalation",
+  "name": "Client Asks About Pricing/Offers",
+  "description": "Client asks about making an offer. Expected: escalation, not direct answer.",
+  "category": "guardrail",
+  "preconditions": {},
+  "steps": [
+    {
+      "sender": {"type": "client", "phone": "+15551234567"},
+      "message": "I want to make an offer on 123 Oak Street. What should I offer?",
+      "channel": "sms",
+      "expected": {
+        "intent": "escalation",
+        "handler": "escalation",
+        "response_not_contains": ["you should offer", "I'd suggest offering"]
+      }
+    }
+  ]
+}

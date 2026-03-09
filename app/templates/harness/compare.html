@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section">
+    <div class="section-title">
+        Compare Traces
+        <a href="/harness/history" class="btn btn-sm btn-outline" style="float: right;">Back to History</a>
+    </div>
+
+    {% if trace_a and trace_b %}
+    {% set a = trace_a.trace_json if trace_a.trace_json is mapping else {} %}
+    {% set b = trace_b.trace_json if trace_b.trace_json is mapping else {} %}
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <!-- Trace A -->
+        <div>
+            <div class="card" style="margin-bottom: 0.5rem;">
+                <div class="card-label">Trace A</div>
+                <div style="font-size: 0.85rem;">
+                    <div><strong>Message:</strong> {{ trace_a.message_body or 'N/A' }}</div>
+                    <div><strong>Intent:</strong> <span class="badge badge-blue">{{ trace_a.intent_detected or '?' }}</span></div>
+                    <div><strong>Model:</strong> {{ trace_a.model_used or 'N/A' }} | <strong>Duration:</strong> {{ trace_a.total_duration_ms or 0 }}ms</div>
+                    <div><strong>Time:</strong> {{ trace_a.created_at.strftime('%Y-%m-%d %H:%M') if trace_a.created_at else '' }}</div>
+                </div>
+            </div>
+            {% for stage in a.get('stages', []) %}
+            <div class="card" style="margin-bottom: 0.25rem; padding: 0.5rem;
+                {% set b_stage = None %}
+                {% for bs in b.get('stages', []) %}{% if bs.stage_name == stage.stage_name %}{% set b_stage = bs %}{% endif %}{% endfor %}
+                {% if b_stage and (stage.get('output_summary') != b_stage.get('output_summary')) %}border-left: 3px solid var(--yellow);{% endif %}
+            ">
+                <div style="display: flex; justify-content: space-between;">
+                    <strong>{{ stage.stage_name }}</strong>
+                    <span style="color: var(--text-muted);">{{ stage.duration_ms or 0 }}ms</span>
+                </div>
+                <pre style="font-size: 0.7rem; max-height: 100px; overflow: auto;">{{ stage.get('output_summary', {}) | tojson(indent=2) }}</pre>
+            </div>
+            {% endfor %}
+
+            {% if a.get('response_text') %}
+            <div class="card" style="margin-top: 0.5rem;">
+                <div class="card-label">Response</div>
+                <div style="white-space: pre-wrap; font-size: 0.85rem;">{{ a.response_text }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Trace B -->
+        <div>
+            <div class="card" style="margin-bottom: 0.5rem;">
+                <div class="card-label">Trace B</div>
+                <div style="font-size: 0.85rem;">
+                    <div><strong>Message:</strong> {{ trace_b.message_body or 'N/A' }}</div>
+                    <div><strong>Intent:</strong> <span class="badge badge-blue">{{ trace_b.intent_detected or '?' }}</span></div>
+                    <div><strong>Model:</strong> {{ trace_b.model_used or 'N/A' }} | <strong>Duration:</strong> {{ trace_b.total_duration_ms or 0 }}ms</div>
+                    <div><strong>Time:</strong> {{ trace_b.created_at.strftime('%Y-%m-%d %H:%M') if trace_b.created_at else '' }}</div>
+                </div>
+            </div>
+            {% for stage in b.get('stages', []) %}
+            <div class="card" style="margin-bottom: 0.25rem; padding: 0.5rem;
+                {% set a_stage = None %}
+                {% for as in a.get('stages', []) %}{% if as.stage_name == stage.stage_name %}{% set a_stage = as %}{% endif %}{% endfor %}
+                {% if a_stage and (stage.get('output_summary') != a_stage.get('output_summary')) %}border-left: 3px solid var(--yellow);{% endif %}
+            ">
+                <div style="display: flex; justify-content: space-between;">
+                    <strong>{{ stage.stage_name }}</strong>
+                    <span style="color: var(--text-muted);">{{ stage.duration_ms or 0 }}ms</span>
+                </div>
+                <pre style="font-size: 0.7rem; max-height: 100px; overflow: auto;">{{ stage.get('output_summary', {}) | tojson(indent=2) }}</pre>
+            </div>
+            {% endfor %}
+
+            {% if b.get('response_text') %}
+            <div class="card" style="margin-top: 0.5rem;">
+                <div class="card-label">Response</div>
+                <div style="white-space: pre-wrap; font-size: 0.85rem;">{{ b.response_text }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% else %}
+    <p style="color: var(--text-muted);">Select two traces from the <a href="/harness/history">history page</a> to compare.</p>
+    {% endif %}
+</div>
+{% endblock %}

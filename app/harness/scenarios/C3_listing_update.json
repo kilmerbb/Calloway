@@ -1,0 +1,18 @@
+{
+  "id": "C3_listing_update",
+  "name": "Agent Listing Update",
+  "description": "Agent texts listing price change. Expected: listing updated.",
+  "category": "command",
+  "preconditions": {},
+  "steps": [
+    {
+      "sender": {"type": "agent"},
+      "message": "Drop 123 Oak to 465K",
+      "channel": "sms",
+      "expected": {
+        "intent": "agent_command",
+        "handler": "agent_command"
+      }
+    }
+  ]
+}

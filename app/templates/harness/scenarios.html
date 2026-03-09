@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section">
+    <div class="section-title">Scenario Runner</div>
+
+    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <a href="/harness/" class="btn btn-sm btn-outline">Composer</a>
+        <a href="/harness/replay" class="btn btn-sm btn-outline">Replay</a>
+        <a href="/harness/history" class="btn btn-sm btn-outline">History</a>
+        <a href="/harness/scenarios" class="btn btn-sm btn-outline" style="background: var(--accent); color: var(--bg);">Scenarios</a>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+        <button class="btn btn-sm" onclick="runAll()" id="run-all-btn">Run All</button>
+    </div>
+
+    <!-- Scorecard (shown after run-all) -->
+    <div id="scorecard" style="display: none; margin-bottom: 1rem;"></div>
+
+    <!-- Group by category -->
+    {% set categories = {} %}
+    {% for s in scenarios %}
+        {% if s.category not in categories %}
+            {% set _ = categories.update({s.category: []}) %}
+        {% endif %}
+        {% set _ = categories[s.category].append(s) %}
+    {% endfor %}
+
+    {% for category, cat_scenarios in categories.items() %}
+    <div style="margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="margin: 0; text-transform: capitalize;">{{ category|replace('_', ' ') }}</h3>
+            <button class="btn btn-sm btn-outline" onclick="runCategory('{{ category }}')">Run Category</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Steps</th>
+                    <th>Last Result</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in cat_scenarios %}
+                <tr id="scenario-row-{{ s.id }}">
+                    <td>
+                        <strong>{{ s.name }}</strong>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">{{ s.description }}</div>
+                    </td>
+                    <td>{{ s.steps }}</td>
+                    <td id="result-{{ s.id }}">
+                        {% if results.get(s.id) %}
+                            {% if results[s.id].passed %}
+                            <span class="badge badge-green">PASS</span>
+                            {% else %}
+                            <span class="badge badge-red">FAIL</span>
+                            {% endif %}
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">{{ results[s.id].passed_assertions }}/{{ results[s.id].total_assertions }}</span>
+                        {% else %}
+                            <span style="color: var(--text-muted);">Never run</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="runScenario('{{ s.id }}')">Run</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+
+    {% if not scenarios %}
+    <p style="color: var(--text-muted);">No scenarios found. Add .json files to app/harness/scenarios/.</p>
+    {% endif %}
+</div>
+
+<!-- Scenario result detail modal -->
+<div id="result-detail" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; overflow-y: auto;">
+    <div style="max-width: 800px; margin: 2rem auto; background: var(--card-bg); border-radius: 8px; padding: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+            <h3 id="detail-title" style="margin: 0;"></h3>
+            <button class="btn btn-sm btn-outline" onclick="closeDetail()">Close</button>
+        </div>
+        <div id="detail-content"></div>
+    </div>
+</div>
+
+<script>
+async function runScenario(id) {
+    const cell = document.getElementById('result-' + id);
+    cell.innerHTML = '<span style="color: var(--text-muted);">Running...</span>';
+
+    try {
+        const res = await fetch('/harness/scenarios/run/' + id, {method: 'POST'});
+        const result = await res.json();
+        updateResult(id, result);
+        showDetail(result);
+    } catch (err) {
+        cell.innerHTML = `<span class="badge badge-red">ERROR</span>`;
+    }
+}
+
+async function runCategory(category) {
+    try {
+        const res = await fetch('/harness/scenarios/run-category/' + category, {method: 'POST'});
+        const data = await res.json();
+        if (data.results) {
+            data.results.forEach(r => updateResult(r.scenario_id, r));
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function runAll() {
+    document.getElementById('run-all-btn').textContent = 'Running...';
+    try {
+        const res = await fetch('/harness/scenarios/run-all', {method: 'POST'});
+        const data = await res.json();
+        if (data.results) {
+            data.results.forEach(r => updateResult(r.scenario_id, r));
+        }
+        showScorecard(data);
+    } catch (err) {
+        console.error(err);
+    }
+    document.getElementById('run-all-btn').textContent = 'Run All';
+}
+
+function updateResult(id, result) {
+    const cell = document.getElementById('result-' + id);
+    if (!cell) return;
+    if (result.passed) {
+        cell.innerHTML = `<span class="badge badge-green">PASS</span> <span style="font-size: 0.8rem; color: var(--text-muted);">${result.passed_assertions}/${result.total_assertions}</span>`;
+    } else {
+        cell.innerHTML = `<span class="badge badge-red">FAIL</span> <span style="font-size: 0.8rem; color: var(--text-muted);">${result.passed_assertions}/${result.total_assertions}</span>`;
+    }
+}
+
+function showScorecard(data) {
+    const el = document.getElementById('scorecard');
+    el.style.display = 'block';
+    el.innerHTML = `<div class="card-grid">
+        <div class="card"><div class="card-label">Scenarios</div><div class="card-value">${data.passed_scenarios}/${data.total_scenarios} passed</div></div>
+        <div class="card"><div class="card-label">Assertions</div><div class="card-value">${data.passed_assertions}/${data.total_assertions} passed</div></div>
+        <div class="card"><div class="card-label">Failed</div><div class="card-value" style="color: ${data.failed_scenarios > 0 ? 'var(--red)' : 'var(--green)'};">${data.failed_scenarios} scenarios</div></div>
+    </div>`;
+}
+
+function showDetail(result) {
+    document.getElementById('detail-title').textContent = result.name || result.scenario_id;
+    let html = `<div style="margin-bottom: 0.5rem;"><span class="badge ${result.passed ? 'badge-green' : 'badge-red'}">${result.passed ? 'PASS' : 'FAIL'}</span> ${result.passed_assertions}/${result.total_assertions} assertions</div>`;
+
+    result.step_results.forEach(step => {
+        html += `<div class="card" style="margin-bottom: 0.5rem; border-left: 3px solid ${step.passed ? 'var(--green)' : 'var(--red)'};">`;
+        html += `<div><strong>Step ${step.step}:</strong> ${escapeHtml(step.message)}</div>`;
+        html += `<div style="font-size: 0.85rem; color: var(--text-muted);">Intent: ${step.trace_summary.intent || 'N/A'} | Handler: ${step.trace_summary.handler || 'N/A'} | Model: ${step.trace_summary.model || 'N/A'} | ${step.trace_summary.duration_ms}ms</div>`;
+
+        if (step.response_text) {
+            html += `<div style="margin: 0.5rem 0; padding: 0.5rem; background: var(--bg); border-radius: 4px; font-size: 0.85rem; white-space: pre-wrap;">${escapeHtml(step.response_text)}</div>`;
+        }
+
+        step.assertions.forEach(a => {
+            const icon = a.passed ? '✓' : '✗';
+            const color = a.passed ? 'var(--green)' : 'var(--red)';
+            html += `<div style="font-size: 0.85rem; color: ${color};">${icon} ${a.field}: expected ${escapeHtml(JSON.stringify(a.expected))}`;
+            if (!a.passed) html += ` — got ${escapeHtml(JSON.stringify(a.actual).substring(0, 100))}`;
+            html += `</div>`;
+        });
+
+        html += `</div>`;
+    });
+
+    document.getElementById('detail-content').innerHTML = html;
+    document.getElementById('result-detail').style.display = 'block';
+}
+
+function closeDetail() {
+    document.getElementById('result-detail').style.display = 'none';
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="harness-layout" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+
+<!-- Left Panel: Message Composer -->
+<div class="section">
+    <div class="section-title">Message Composer</div>
+
+    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <a href="/harness/" class="btn btn-sm btn-outline" style="{% if not conversation_mode %}background: var(--accent); color: var(--bg);{% endif %}">Single Message</a>
+        <a href="/harness/replay" class="btn btn-sm btn-outline">Conversation Mode</a>
+        <a href="/harness/history" class="btn btn-sm btn-outline">History</a>
+        <a href="/harness/scenarios" class="btn btn-sm btn-outline">Scenarios</a>
+    </div>
+
+    <form id="inject-form" onsubmit="return injectMessage(event)">
+        <label>Agent</label>
+        <select id="agent-select" onchange="loadContacts()" required>
+            <option value="">Select agent...</option>
+            {% for agent in agents %}
+            <option value="{{ agent.id }}">{{ agent.name }} ({{ agent.market or 'No market' }})</option>
+            {% endfor %}
+        </select>
+
+        <label style="margin-top: 0.75rem;">Sender Mode</label>
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <button type="button" class="btn btn-sm btn-outline sender-mode active" data-mode="client" onclick="setSenderMode('client')">As Known Client</button>
+            <button type="button" class="btn btn-sm btn-outline sender-mode" data-mode="agent" onclick="setSenderMode('agent')">As Agent</button>
+            <button type="button" class="btn btn-sm btn-outline sender-mode" data-mode="unknown" onclick="setSenderMode('unknown')">As Unknown</button>
+        </div>
+
+        <div id="client-selector" style="margin-bottom: 0.5rem;">
+            <select id="contact-select">
+                <option value="">Select contact...</option>
+            </select>
+        </div>
+
+        <div id="unknown-phone" style="display: none; margin-bottom: 0.5rem;">
+            <input type="text" id="manual-phone" placeholder="+15551234567" value="+15559990000">
+        </div>
+
+        <label>Message</label>
+        <textarea id="message-body" rows="4" placeholder="Type your message..." required style="width: 100%;"></textarea>
+
+        <div style="display: flex; gap: 1rem; align-items: center; margin-top: 0.75rem;">
+            <select id="channel-select" style="width: auto;">
+                <option value="sms">SMS</option>
+                <option value="rcs">RCS</option>
+                <option value="vapi">Voice (Vapi)</option>
+            </select>
+
+            <label style="display: flex; align-items: center; gap: 0.25rem; cursor: pointer; margin: 0;">
+                <input type="checkbox" id="dry-run" checked> Dry Run
+            </label>
+
+            <button type="submit" class="btn btn-sm" style="margin-left: auto;">Send</button>
+        </div>
+    </form>
+</div>
+
+<!-- Right Panel: Results -->
+<div class="section" id="results-panel">
+    <div class="section-title">Results</div>
+    <div id="results-content" style="color: var(--text-muted);">
+        <p>Send a message to see pipeline results here.</p>
+    </div>
+</div>
+
+</div>
+
+<script>
+let currentMode = 'client';
+let agentPhone = '';
+
+function setSenderMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.sender-mode').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.sender-mode[data-mode="${mode}"]`).classList.add('active');
+    document.getElementById('client-selector').style.display = mode === 'client' ? 'block' : 'none';
+    document.getElementById('unknown-phone').style.display = mode === 'unknown' ? 'block' : 'none';
+}
+
+function loadContacts() {
+    const agentId = document.getElementById('agent-select').value;
+    if (!agentId) return;
+    fetch('/harness/agents/' + agentId + '/contacts')
+        .then(r => r.json())
+        .then(contacts => {
+            const sel = document.getElementById('contact-select');
+            sel.innerHTML = '<option value="">Select contact...</option>';
+            contacts.forEach(c => {
+                sel.innerHTML += `<option value="${c.phone}" data-name="${c.name}">${c.name} (${c.phone}) - ${c.role}</option>`;
+            });
+        });
+}
+
+function getSenderPhone() {
+    if (currentMode === 'client') {
+        return document.getElementById('contact-select').value || '+15559990000';
+    } else if (currentMode === 'agent') {
+        return agentPhone || '+15550000000';
+    } else {
+        return document.getElementById('manual-phone').value || '+15559990000';
+    }
+}
+
+function getSenderName() {
+    if (currentMode === 'client') {
+        const sel = document.getElementById('contact-select');
+        return sel.options[sel.selectedIndex]?.dataset?.name || null;
+    }
+    return null;
+}
+
+async function injectMessage(e) {
+    e.preventDefault();
+    const agentId = document.getElementById('agent-select').value;
+    if (!agentId) { alert('Select an agent'); return false; }
+
+    const body = {
+        agent_id: agentId,
+        sender_phone: getSenderPhone(),
+        sender_name: getSenderName(),
+        message_body: document.getElementById('message-body').value,
+        channel: document.getElementById('channel-select').value,
+        dry_run: document.getElementById('dry-run').checked,
+    };
+
+    document.getElementById('results-content').innerHTML = '<p style="color: var(--text-muted);">Processing...</p>';
+
+    try {
+        const res = await fetch('/harness/inject-and-store', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        const trace = await res.json();
+        renderTrace(trace);
+    } catch (err) {
+        document.getElementById('results-content').innerHTML = `<p style="color: var(--red);">Error: ${err.message}</p>`;
+    }
+    return false;
+}
+
+function renderTrace(trace) {
+    let html = '<div class="trace-results">';
+
+    // Quick summary
+    html += '<div class="card" style="margin-bottom: 1rem;">';
+    html += `<div class="card-label">Summary</div>`;
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.5rem;">`;
+    html += `<div><small>Intent</small><br><strong>${trace.intent_detected || 'N/A'}</strong></div>`;
+    html += `<div><small>Handler</small><br><strong>${trace.handler_used || 'N/A'}</strong></div>`;
+    html += `<div><small>Model</small><br><strong>${trace.model_used || 'N/A'}</strong></div>`;
+    html += `<div><small>Tokens</small><br><strong>${trace.tokens_used || 0}</strong></div>`;
+    html += `<div><small>Duration</small><br><strong>${trace.total_duration_ms}ms</strong></div>`;
+    html += `<div><small>Dry Run</small><br><strong>${trace.dry_run ? 'Yes' : 'No'}</strong></div>`;
+    html += `</div></div>`;
+
+    // Response text
+    if (trace.response_text) {
+        html += `<div class="card" style="margin-bottom: 1rem;">`;
+        html += `<div class="card-label">Response</div>`;
+        html += `<div style="white-space: pre-wrap; background: var(--bg); padding: 0.75rem; border-radius: 4px;">${escapeHtml(trace.response_text)}</div>`;
+        html += `</div>`;
+    }
+
+    // Outbound actions
+    if (trace.outbound_actions && trace.outbound_actions.length > 0) {
+        html += `<div class="card" style="margin-bottom: 1rem;">`;
+        html += `<div class="card-label">Outbound Actions (${trace.outbound_actions.length})</div>`;
+        trace.outbound_actions.forEach(a => {
+            html += `<div style="margin: 0.25rem 0; padding: 0.5rem; background: var(--bg); border-radius: 4px;">`;
+            html += `<span class="badge badge-blue">${a.type}</span> `;
+            if (a.to) html += `to: ${a.to} `;
+            if (a.body) html += `<div style="margin-top: 0.25rem; color: var(--text-muted); font-size: 0.85rem;">${escapeHtml(a.body.substring(0, 200))}</div>`;
+            html += `</div>`;
+        });
+        html += `</div>`;
+    }
+
+    // Pipeline stages
+    html += renderStages(trace.stages);
+
+    html += '</div>';
+    document.getElementById('results-content').innerHTML = html;
+}
+
+const STAGE_COLORS = {
+    normalizer: '#6b7280', resolver: '#3b82f6', tcpa_check: '#f59e0b',
+    rate_limiter: '#f59e0b', consent_gate: '#f59e0b',
+    classifier: '#8b5cf6', handler: '#ef4444', dispatcher: '#3b82f6',
+    setup: '#6b7280',
+};
+
+const STAGE_ICONS = {
+    normalizer: '▸', resolver: '◉', tcpa_check: '⚡', rate_limiter: '⏱',
+    consent_gate: '🔒', classifier: '🏷', handler: '⚙', dispatcher: '📤',
+};
+
+function renderStages(stages) {
+    let html = '<div class="section-title" style="margin-top: 1rem;">Pipeline Stages</div>';
+    stages.forEach((stage, i) => {
+        const color = STAGE_COLORS[stage.stage_name] || '#6b7280';
+        const icon = STAGE_ICONS[stage.stage_name] || '▸';
+        const statusIcon = stage.status === 'success' ? '✓' : (stage.status === 'error' ? '✗' : '○');
+        const statusColor = stage.status === 'success' ? 'var(--green)' : (stage.status === 'error' ? 'var(--red)' : 'var(--text-muted)');
+
+        html += `<div class="card stage-card" style="margin-bottom: 0.5rem; border-left: 3px solid ${color}; cursor: pointer;" onclick="toggleStage(${i})">`;
+        html += `<div style="display: flex; justify-content: space-between; align-items: center;">`;
+        html += `<div><span style="color: ${color};">${icon}</span> <strong>${stage.stage_name}</strong></div>`;
+        html += `<div style="display: flex; gap: 0.75rem; align-items: center;">`;
+        html += `<span style="font-size: 0.8rem; color: var(--text-muted);">${stage.duration_ms}ms</span>`;
+        html += `<span style="color: ${statusColor};">${statusIcon}</span>`;
+        html += `</div></div>`;
+
+        // One-line summary
+        if (stage.output_summary) {
+            const summary = formatSummary(stage.stage_name, stage.output_summary);
+            if (summary) {
+                html += `<div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">${summary}</div>`;
+            }
+        }
+
+        if (stage.error_message) {
+            html += `<div style="color: var(--red); font-size: 0.85rem; margin-top: 0.25rem;">${escapeHtml(stage.error_message)}</div>`;
+        }
+
+        // Expandable detail
+        html += `<div class="stage-detail" id="stage-detail-${i}" style="display: none; margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">`;
+
+        // Input/Output summaries
+        if (stage.input_summary && Object.keys(stage.input_summary).length) {
+            html += `<div style="margin-bottom: 0.5rem;"><small style="color: var(--text-muted);">Input Summary</small><pre style="font-size: 0.8rem; overflow: auto; max-height: 200px;">${escapeHtml(JSON.stringify(stage.input_summary, null, 2))}</pre></div>`;
+        }
+        if (stage.output_summary && Object.keys(stage.output_summary).length) {
+            html += `<div style="margin-bottom: 0.5rem;"><small style="color: var(--text-muted);">Output Summary</small><pre style="font-size: 0.8rem; overflow: auto; max-height: 200px;">${escapeHtml(JSON.stringify(stage.output_summary, null, 2))}</pre></div>`;
+        }
+
+        // Handler-specific: model, tokens, system prompt, tool calls
+        if (stage.stage_name === 'handler') {
+            if (stage.model_used) {
+                html += `<div style="margin-bottom: 0.5rem;"><span class="badge badge-blue">${stage.model_used}</span>`;
+                if (stage.tokens_in || stage.tokens_out) html += ` Tokens: ${stage.tokens_in || 0} in / ${stage.tokens_out || 0} out`;
+                if (stage.system_prompt_hash) html += ` | Prompt hash: ${stage.system_prompt_hash}`;
+                html += `</div>`;
+            }
+
+            // Tool calls
+            if (stage.tool_calls && stage.tool_calls.length > 0) {
+                html += `<div style="margin-bottom: 0.5rem;"><small style="color: var(--text-muted);">Tool Calls (${stage.tool_calls.length})</small>`;
+                stage.tool_calls.forEach((tc, j) => {
+                    const tcStatus = tc.status === 'success' ? 'var(--green)' : 'var(--red)';
+                    html += `<div style="margin: 0.25rem 0; padding: 0.5rem; background: var(--bg); border-radius: 4px; border-left: 2px solid ${tcStatus};">`;
+                    html += `<strong>#${j+1} ${tc.tool_name}</strong> <span style="font-size: 0.8rem; color: var(--text-muted);">${tc.duration_ms}ms</span>`;
+                    html += `<div style="margin-top: 0.25rem;"><small>Input:</small><pre style="font-size: 0.75rem; max-height: 100px; overflow: auto;">${escapeHtml(JSON.stringify(tc.input_json, null, 2))}</pre></div>`;
+                    html += `<div><small>Output:</small><pre style="font-size: 0.75rem; max-height: 100px; overflow: auto;">${escapeHtml(JSON.stringify(tc.output_json, null, 2))}</pre></div>`;
+                    if (tc.error_message) html += `<div style="color: var(--red);">${escapeHtml(tc.error_message)}</div>`;
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            }
+        }
+
+        // Context assembly inspector (Step 5)
+        if (stage.stage_name === 'handler' && stage.full_output) {
+            const fo = stage.full_output;
+            if (fo.response_text) {
+                html += `<div style="margin-bottom: 0.5rem;"><small style="color: var(--text-muted);">Full Response</small><div style="white-space: pre-wrap; background: var(--bg); padding: 0.5rem; border-radius: 4px; font-size: 0.85rem;">${escapeHtml(fo.response_text)}</div></div>`;
+            }
+        }
+
+        // Full input/output (collapsed)
+        html += `<details style="margin-top: 0.5rem;"><summary style="cursor: pointer; font-size: 0.8rem; color: var(--text-muted);">Full Input JSON</summary><pre style="font-size: 0.75rem; overflow: auto; max-height: 300px;">${escapeHtml(JSON.stringify(stage.full_input, null, 2))}</pre></details>`;
+        html += `<details><summary style="cursor: pointer; font-size: 0.8rem; color: var(--text-muted);">Full Output JSON</summary><pre style="font-size: 0.75rem; overflow: auto; max-height: 300px;">${escapeHtml(JSON.stringify(stage.full_output, null, 2))}</pre></details>`;
+
+        html += `</div></div>`;
+    });
+    return html;
+}
+
+function formatSummary(stage, output) {
+    if (stage === 'classifier') return `Intent: ${output.intent}, confidence: ${output.confidence}`;
+    if (stage === 'resolver') return output.contact ? `Resolved: ${output.contact} (${output.role || ''})` : (output.is_agent_command ? 'Agent command' : 'Unknown sender');
+    if (stage === 'handler') return `Handler: ${output.handler || 'N/A'}, model: ${output.model || 'N/A'}, tools: ${output.tool_calls || 0}`;
+    if (stage === 'dispatcher') return output.dry_run !== undefined ? (output.dry_run ? `${output.actions_captured || 0} actions captured (dry run)` : 'Dispatched (live)') : '';
+    if (stage === 'tcpa_check' || stage === 'rate_limiter') return output.action || '';
+    return '';
+}
+
+function toggleStage(i) {
+    const el = document.getElementById('stage-detail-' + i);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+{% endblock %}

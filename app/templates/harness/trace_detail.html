@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section">
+    <div class="section-title">
+        Trace Detail
+        <a href="/harness/history" class="btn btn-sm btn-outline" style="float: right;">Back to History</a>
+    </div>
+
+    {% if trace %}
+    {% set t = trace.trace_json if trace.trace_json is mapping else {} %}
+
+    <div class="card-grid" style="margin-bottom: 1rem;">
+        <div class="card">
+            <div class="card-label">Message</div>
+            <div class="card-value" style="font-size: 0.9rem;">{{ trace.message_body or 'N/A' }}</div>
+        </div>
+        <div class="card">
+            <div class="card-label">Intent</div>
+            <div class="card-value"><span class="badge badge-blue">{{ trace.intent_detected or '?' }}</span></div>
+        </div>
+        <div class="card">
+            <div class="card-label">Model</div>
+            <div class="card-value">{{ trace.model_used or 'N/A' }}</div>
+        </div>
+        <div class="card">
+            <div class="card-label">Duration</div>
+            <div class="card-value">{{ trace.total_duration_ms or 0 }}ms</div>
+        </div>
+        <div class="card">
+            <div class="card-label">Sender</div>
+            <div class="card-value">{{ trace.sender_phone or 'N/A' }}</div>
+        </div>
+        <div class="card">
+            <div class="card-label">Time</div>
+            <div class="card-value">{{ trace.created_at.strftime('%Y-%m-%d %H:%M:%S') if trace.created_at else '' }}</div>
+        </div>
+    </div>
+
+    <!-- Response -->
+    {% if t.get('response_text') %}
+    <div class="card" style="margin-bottom: 1rem;">
+        <div class="card-label">Response</div>
+        <div style="white-space: pre-wrap; padding: 0.5rem;">{{ t.response_text }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Pipeline Stages -->
+    <div class="section-title">Pipeline Stages</div>
+    {% for stage in t.get('stages', []) %}
+    <details class="card" style="margin-bottom: 0.5rem; cursor: pointer;">
+        <summary style="display: flex; justify-content: space-between; align-items: center;">
+            <strong>{{ stage.stage_name }}</strong>
+            <span>
+                {% if stage.status == 'success' %}<span style="color: var(--green);">✓</span>
+                {% elif stage.status == 'error' %}<span style="color: var(--red);">✗</span>
+                {% else %}<span style="color: var(--text-muted);">○</span>{% endif %}
+                <span style="color: var(--text-muted); font-size: 0.85rem;">{{ stage.duration_ms or 0 }}ms</span>
+            </span>
+        </summary>
+        <div style="margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem;">
+            {% if stage.get('error_message') %}
+            <div style="color: var(--red); margin-bottom: 0.5rem;">{{ stage.error_message }}</div>
+            {% endif %}
+
+            {% if stage.get('model_used') %}
+            <div style="margin-bottom: 0.5rem;">
+                <span class="badge badge-blue">{{ stage.model_used }}</span>
+                {% if stage.get('tokens_in') %}Tokens: {{ stage.tokens_in }} in / {{ stage.tokens_out or 0 }} out{% endif %}
+                {% if stage.get('system_prompt_hash') %} | Hash: {{ stage.system_prompt_hash }}{% endif %}
+            </div>
+            {% endif %}
+
+            {% if stage.get('tool_calls') %}
+            <div style="margin-bottom: 0.5rem;">
+                <strong>Tool Calls ({{ stage.tool_calls|length }})</strong>
+                {% for tc in stage.tool_calls %}
+                <div style="margin: 0.25rem 0; padding: 0.5rem; background: var(--bg); border-radius: 4px;">
+                    <strong>#{{ loop.index }} {{ tc.tool_name }}</strong>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">{{ tc.duration_ms or 0 }}ms</span>
+                    <details><summary style="font-size: 0.8rem;">Input/Output</summary>
+                        <pre style="font-size: 0.75rem;">Input: {{ tc.input_json | tojson(indent=2) }}</pre>
+                        <pre style="font-size: 0.75rem;">Output: {{ tc.output_json | tojson(indent=2) }}</pre>
+                    </details>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <details><summary style="font-size: 0.8rem; color: var(--text-muted);">Input Summary</summary>
+                <pre style="font-size: 0.75rem;">{{ stage.get('input_summary', {}) | tojson(indent=2) }}</pre>
+            </details>
+            <details><summary style="font-size: 0.8rem; color: var(--text-muted);">Output Summary</summary>
+                <pre style="font-size: 0.75rem;">{{ stage.get('output_summary', {}) | tojson(indent=2) }}</pre>
+            </details>
+            <details><summary style="font-size: 0.8rem; color: var(--text-muted);">Full Input</summary>
+                <pre style="font-size: 0.75rem;">{{ stage.get('full_input', {}) | tojson(indent=2) }}</pre>
+            </details>
+            <details><summary style="font-size: 0.8rem; color: var(--text-muted);">Full Output</summary>
+                <pre style="font-size: 0.75rem;">{{ stage.get('full_output', {}) | tojson(indent=2) }}</pre>
+            </details>
+        </div>
+    </details>
+    {% endfor %}
+
+    {% else %}
+    <p style="color: var(--text-muted);">Trace not found.</p>
+    {% endif %}
+</div>
+{% endblock %}

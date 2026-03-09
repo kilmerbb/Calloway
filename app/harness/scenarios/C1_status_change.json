@@ -1,0 +1,20 @@
+{
+  "id": "C1_status_change",
+  "name": "Agent Status Change",
+  "description": "Agent texts 'I'm in showings until 3'. Expected: status updated.",
+  "category": "command",
+  "preconditions": {},
+  "steps": [
+    {
+      "sender": {"type": "agent"},
+      "message": "I'm in showings until 3",
+      "channel": "sms",
+      "expected": {
+        "intent": "agent_command",
+        "handler": "agent_command",
+        "model_tier": "template",
+        "response_contains": ["status", "showing"]
+      }
+    }
+  ]
+}

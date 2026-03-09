@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section">
+    <div class="section-title">
+        Scenario Result: {{ scenario_id }}
+        <a href="/harness/scenarios" class="btn btn-sm btn-outline" style="float: right;">Back to Scenarios</a>
+    </div>
+
+    {% if result %}
+    <div class="card" style="margin-bottom: 1rem;">
+        <div class="card-label">{{ result.name or scenario_id }}</div>
+        <div>
+            {% if result.passed %}
+            <span class="badge badge-green">PASS</span>
+            {% else %}
+            <span class="badge badge-red">FAIL</span>
+            {% endif %}
+            {{ result.passed_assertions }}/{{ result.total_assertions }} assertions passed
+        </div>
+    </div>
+
+    {% for step in result.get('step_results', []) %}
+    <div class="card" style="margin-bottom: 0.5rem; border-left: 3px solid {% if step.passed %}var(--green){% else %}var(--red){% endif %};">
+        <div><strong>Step {{ step.step }}:</strong> {{ step.message }}</div>
+        <div style="font-size: 0.85rem; color: var(--text-muted);">
+            Intent: {{ step.trace_summary.intent or 'N/A' }} |
+            Handler: {{ step.trace_summary.handler or 'N/A' }} |
+            Model: {{ step.trace_summary.model or 'N/A' }} |
+            {{ step.trace_summary.duration_ms }}ms
+        </div>
+
+        {% if step.response_text %}
+        <div style="margin: 0.5rem 0; padding: 0.5rem; background: var(--bg); border-radius: 4px; font-size: 0.85rem; white-space: pre-wrap;">{{ step.response_text }}</div>
+        {% endif %}
+
+        {% for a in step.assertions %}
+        <div style="font-size: 0.85rem; color: {% if a.passed %}var(--green){% else %}var(--red){% endif %};">
+            {% if a.passed %}✓{% else %}✗{% endif %}
+            {{ a.field }}: expected {{ a.expected }}
+            {% if not a.passed %} — got {{ a.actual }}{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    {% else %}
+    <p style="color: var(--text-muted);">No result available. Run the scenario first.</p>
+    {% endif %}
+</div>
+{% endblock %}

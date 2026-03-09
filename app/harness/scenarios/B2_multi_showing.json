@@ -1,0 +1,18 @@
+{
+  "id": "B2_multi_showing",
+  "name": "Multi-Property Showing Tour",
+  "description": "Known buyer asks to see houses Saturday. Expected: calendar check, showing holds created.",
+  "category": "scheduling",
+  "preconditions": {},
+  "steps": [
+    {
+      "sender": {"type": "client", "phone": "+15551234567"},
+      "message": "Can I see some houses this Saturday afternoon?",
+      "channel": "sms",
+      "expected": {
+        "intent": "scheduling",
+        "handler": "full_reasoning"
+      }
+    }
+  ]
+}

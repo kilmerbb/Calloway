@@ -1,0 +1,17 @@
+{
+  "id": "S1_buyers_agent_showing",
+  "name": "Buyer's Agent Showing Request",
+  "description": "Known agent texts about a listing. Expected: professional tone, showing times offered.",
+  "category": "scheduling",
+  "preconditions": {},
+  "steps": [
+    {
+      "sender": {"type": "unknown", "phone": "+15558887777"},
+      "message": "Hi, I'm an agent with Remax. My client would like to see the property on Oak Street. Are there any times available this week?",
+      "channel": "sms",
+      "expected": {
+        "intent": "scheduling"
+      }
+    }
+  ]
+}
