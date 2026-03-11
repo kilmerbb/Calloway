@@ -1,457 +1,362 @@
-# Product Feature Balance Evaluation
-## Date: 2026-03-11
-## Authors: Oracle (Research) & Lyra (Product Design)
+# Calloway Product Balance Evaluation
+
+**Author:** Mara, Product Manager
+**Date:** 2026-03-11
+**Version:** 2.0
 
 ---
 
 ## Executive Summary
 
-Calloway is **closer to v1 readiness than most products at this stage**, but it is not yet ready for unsupervised production use. The core AI message pipeline is genuinely strong — inbound SMS, voice, and email all flow through a well-structured normalize-classify-route-dispatch architecture. Contact management, scheduling, and automation form a coherent backbone. However, several critical gaps would block a solo agent from using this as their *primary* tool: the agent portal is read-only (no ability to take actions from the UI), Firebase push notifications are stubbed out, there is no onboarding flow for agents themselves, and the voice/Vapi integration is partially implemented. The product has more depth than breadth — the AI pipeline is sophisticated, but the human-facing surfaces that agents interact with daily are thin.
+Calloway is a remarkably well-architected product for its stage. The core AI pipeline, tenant isolation, and compliance infrastructure are production-grade. The primary imbalances are: (1) no client-facing surface exists -- clients only interact via SMS/voice/email, never through a web or app experience; (2) the integration layer covers communication essentials but lacks the real estate-specific data feeds (MLS, DocuSign) that agents depend on daily; and (3) observability tooling is strong for operators but thin for agents themselves.
 
-**Verdict: 70% ready for a controlled beta with 5-10 agents. Not ready for general availability.**
-
----
-
-## Feature Inventory
-
-### Communication Layer
-| Feature | Status | Files |
-|---------|--------|-------|
-| Inbound SMS via Twilio | Built, production-ready | `app/api/webhooks.py`, `app/services/twilio_service.py` |
-| Outbound SMS via Twilio | Built, with segment tracking | `app/services/twilio_service.py` |
-| SMS delivery status tracking | Built (delivered, failed, read) | `app/api/webhooks.py` lines 182-248 |
-| RCS with SMS fallback | Partially built (sends as SMS) | `app/services/twilio_service.py` |
-| Inbound voice via Twilio | Built, forwards to agent then Vapi | `app/api/webhooks.py` lines 251-297 |
-| Vapi post-call transcript processing | Built, processes through pipeline | `app/api/webhooks.py` lines 299-418 |
-| Voice cost tracking (minutes + cost) | Built | `app/api/webhooks.py` lines 370-401 |
-| Voice daily cap enforcement | Built with push notification | `app/api/webhooks.py` lines 384-401 |
-| Inbound email via SendGrid | Built | `app/api/webhooks.py` lines 421-525 |
-| Outbound email via SendGrid | Built | `app/services/email_service.py` |
-| Email archiving to `emails` table | Built | `app/api/webhooks.py` lines 484-494 |
-| Push notifications (Firebase) | **Stubbed** — logs only, no actual Firebase send | `app/services/firebase_service.py` lines 61-68 |
-
-### Contact Management
-| Feature | Status | Files |
-|---------|--------|-------|
-| Contact CRUD | Built | `app/tools/contacts.py` |
-| Fuzzy name lookup | Built | `app/tools/contacts.py` lines 24-50 |
-| Lifecycle stage tracking | Built (new_lead → active → under_contract → closed) | Schema `contacts.lifecycle_stage` |
-| Lead preferences (areas, budget, beds, etc.) | Built with separate table | `lead_preferences` table, `app/tools/contacts.py` |
-| TCPA consent tracking | Built with audit log | `contacts.consent_*` fields, `consent_log` table |
-| Silent mode (agent handoff) | Built | `contacts.silent_mode`, `app/pipeline/commands/status.py` |
-| Contact gap analysis | Built with lifecycle-specific thresholds | `app/tools/contacts.py` lines 213-269 |
-| Lead source tracking | Built | `contacts.lead_source` |
-| Language detection | Schema exists, implementation unclear | `contacts.language_detected` |
-| Interaction counting | Built | `contacts.interaction_count` |
-
-### Lead Management
-| Feature | Status | Files |
-|---------|--------|-------|
-| Lead scoring (rule-based) | Built, batch-optimized | `app/tools/lead_scoring.py` |
-| Score tiers (hot/warm/cool/cold) | Built | `app/tools/lead_scoring.py` lines 255-264 |
-| Scoring factors: recency, engagement, stage, showings, consent, preferences | All built | `app/tools/lead_scoring.py` SCORING_RULES |
-| Drip campaigns (3 default templates) | Built | `app/tools/drip_campaigns.py` |
-| Drip enrollment + trigger scheduling | Built | `app/tools/drip_campaigns.py` lines 86-141 |
-| Drip unenrollment | Built | `app/tools/drip_campaigns.py` lines 177-187 |
-| Auto-create contact from email/voice | Built | `app/api/webhooks.py` |
-
-### Scheduling
-| Feature | Status | Files |
-|---------|--------|-------|
-| Showing hold (30-min expiry) | Built | `app/tools/showings.py` |
-| Showing confirmation + Google Calendar event | Built | `app/tools/showings.py` lines 45-126 |
-| Showing cancellation | Built | `app/tools/showings.py` lines 129-137 |
-| Stale hold expiry (background worker) | Built | `app/tools/showings.py` lines 140-155 |
-| Calendar availability check | Built | `app/tools/calendar_tools.py` |
-| Calendar event creation | Built | `app/tools/calendar_tools.py` |
-| Agent status management (in_showing, vacation, etc.) | Built with auto-revert | `app/pipeline/commands/status.py` |
-| Occupied home showing coordination | Built | `app/tools/seller_tools.py` lines 74-109 |
-
-### Listing Management
-| Feature | Status | Files |
-|---------|--------|-------|
-| Natural language listing ingestion (AI parse) | Built | `app/tools/listings.py` lines 31-82 |
-| Listing update (price change, etc.) | Built | `app/tools/listings.py` lines 85-123 |
-| Listing search (filters) | Built | `app/tools/listings.py` lines 159-209 |
-| Freshness warning (>7 days stale) | Built | `app/tools/listings.py` lines 151-154 |
-| Listing broadcast to matching buyers | Built | `app/pipeline/commands/listing.py` lines 76-117 |
-| DOM (Days on Market) tracking and alerts | Built with 5 thresholds | `app/tools/seller_tools.py` lines 178-218 |
-| Listing activity tracking (showings, inquiries, feedback) | Built | `app/tools/seller_tools.py` lines 116-171 |
-| Open house scheduling + trigger cascade | Built | `app/tools/seller_tools.py` lines 224-282 |
-| Open house attendee tracking | Built | `app/tools/seller_tools.py` lines 285-305 |
-
-### Transaction Management
-| Feature | Status | Files |
-|---------|--------|-------|
-| Transaction CRUD (offer-to-close) | Built | `app/tools/transactions.py` |
-| Transaction statuses (pending_offer → closed/fell_through) | Built, 6 statuses | `app/tools/transactions.py` VALID_STATUSES |
-| Auto-sync contact lifecycle on status change | Built | `app/tools/transactions.py` lines 131-152 |
-| Transaction deadline tracking (inspection, appraisal, financing, closing) | Schema built, cascade triggers built | Schema + `app/tools/triggers.py` lines 100-137 |
-| Commission tracking | Schema built (`commission_pct`) | Schema `transactions` table |
-| Offer preparation workflow | Built (requests docs from client) | `app/pipeline/commands/offer.py` |
-
-### Automation (Triggers & Drips)
-| Feature | Status | Files |
-|---------|--------|-------|
-| Trigger creation with deduplication | Built | `app/tools/triggers.py` lines 12-53 |
-| Trigger worker (60s poll loop) | Built | `app/worker/trigger_worker.py` |
-| Trigger firing: notify_agent, send_message, both, compile_report | Built | `app/worker/trigger_worker.py` lines 61-88 |
-| Recurring triggers (daily, weekly, monthly, annually) | Built | `app/worker/trigger_worker.py` lines 181-210 |
-| Trigger cascades: transaction_deadlines, open_house, post_close | Built | `app/tools/triggers.py` lines 90-218 |
-| Daily scanner: gap analysis, DOM alerts, proactive follow-ups | Built | `app/worker/daily_scanner.py` |
-| Morning briefing compilation and push | Built (push is stubbed) | `app/worker/daily_scanner.py` lines 60-204 |
-| Seller weekly activity report | Built | `app/worker/daily_scanner.py` lines 206-292 |
-| Usage metrics tracking (triggers_fired counter) | Built | `app/worker/trigger_worker.py` lines 213-226 |
-
-### Intelligence (AI/RAG/Scoring)
-| Feature | Status | Files |
-|---------|--------|-------|
-| Intent classification (Haiku) | Built | `app/pipeline/classifier.py` (referenced) |
-| AI message composition (Sonnet) | Built | `app/pipeline/commands/contact.py` |
-| Model tiering (Haiku/Sonnet) | Built | `app/services/anthropic_service.py` |
-| RAG embedding (Voyage AI, 512 dims) | Built | `app/services/embedding_service.py` |
-| RAG indexing (conversations, contacts, listings) | Built | `app/services/rag_service.py`, `app/worker/rag_indexer.py` |
-| RAG search (cosine similarity via pgvector HNSW) | Built | `app/services/rag_service.py` lines 257-332 |
-| RAG context injection into LLM prompts | Built | `app/services/rag_service.py` lines 334-386 |
-| Token/cost tracking per agent per day | Built | `usage_metrics` table |
-
-### Agent Experience (Portal)
-| Feature | Status | Files |
-|---------|--------|-------|
-| Phone-based login with SMS code | Built | `app/api/agent_portal.py` lines 121-194 |
-| Dashboard (stats, approvals, upcoming, conversations, listings) | Built | `app/api/agent_portal.py` lines 206-295 |
-| Contact list with search + role/source filters | Built (read-only) | `app/api/agent_portal.py` lines 300-348 |
-| Conversation list + detail view | Built (read-only) | `app/api/agent_portal.py` lines 353-426 |
-| Schedule view (today + upcoming showings) | Built (read-only) | `app/api/agent_portal.py` lines 431-471 |
-| Trigger/reminder list | Built (read-only) | `app/api/agent_portal.py` lines 476-508 |
-| Transaction list | Built (read-only) | `app/api/agent_portal.py` lines 513-546 |
-| Lead scores view | Built (read-only) | `app/api/agent_portal.py` lines 551-567 |
-| Drip campaigns view | Built (read-only) | `app/api/agent_portal.py` lines 572-590 |
-| **Agent cannot take any action from the portal** | **Gap** | No POST routes for approve/send/edit |
-
-### Operator Console
-| Feature | Status | Files |
-|---------|--------|-------|
-| Password-based auth with CSRF | Built | `app/api/console.py`, `app/api/console_auth.py` |
-| System dashboard (pulse, activity, attention) | Built | `app/api/console.py` lines 80-95 |
-| Tenant CRUD (list, detail, edit, deactivate) | Built | `app/api/console.py` lines 156-307 |
-| Onboarding wizard | Built | `app/api/console.py` lines 115-149 |
-| Conversation browser (with agent/channel filters) | Built | `app/api/console.py` lines 313-350 |
-| Trigger management (queue, retry, cancel, fire-now) | Built | `app/api/console.py` lines 358-424 |
-| Error log viewer | Built | `app/api/console.py` lines 431-445 |
-| Cost dashboard (30-day summary, per-agent, model tiers) | Built | `app/api/console.py` lines 452-465 |
-| Health overview + manual scan | Built | `app/api/console.py` lines 472-510 |
-| Billing management (plan changes, cancellation) | Built | `app/api/console.py` lines 517-575 |
-| User manual | Built | `app/api/console.py` lines 582-590 |
-| Test SMS from console | Built | `app/api/console.py` lines 290-306 |
-| HTMX partials (activity feed, health dot) | Built | `app/api/console.py` |
-
-### Billing & Monetization
-| Feature | Status | Files |
-|---------|--------|-------|
-| Stripe customer + subscription creation | Built | `app/services/billing_service.py` |
-| 3 plan tiers (Starter $49, Pro $99, Enterprise $199) | Built | `app/services/billing_service.py` PLAN_TIERS |
-| 14-day trial | Built | `app/services/billing_service.py` |
-| Plan changes with proration | Built | `app/services/billing_service.py` lines 167-213 |
-| Subscription cancellation (at period end or immediate) | Built | `app/services/billing_service.py` lines 216-252 |
-| Webhook handlers (subscription.updated, invoice.paid, payment_failed) | Built | `app/services/billing_service.py` lines 257-347 |
-| Message quota enforcement | Built | `app/services/billing_service.py` lines 361-395 |
-| Invoice tracking | Built | `app/services/billing_service.py` lines 288-322 |
-| Usage-based cost tracking (LLM, SMS, voice) | Built | `usage_metrics` table |
-
-### Infrastructure & Reliability
-| Feature | Status | Files |
-|---------|--------|-------|
-| PostgreSQL with RLS (15 tables, all with agent isolation) | Built | `app/db/schema.sql` |
-| Redis caching + session/login code storage | Built with in-memory fallback | `app/services/redis_pool.py`, `app/api/agent_portal.py` |
-| Twilio signature validation | Built | `app/api/webhooks.py` lines 13-19 |
-| Vapi webhook secret validation | Built | `app/api/webhooks.py` lines 302-309 |
-| CSRF protection on all POST routes | Built | Console and agent portal |
-| Error logging table | Built | `error_log` table |
-| Harness traces for testing | Built | `harness_traces` table |
-| Rate limiting (referenced) | Built | `app/pipeline/rate_limiter.py` (referenced in webhooks) |
-| Retry logic for embedding API | Built | `app/services/embedding_service.py` |
+**Overall Score: 7.1 / 10**
 
 ---
 
-## System Balance Scorecard
+## Dimension Scores
 
-| Category | Completeness | Quality | Integration | Score |
-|----------|-------------|---------|-------------|-------|
-| Communication (SMS/Voice/Email) | All 3 channels built, delivery tracking | Clean pipeline architecture | All feed through unified normalize-classify-route | **8/10** |
-| Contact Management | Full CRUD, lifecycle, consent, preferences | Gap analysis is production-quality | Feeds into scoring, triggers, drips, RAG | **9/10** |
-| Lead Management | Scoring + drips + auto-creation | Batch-optimized scoring, good templates | Scoring considers showings, consent, prefs | **7/10** |
-| Scheduling | Hold/confirm/cancel, calendar, occupied homes | Clean hold-with-expiry pattern | Ties to listings, contacts, calendar, metrics | **8/10** |
-| Transaction Management | Full lifecycle, deadline cascades | Auto-syncs contact stage | Links contacts, listings, triggers | **7/10** |
-| Automation (Triggers/Drips) | Worker + daily scanner + cascades + recurrence | Deduplication, metric tracking | Deeply wired into contacts, listings, transactions | **9/10** |
-| Intelligence (AI/RAG/Scoring) | Classification, composition, RAG, scoring | Voyage AI + pgvector HNSW is solid | RAG indexes conversations, contacts, listings | **7/10** |
-| Agent Experience (Portal) | 9 screens, all read-only | Clean mobile-first templates | Shows data but cannot act on it | **4/10** |
-| Operator Experience (Console) | 17 templates, full CRUD + actions | HTMX partials, filters, search | Deep integration with all backend services | **8/10** |
-| Billing & Monetization | Stripe lifecycle fully built | Quota enforcement, proration, webhooks | Tracks usage against plan limits | **8/10** |
-| Infrastructure & Reliability | RLS, CSRF, signature validation, Redis | Error logging, retry logic | Background workers + webhook processing | **8/10** |
+### 1. Feature Completeness — 7 / 10
 
-**Overall Score: 7.5/10** — Strong backend, weak agent-facing surface.
+**Justification:**
 
----
+Calloway covers the core jobs-to-be-done well for a solo agent's daily operations:
 
-## Feature Interconnection Map
+- **Communication automation** -- Full SMS, voice (Vapi), and email pipeline with AI-driven responses. Multi-channel coverage with delivery tracking and cost accounting per channel.
+- **Showing management** -- Calendar-integrated scheduling with hold-and-confirm workflow (30-minute hold expiry), lockbox/access instructions, occupied home coordination, and feedback capture.
+- **Lead management** -- Contact lifecycle tracking (new_lead through past_client), lead preferences with property criteria, lead scoring using rule-based signals across 15 factors, and proactive gap analysis via the daily scanner.
+- **Follow-up automation** -- Trigger system with 60-second polling, drip campaigns with multi-step sequences, recurring triggers (daily/weekly/monthly/annually), cascade triggers for transaction deadlines and open houses, and timezone-aware morning briefings.
+- **Transaction tracking** -- Full offer-to-close lifecycle with 6 statuses, milestone tracking (inspection, appraisal, financing, closing), commission tracking, and auto-sync of contact lifecycle stage on status changes.
+- **Agent commands** -- 14 distinct command types via SMS (listing updates, broadcasts, status changes, contact/schedule/gap/listing queries, triggers, cascades, offers, handoff returns, notes, and connect). The natural language command parsing is a genuine differentiator.
+- **Seller operations** -- Listing management with natural language ingestion, DOM alerts at 5 thresholds with actionable recommendations, open house scheduling with cascade triggers, buyer-matching broadcasts, listing activity tracking, and seller weekly reports.
+- **RAG system** -- pgvector embeddings for semantic search across conversations, contacts, and listings with context injection into LLM prompts.
 
-The features connect in a genuinely coherent data model. This is one of Calloway's strengths.
+What is present but thin:
 
-### Strong Interconnections (verified in code)
+- **Drip campaigns** -- Steps stored as JSONB with 3 default templates, but no campaign builder UI or template library in the agent portal.
+- **Lead scoring** -- Rule-based only across 15 signals. No ML-based scoring, conversion prediction, or automatic campaign enrollment based on score tier.
+- **Reporting** -- Usage metrics exist in the DB (messages, tokens, costs, showings, triggers) but agent-facing analytics (conversion rates, response times, pipeline velocity) are absent.
 
-1. **Contact lifecycle ↔ Transaction status**: When a transaction moves to `under_contract`, the contact is auto-updated (`_sync_contact_lifecycle` in `app/tools/transactions.py`). When it `closes`, the contact becomes `past_client`. When it falls through, they revert to `active_buyer`.
-
-2. **Drip campaigns → Triggers → Trigger worker → Outbound messages**: Enrolling a contact in a drip creates scheduled triggers for each step (`app/tools/drip_campaigns.py` lines 119-137). The trigger worker fires them on schedule (`app/worker/trigger_worker.py`). This is a clean chain.
-
-3. **Daily scanner → Gap analysis → Triggers**: The morning scan runs `analyze_contact_gaps()` and auto-creates follow-up triggers (`app/worker/daily_scanner.py` lines 35-38).
-
-4. **Daily scanner → DOM alerts → Triggers**: Listings are checked against DOM thresholds; alerts become triggers (`app/worker/daily_scanner.py` lines 41-43).
-
-5. **Listing broadcast → Contact search**: Broadcasting a listing queries `active_buyer` contacts and queues messages (`app/pipeline/commands/listing.py` lines 76-117).
-
-6. **Lead scoring → Showing data + Contact data + Preference data**: Score calculation pulls from showings, contacts, and lead_preferences tables with batch queries (`app/tools/lead_scoring.py`).
-
-7. **Showing confirmation → Usage metrics + Google Calendar**: Confirming a showing creates a calendar event AND increments `showings_booked` in `usage_metrics` (`app/tools/showings.py` lines 109-118).
-
-8. **RAG indexer → Conversations + Contacts + Listings**: All three entity types are embedded and searchable via cosine similarity (`app/services/rag_service.py`, `app/worker/rag_indexer.py`).
-
-9. **Transaction deadlines → Trigger cascade**: Creating a transaction can generate a cascade of 4 triggers per deadline (3-day, 1-day, day-of, day-after) via `create_trigger_cascade` (`app/tools/triggers.py` lines 100-137).
-
-10. **Open house → Trigger cascade → Buyer notification + Seller report**: Scheduling an open house creates 5 cascaded triggers and identifies matching buyers (`app/tools/seller_tools.py` lines 224-282).
-
-### Weak or Missing Interconnections
-
-1. **Lead scoring does NOT feed into drip enrollment**: Scoring contacts as "hot" or "cold" does not auto-enroll them in appropriate campaigns. This is a manual gap.
-
-2. **RAG context is NOT confirmed to be injected into every LLM call**: The `get_context_for_message` method exists but its integration into the main pipeline handler would need verification in `handlers.py`.
-
-3. **Billing quota does NOT gate voice calls**: `check_message_quota` only counts messages, not voice minutes against plan limits. The voice daily cap is separate and agent-specific, not plan-based.
-
-4. **Agent portal has NO write path to any backend feature**: The portal is entirely GET routes. Agents cannot approve triggers, send messages, enroll in campaigns, or update contacts from the UI.
+**#1 Gap: No client-facing portal.** Clients interact exclusively through SMS, voice, and email. There is no web-based client portal where buyers/sellers can view listings, check showing schedules, see transaction milestone progress, or upload documents. For solo agents managing 20-50+ active clients, this creates a bottleneck where every interaction must flow through the AI or the agent directly.
 
 ---
 
-## Critical Gaps
+### 2. Architecture Maturity — 8 / 10
 
-### 1. Agent Portal is Read-Only (Severity: BLOCKING)
-The agent portal (`app/api/agent_portal.py`) has 10 GET routes and zero POST routes (except login). A solo agent cannot:
-- Approve or reject pending triggers
-- Send a message to a contact
-- Create or edit a contact
-- Enroll a contact in a drip campaign
-- Update a showing status
-- Create a transaction
-- Respond to a conversation
+**Justification:**
 
-The ONLY way to interact with Calloway is via SMS commands to the AI pipeline. This is fine for some use cases but insufficient as a primary business tool. Agents need a "quick action" capability in the portal.
+The technical foundation is strong and reflects production-minded engineering:
 
-### 2. Firebase Push Notifications Are Stubbed (Severity: HIGH)
-`app/services/firebase_service.py` line 57-68 explicitly says `# TODO: Implement actual Firebase sending`. The entire notification tier system (urgent, action_needed, informational, briefing) exists in code but messages are only logged, never delivered. This means:
-- Morning briefings never reach agents
-- Trigger approvals are invisible
-- Delivery failures go unnoticed
-- Voice call summaries are lost
+- **Clean pipeline architecture** -- Normalize, Classify, Assemble Context, Route, Handle, Dispatch. Each stage is a discrete module with clear boundaries (`normalizer.py`, `classifier.py`, `assembler.py`, `router.py`, `handlers.py`, `dispatcher.py`). The intent-based context loading in `assembler.py` is efficient -- it only loads what the route needs against a TOKEN_BUDGET of 8000.
+- **Model tiering** -- Haiku for classification and simple Q&A, Sonnet for full reasoning with tool use. Cost tracking per-agent per-day with model-specific pricing. This is smart unit economics.
+- **Database design** -- 15 well-indexed tables with RLS policies on every single table. UUID primary keys, TIMESTAMPTZ throughout, proper foreign key constraints. Unique indexes prevent duplicate enrollments and contacts. The schema handles the domain comprehensively.
+- **Command decomposition** -- 14 command handlers in `app/pipeline/commands/` with a clean dispatch table in `handlers.py`. Each command type is an isolated module.
+- **Background workers** -- Trigger worker (60s poll) and daily scanner are simple, reliable patterns. The trigger worker also handles hold expiry and status reversion in each cycle.
+- **Rate limiting** -- Redis-backed per-contact rate limiting (30/hour, 100/day), per-agent cost cap ($15/day), and unknown number throttling (10/day). Fail-open on Redis unavailability -- the right trade-off.
+- **Structured logging** -- JSON logging with correlation IDs via `contextvars`, request-scoped context, and structured fields for agent_id, tool_name, latency_ms. Configured at startup to replace default handlers.
+- **Security** -- CSRF protection on all POST routes, secure cookies (httponly, samesite=lax, secure in production), Twilio signature validation, production secret validation that calls `sys.exit(1)` on default credentials.
+- **Retry logic** -- Anthropic API calls have exponential backoff retry on rate limit errors.
 
-### 3. No Agent Self-Onboarding (Severity: HIGH)
-The console has an onboarding wizard (`/console/onboard`), but this is operator-initiated. There is no self-service signup flow for agents. For v1 launch with paying customers, agents need to be able to:
-- Sign up with their phone/email
-- Connect their Twilio number
-- Set their preferences/style
-- Start a trial
+What could be stronger:
 
-### 4. No Contact Detail View in Agent Portal (Severity: MEDIUM)
-The agent portal shows a contact list but has no detail view. An agent cannot see a contact's preferences, lead score, notes, linked listing, or conversation history from the contact list. This forces them to context-switch to SMS commands.
+- **No migration framework** -- Migrations are raw SQL files (005 through 009 visible) with no tooling (Alembic, Flyway). Manual migration management does not scale beyond a small team.
+- **Synchronous DB calls** -- `get_db_connection()` returns synchronous connections within async FastAPI handlers. This blocks the event loop under concurrent load.
+- **In-memory state** -- Agent portal login codes stored in `_login_codes: dict` in process memory. Comment in code acknowledges "in production, use Redis." This breaks with multiple workers or restarts.
+- **No task queue** -- Background processing uses a polling loop rather than Celery/Dramatiq/ARQ. Adequate for current scale but limits throughput and observability of background tasks.
+- **Schema duplication** -- The transactions table appears twice in `schema.sql` (lines 216-240 and 441-464) with slightly different column definitions, suggesting incremental development without cleanup.
 
-### 5. No Reporting / Analytics for Agents (Severity: MEDIUM)
-The operator console has costs, health, and billing dashboards. The agent portal has none. A solo agent using Calloway cannot see:
-- How many leads they converted this month
-- Their showing-to-offer ratio
-- Message response times
-- Commission pipeline totals
-- Monthly costs/usage
-
-### 6. No Document/File Handling (Severity: MEDIUM)
-Real estate transactions involve contracts, disclosures, pre-approval letters, inspection reports, etc. Calloway has no document upload, storage, or reference capability. The offer command in `app/pipeline/commands/offer.py` requests documents from clients but has nowhere to store them.
-
-### 7. No MLS/IDX Integration (Severity: MEDIUM for v2, acceptable for v1)
-Listings are manually created via natural language parsing. There is no integration with MLS data feeds, which means agents must manually enter every listing and keep them updated.
+**#1 Gap: Synchronous database calls in async handlers.** The use of synchronous connections within FastAPI's async endpoints means every DB query blocks the event loop thread. Under concurrent load (multiple agents receiving messages simultaneously), this will cause request queuing and latency spikes. Migration to `asyncpg` or `psycopg` async mode is the highest-priority architectural improvement for production readiness.
 
 ---
 
-## Strength Areas
+### 3. User Experience Balance — 7 / 10
 
-### 1. AI Pipeline Architecture
-The normalize → classify → route → handle → dispatch pipeline is genuinely well-designed. It handles three channels (SMS, voice, email) through a single unified flow. The command decomposition into `app/pipeline/commands/` is clean and maintainable. TCPA compliance, rate limiting, and consent gating are properly positioned in the pipeline before message processing.
+**Justification:**
 
-### 2. Trigger & Automation System
-The trigger system is the product's deepest feature. It supports:
-- Single triggers with deduplication
-- Cascades (transaction deadlines, open house, post-close)
-- Recurring triggers (daily/weekly/monthly/annually)
-- Multiple action types (notify, send, both, compile_report)
-- Autonomy levels (auto vs. ask_agent)
-- Background execution via the trigger worker
-- Integration with the daily scanner for proactive gap detection
+Three user surfaces exist, each at a different maturity level, plus an SMS command interface that is surprisingly capable:
 
-This is a genuine competitive advantage. Most CRM tools for real estate agents don't offer this level of automated intelligence.
+**Agent Portal (6/10):**
+- 11 template pages: dashboard, conversations, conversation detail, contacts, schedule, triggers, campaigns, transactions, scores, and login.
+- Phone-based OTP authentication (6-digit codes via SMS).
+- Mobile-first design (appropriate for agents in the field).
+- **Critically, the portal is read-only.** There are no POST routes beyond login. Agents cannot approve triggers, send messages, edit contacts, confirm showings, or create transactions from the UI. Every action must go through SMS commands.
+- Missing: notification center, analytics/reporting, campaign builder, settings/preferences editing, document management, contact detail view.
 
-### 3. Seller Operations
-The seller tools module (`app/tools/seller_tools.py`) is unusually complete: listing inquiry routing with occupied/vacant logic, DOM alerting with actionable recommendations at 5 thresholds, listing activity tracking, open house scheduling with cascade triggers, and attendee tracking. This suggests real domain expertise informed the design.
+**SMS Command Interface (8/10):**
+- 14 command types covering the full operational surface.
+- Natural language parsing with AI classification -- agents do not need to memorize syntax.
+- Handoff/return workflow (silent mode) is genuinely thoughtful UX.
+- Gap/schedule/contact queries provide instant intelligence.
+- This is the product's strongest interaction model today.
 
-### 4. Data Model Coherence
-The schema is well-normalized with appropriate indexes and RLS policies on every table. The `usage_metrics` table provides a single source of truth for cost tracking across SMS, voice, and LLM usage. Foreign key relationships between contacts, listings, showings, transactions, and triggers form a coherent graph.
+**Operator Console (8/10):**
+- 17+ template pages including dashboard, tenants (list/detail/edit/new), conversations, triggers, costs, errors, health, billing, manual, onboarding wizard, and HTMX partials for live updates.
+- System pulse metrics, agent attention alerts, and activity feeds.
+- Full CRUD on tenants. Trigger queue management (retry, cancel, fire-now). Cost dashboards. Health monitoring.
+- Test SMS capability from console.
+- This is genuinely strong for a v1 admin surface -- ready for an operator managing 50+ agents.
 
-### 5. Operator Console
-The console is production-grade: 17 templates, HTMX partials for live updates, full CRUD on tenants, trigger queue management (retry/cancel/fire-now), cost dashboards, health monitoring, billing management, and a user manual. This is ready for an operator to manage 50+ agents.
+**AI Autonomy (8/10):**
+- Three-tier autonomy model (Supervised, Autonomous, Manual) with per-agent JSONB configuration.
+- TCPA compliance baked into the pipeline with pre-processing keyword detection (STOP/HELP/START plus affirmative consent).
+- Agent notification system via Firebase push for critical events -- though **push is currently stubbed** (logs only, no actual Firebase send). This is a significant operational gap.
+- Cost caps prevent runaway autonomous behavior.
+- Consent gating ensures the AI never messages without permission.
 
----
-
-## Coherence Assessment
-
-**The backend is one product. The frontend is two disconnected experiences.**
-
-The backend tools, services, and pipeline form a remarkably coherent system. Data flows naturally from inbound messages through contact resolution, intent classification, tool execution, trigger scheduling, and outbound delivery. The daily scanner and trigger worker provide proactive intelligence. The RAG system adds contextual memory. The billing system gates usage.
-
-However, the two UIs tell different stories:
-- The **operator console** is a complete management tool — it can see everything, act on triggers, manage billing, and monitor health.
-- The **agent portal** is a dashboard that shows data but offers no agency. It feels like a monitoring screen, not a work tool.
-
-This creates a fundamental UX problem: **the product's most powerful features are only accessible via SMS commands or the operator console**. A solo agent — the target user — needs to either memorize SMS command syntax or ask the operator to do things for them.
-
-The features themselves are coherent. The surface area is not.
+**#1 Gap: Agent portal is read-only.** The product's most powerful features are only accessible via SMS commands or the operator console. A solo agent -- the target user -- needs to either memorize SMS command patterns or ask the operator to act on their behalf. Adding POST routes for the top 5 agent actions (approve trigger, send message, edit contact, confirm showing, reply to conversation) would transform the portal from a display screen into a work tool.
 
 ---
 
-## v1 Launch Readiness Checklist
+### 4. AI Capability Depth — 8 / 10
 
-### Ready for Launch
-- [x] Inbound/outbound SMS with delivery tracking
-- [x] Voice call handling with Vapi transcript processing
-- [x] Email channel with SendGrid
-- [x] Contact management with lifecycle tracking
-- [x] TCPA consent compliance
-- [x] Lead scoring (rule-based)
-- [x] Drip campaign templates and enrollment
-- [x] Showing scheduling with hold/confirm/cancel
-- [x] Google Calendar integration
-- [x] Transaction lifecycle tracking
-- [x] Trigger system with cascades and recurrence
-- [x] Daily scanner (gaps, DOM alerts, proactive follow-ups)
-- [x] Morning briefing compilation
-- [x] Listing ingestion via natural language
-- [x] DOM alerting with recommendations
-- [x] Open house scheduling with cascades
-- [x] Seller activity reports
-- [x] RAG system (Voyage AI + pgvector)
-- [x] Stripe billing with 3 tiers
-- [x] Message quota enforcement
-- [x] Operator console (full management)
-- [x] Agent portal login (phone + SMS code)
-- [x] RLS tenant isolation
-- [x] CSRF protection
-- [x] Twilio signature validation
+**Justification:**
 
-### Needs Work Before Launch
-- [ ] **Agent portal write actions** — at minimum: approve/reject triggers, send quick message, add/edit contacts
-- [ ] **Firebase push notifications** — implement actual FCM sending (currently stubbed)
-- [ ] **Agent self-onboarding** — sign up flow, Twilio number provisioning, preference setup
-- [ ] **Contact detail view** in agent portal with linked conversations, scores, transactions
-- [ ] **Error handling UX** — what happens when the AI pipeline fails? Agent sees nothing
-- [ ] **Billing enforcement at pipeline level** — expired/canceled subscriptions should gate the pipeline
+The AI pipeline is one of Calloway's strongest dimensions:
 
-### Can Wait for v2
-- [ ] Agent analytics dashboard (conversion rates, response times, pipeline value)
-- [ ] Document/file handling for transactions
-- [ ] MLS/IDX integration
-- [ ] Multi-language support (schema has `language_detected` but no i18n)
-- [ ] Team/brokerage features (currently strictly solo)
-- [ ] Webhook for third-party integrations
-- [ ] Automated A/B testing of message templates
-- [ ] Client-facing portal (property search, showing booking)
+- **Multi-stage pipeline** -- Normalize, Classify (Haiku), Assemble Context, Route, Handle (Sonnet with tools or Haiku for simple QA), Dispatch. Each stage has clear responsibilities and fallbacks. The pipeline processes SMS, voice transcripts, and email through a single unified flow.
+- **Intent classification** -- 9 intent types (scheduling, listing_qa, lead_qualification, agent_command, transaction, personal, escalation, noise, feedback) with confidence scores, language detection, and keyword fallback when the LLM call fails. The `needs_full_context` flag controls whether to load heavy context.
+- **Tool use** -- 11 tool modules with real actions: contacts, listings, showings, triggers, transactions, drip_campaigns, lead_scoring, calendar_tools, messaging, seller_tools, activity. The AI can book showings, create triggers, update contacts, enroll in drip campaigns, and execute offer workflows.
+- **Agent command parsing** -- 14 command types parsed from natural language SMS with a well-structured classification prompt. The dispatch table pattern in `handlers.py` is clean and extensible.
+- **Context assembly** -- Intent-aware context loading with a token budget of 8000. Only loads conversation history, relevant listings, calendar slots, and triggers based on what the intent requires. This controls cost and latency effectively.
+- **RAG system** -- pgvector embeddings for semantic search across conversations, contacts, and listings. Context injection into LLM prompts for contextual memory.
+- **Model tiering** -- Haiku for classification and listing Q&A (fast, cheap), Sonnet for full reasoning with tool use (slower, smarter). Cost tracking per model enables per-agent optimization.
+- **Daily intelligence** -- Morning briefings with gap analysis, DOM alerts at 5 thresholds, and proactive follow-up identification. Seller weekly activity reports.
+- **Consent-aware AI** -- The pipeline checks TCPA keywords before any processing, gates on consent status, and never messages revoked contacts.
+
+What is not yet present:
+
+- **No conversation summarization** -- Long threads are loaded as raw messages with a rough token estimate (TOKENS_PER_MESSAGE = 50). No summarization layer to compress older history. With the 8000 token budget, roughly 160 messages of history can be loaded before critical context is lost.
+- **No learning/adaptation** -- The AI does not learn from agent corrections, feedback scores (the schema captures `feedback_score` on messages), or outcome data (which approaches convert?). No fine-tuning loop or preference learning.
+- **No multi-turn planning** -- The AI responds to individual messages reactively. It does not maintain goals or plans across a conversation (e.g., "guide this lead through qualification over the next 3 interactions").
+- **No A/B testing** -- Message templates and AI responses are not tested against alternatives for conversion optimization.
+
+**#1 Gap: No conversation summarization.** With a token budget of 8000 and ~50 tokens per message, the system can load roughly 160 messages of history. For active leads with months of interaction, critical context will be lost. A summarization layer that compresses older conversation history into a running summary would preserve context while controlling costs. This is a prerequisite for long-term relationship management, which is the core of real estate.
 
 ---
 
-## Feature Prioritization for Next Phase
+### 5. Integration Breadth — 6 / 10
 
-Based on gap severity, user impact, and implementation effort:
+**Justification:**
 
-| Priority | Feature | Effort | Impact | Rationale |
-|----------|---------|--------|--------|-----------|
-| P0 | Agent portal write actions (approve triggers, quick message, edit contacts) | Medium | Critical | Without this, agents cannot use the product without SMS commands |
-| P0 | Firebase push notification implementation | Small | Critical | All notifications are currently black-holed |
-| P1 | Contact detail view in agent portal | Small | High | Agents need to see full contact context without switching to SMS |
-| P1 | Agent self-onboarding flow | Medium | High | Required for any scale beyond hand-held onboarding |
-| P1 | Billing enforcement at pipeline level | Small | High | Canceled agents can still use the system |
-| P2 | Agent analytics/reporting dashboard | Medium | Medium | Solo agents care deeply about their numbers |
-| P2 | Conversation reply from portal | Medium | Medium | Agent should be able to compose messages from the UI |
-| P2 | Settings page in agent portal (preferences, style, autonomy rules) | Small | Medium | Agents need to customize behavior without operator help |
-| P3 | Document handling for transactions | Large | Medium | Important but not blocking for v1 |
-| P3 | MLS integration | Large | Medium | Big feature, can be manual entry for v1 |
+Current integrations cover the communication layer well but leave significant real estate-specific gaps:
 
----
+| Integration | Status | Quality |
+|------------|--------|---------|
+| Twilio (SMS/voice) | Implemented | Strong -- signature validation, delivery tracking, cost tracking, daily voice cap |
+| Vapi (AI voice) | Implemented | Service layer exists, voice daily cap, assistant mapping, transcript processing |
+| Google Calendar | Implemented | OAuth-based, event creation for showings, availability checking |
+| Google Business Profile | Config exists | Review link stored in agents table but no active API integration |
+| Firebase (push) | **Stubbed** | Notification tier system designed but `send_push_notification` only logs -- no actual FCM delivery |
+| Stripe (billing) | Implemented | Subscription lifecycle, webhook handling, 3 plan tiers, 14-day trial, proration |
+| SendGrid (email) | Implemented | Inbound parsing + outbound sending, API key + inbound secret |
+| Redis | Implemented | Rate limiting, caching via shared connection pool, fail-open on unavailability |
+| Anthropic Claude | Implemented | Model tiering, exponential backoff retry, per-agent token tracking |
+| RAG (Voyage AI + pgvector) | Implemented | Embedding generation, HNSW indexing, cosine similarity search |
 
-## UX Flow Continuity
+Missing integrations that solo agents rely on daily:
 
-### A Day in the Life: Solo Agent Using Calloway
+- **MLS/IDX feeds** -- No property data integration. Listings are manually entered via natural language parsing. Agents spend significant time maintaining listing data that could be auto-synced.
+- **DocuSign/Dotloop** -- No document signing integration. Transaction management tracks dates but cannot generate or route documents. The offer command requests documents from clients but has nowhere to store them.
+- **CRM import/export** -- No connection to existing CRMs (Follow Up Boss, kvCORE, Sierra). Agents switching to Calloway cannot import their contact database.
+- **Zillow/Realtor.com** -- No lead capture from major portals. These are the #1 lead source for most solo agents.
+- **Social media** -- No Facebook/Instagram integration for lead generation or listing promotion.
+- **Zapier/webhooks** -- No outbound webhook or Zapier integration for connecting to third-party tools agents already use.
 
-**7:30 AM — Morning briefing**
-The daily scanner compiles a briefing with today's showings, pending tasks, gap alerts, new leads, and DOM warnings. However, **the push notification is stubbed**, so the agent never receives it. If they open the agent portal, the dashboard shows some of this data (upcoming showings, pending approvals, active contacts) but not the briefing itself.
-
-**Gap: No briefing delivery mechanism. No briefing view in the portal.**
-
-**8:00 AM — New lead texts in**
-"Hi, I saw your listing on Oak Street. Is it still available?" The SMS hits Twilio → webhook → pipeline. Contact is auto-created as `new_lead` with `lead_source` tracked. The AI classifies intent, assembles context (including RAG), composes a response, and sends it. The agent gets a push notification... **except they don't, because Firebase is stubbed.**
-
-If the agent checks the portal, they can see the new conversation in the conversation list. They can read the messages. But they cannot reply, add notes, or update the contact from the portal.
-
-**Gap: No notification. No ability to act from portal.**
-
-**9:00 AM — Showing request**
-The new lead wants to see the Oak Street listing at 2 PM. The AI creates a showing hold with 30-minute expiry. If the listing is occupied, it routes to the seller approval flow. The agent should receive an approval notification... **which is stubbed.**
-
-The agent can see the showing in the schedule view of the portal. But they cannot confirm or cancel it from the portal — they have to text "Confirm [showing]" to the AI.
-
-**Gap: No approval/confirmation from portal.**
-
-**10:00 AM — Agent texts "Who needs follow-up?"**
-The AI runs `analyze_contact_gaps()` and returns a list of contacts overdue for contact, sorted by urgency. This is well-implemented. The agent can then text "Text Sarah and check in about the inspection" and the AI composes and sends a personalized message.
-
-**This SMS command flow works well.** It's the product's strongest interaction pattern.
-
-**12:00 PM — Agent texts "I've got Mike, handling him directly"**
-Silent mode activates for Mike. The AI stops auto-messaging him. When the agent texts "Back from Mike — he wants to see 456 Elm on Thursday," the AI reactivates messaging, creates a showing, and logs notes.
-
-**This handoff flow is excellent UX — genuinely thoughtful.**
-
-**2:00 PM — Showing happens**
-The agent meets the lead at Oak Street. After the showing, there's no mechanism to log showing feedback from the portal. The `showings.feedback` field exists in the schema but there's no portal UI to fill it in.
-
-**Gap: No showing feedback entry.**
-
-**4:00 PM — Offer preparation**
-The agent texts "Prep an offer for Sarah on Oak Street." The AI sends Sarah a message requesting pre-approval and proof of funds, creates a transaction record, and notifies the agent... **via a stubbed push notification.**
-
-**6:00 PM — End of day review**
-The agent opens the portal to see their day. Dashboard shows message count, showing count, active contacts. But there's no analytics: no conversion metrics, no pipeline value, no comparison to last week.
-
-**Gap: No end-of-day summary or analytics.**
-
-### Verdict on End-to-End Usability
-The SMS command interface provides a surprisingly complete interaction model. An agent who is comfortable texting commands to the AI can accomplish most daily tasks. But the portal — which should be the *primary* interface for review, analysis, and batch actions — is a passive display. A solo agent would need to **augment Calloway with their existing CRM** rather than replace it.
+**#1 Gap: No MLS/IDX integration.** The listing table requires manual entry of every property. For solo agents managing 5-20 active listings plus showing properties from the broader MLS, this is a significant friction point. An MLS feed would auto-populate listings, keep prices and statuses current, and enable property matching against lead preferences without manual data entry.
 
 ---
 
-## Recommendations
+### 6. Compliance & Security — 8 / 10
 
-### Top 5 Actions Before Launch
+**Justification:**
 
-1. **Implement agent portal write actions.** Add POST routes for: approve/reject trigger, send message to contact, create/edit contact, confirm/cancel showing. These are the minimum for the portal to be a work tool rather than a display screen. Estimated effort: 1-2 weeks.
+This is a strong area, especially for a v1 product:
 
-2. **Ship Firebase push notifications.** The notification tier system (urgent, action_needed, informational, briefing) is fully designed. Replace the TODO stub in `app/services/firebase_service.py` with actual `firebase_admin.messaging.send()` calls. Add FCM token storage to the `agents` table. Estimated effort: 2-3 days.
+- **TCPA compliance** -- Full keyword handling (STOP/HELP/START plus affirmative consent words), consent lifecycle tracking (pending/granted/revoked), consent logging with audit trail (`consent_log` table), consent expiry detection (48-hour check for pending contacts), and hard gating via `check_consent_before_send` that blocks messages to revoked contacts. The function is documented as "CRITICAL: Hard check -- NEVER send a message to a contact with consent_status != 'granted'."
+- **Row-Level Security** -- Every single data table (all 15) has RLS enabled with `agent_isolation` policies using `current_setting('app.current_agent_id')::uuid`. Tenant data is isolated at the database level, not just the application level. This is the correct approach for multi-tenant SaaS.
+- **Authentication** -- Operator console uses password auth with CSRF protection on all POST routes. Agent portal uses phone-based OTP (6-digit codes with 10-minute expiry). Both use signed session cookies with `httponly`, `samesite=lax`, and `secure` flags (secure only in non-development environments).
+- **Production safeguards** -- `validate_production_secrets()` refuses to start the app in production with default credentials (`CONSOLE_PASSWORD=changeme` or default session secret). Calls `sys.exit(1)` -- there is no bypass.
+- **Twilio signature validation** -- `RequestValidator` enforced in production; skipped in development only when credentials are absent.
+- **Rate limiting** -- Per-contact (30/hour, 100/day), per-agent cost cap ($15/day), and unknown number throttling (10/day). Prevents abuse and runaway costs.
+- **CORS** -- Explicit origin allowlist in production, permissive only in development.
+- **Session security** -- `itsdangerous.URLSafeTimedSerializer` for session tokens with max age enforcement.
 
-3. **Build a contact detail page in the agent portal.** Route: `/agent/contacts/{contact_id}`. Show: name, phone, email, lifecycle stage, lead score, preferences, conversation history, linked transactions, linked listings, notes, drip enrollment status. This is the single most-used screen in any CRM. Estimated effort: 3-5 days.
+Gaps:
 
-4. **Add agent self-onboarding.** A `/agent/signup` flow: enter name, email, phone, market. Auto-create agent record, provision Twilio number (or accept existing), seed default drip campaigns, create Stripe trial subscription, send welcome SMS. The console already has `create_agent_from_wizard` — expose a self-service version. Estimated effort: 1 week.
+- **No encryption at rest** -- Messages and contact data are stored in plaintext in PostgreSQL. For a product handling PII (names, phone numbers, emails) and financial information (offer prices, commission), at-rest encryption or column-level encryption for sensitive fields would strengthen compliance posture.
+- **No audit logging** -- Beyond `consent_log`, there is no general audit trail for data access, configuration changes, or administrative actions. The `error_log` table captures errors but not normal operations.
+- **No SOC 2 or data retention policies** -- No automated data purging, retention schedules, or compliance certifications.
+- **Single-factor auth** -- Both portals use single-factor authentication (password or OTP). No MFA option for operator console access.
+- **Session secret sharing** -- Agent portal derives its serializer from `CONSOLE_SESSION_SECRET + "-agent"`. A compromise of the console secret affects agent sessions.
 
-5. **Add billing enforcement to the message pipeline.** In `app/api/webhooks.py` `process_inbound_message`, after resolving the agent, call `check_message_quota()` and block processing if the subscription is canceled or the quota is exhausted. Currently an agent with a canceled subscription can still use the system indefinitely. Estimated effort: 1 day.
+**#1 Gap: No audit logging beyond consent.** Real estate transactions involve fiduciary duties and regulatory oversight. A general audit log capturing data access, configuration changes, and administrative actions would strengthen compliance posture and provide accountability. This becomes increasingly important as the platform scales and handles more sensitive transaction data.
+
+---
+
+### 7. Observability — 7 / 10
+
+**Justification:**
+
+Operator-facing observability is solid; agent-facing and proactive observability are thin:
+
+**What exists:**
+- **Structured JSON logging** -- Every log line includes timestamp, level, correlation_id, logger name, and contextual fields (agent_id, contact_id, channel, command_type, model_used, tokens_used, latency_ms, tool_name, event_type, conversation_id). This is production-grade logging.
+- **Correlation IDs** -- Request-scoped correlation IDs generated in `CorrelationMiddleware`, propagated via `contextvars`, and returned in response headers (`x-correlation-id`). Enables end-to-end request tracing.
+- **Error tracking** -- `error_log` table with module, severity, message, stack_trace, and context_json. Operator console has a dedicated Errors page.
+- **Cost tracking** -- `usage_metrics` table tracks daily per-agent metrics across 14 dimensions: messages sent/received, LLM calls, tokens, LLM cost cents, voice minutes, SMS segments sent/received, SMS cost cents, voice cost cents, showings booked, and triggers fired. Operator console has a Costs page.
+- **Health endpoints** -- Basic (`/health`), detailed (`/health/detailed` testing DB, Redis, Anthropic), and metrics (`/health/metrics` returning agent count, contact count, messages today, pending triggers).
+- **Tool execution logging** -- `tool_executions` table records every tool call with input/output JSON, status, error messages, and latency in milliseconds.
+- **Harness tracing** -- `harness_traces` table captures full pipeline traces for the testing harness, including intent detected, model used, and total duration.
+- **Token monitoring** -- In-memory per-agent per-day token usage tracking in `AnthropicClient` with cost calculation per model.
+
+**What is missing:**
+- **No external APM or alerting** -- No Datadog, New Relic, Sentry, PagerDuty, or similar. Errors are logged to the database and stdout but there are no alerting rules, dashboards, or anomaly detection. If the trigger worker crashes at 2 AM, nobody is notified.
+- **No agent-facing analytics** -- Agents cannot see their own response times, lead conversion rates, cost trends, AI accuracy, or pipeline velocity. The scores page shows lead scores but not operational metrics.
+- **No SLA monitoring** -- No tracking of message response latency (time from inbound to outbound), showing booking success rates, or trigger execution reliability.
+- **No log aggregation** -- Logs go to stdout as structured JSON. No mention of ELK, Loki, CloudWatch, or any aggregation service.
+- **No uptime monitoring** -- Health endpoints exist but there is no external service pinging them.
+
+**#1 Gap: No external alerting or APM.** The observability infrastructure (structured logs, correlation IDs, error table, tool execution logging) is well-designed for debugging after the fact, but there is no proactive alerting when things go wrong. If the trigger worker crashes, if Anthropic rate-limits spike, if message delivery failures increase, or if an agent's costs spike anomalously, nobody is notified until they manually check the console.
+
+---
+
+### 8. Business Model Readiness — 7 / 10
+
+**Justification:**
+
+The billing and multi-tenancy infrastructure is functional:
+
+- **Stripe integration** -- Full subscription lifecycle: customer creation, subscription management, plan changes with proration, cancellation (at period end or immediate), webhook handling for subscription.updated, invoice.paid, and invoice.payment_failed events.
+- **Three-tier pricing** -- Starter ($49/mo: 200 msgs, 50 contacts, SMS, templates), Professional ($99/mo: 600 msgs, 200 contacts, SMS+voice, AI reasoning, daily briefings), Enterprise ($199/mo: 1500 msgs, unlimited contacts, all channels, full autonomy, seller ops, priority support). Tiers are well-differentiated with clear upgrade incentives.
+- **14-day trial** -- Built into the subscription creation flow with `TRIAL_DAYS = 14`.
+- **Usage tracking** -- Per-agent daily metrics across 14 dimensions. Granular enough for usage-based billing if needed.
+- **Multi-tenancy** -- Database-level tenant isolation via RLS on all 15 tables. Operator console manages tenants with full CRUD. Onboarding wizard exists.
+- **Cost visibility** -- Operator console has a dedicated Costs page with 30-day summaries, per-agent breakdowns, and model tier analysis.
+- **Message quota** -- `check_message_quota` function exists in billing_service.py (lines 361-395) for plan limit enforcement.
+
+Gaps:
+
+- **Enforcement completeness unclear** -- While `check_message_quota` exists, its integration into the pipeline at every message processing point needs verification. Contact limits defined in tiers may not be enforced at contact creation time.
+- **No self-service plan management** -- Agents cannot view their plan, upgrade/downgrade, update payment methods, or view invoices from the agent portal. All billing management is operator-driven via the console.
+- **No revenue analytics** -- No MRR tracking, churn analysis, LTV calculations, or cohort analysis in the operator console. The operator can see costs but not revenue health.
+- **No metered billing** -- Current plans are flat-rate with limits. No pay-per-message or pay-per-AI-call overage model. Agents who exceed limits are presumably blocked rather than being able to pay for more.
+- **No usage alerts** -- No notification to agents when they approach 80% or 100% of their tier limits.
+
+**#1 Gap: No self-service billing for agents.** Agents cannot manage their own subscription from the portal. Viewing their plan, upgrading, downgrading, updating payment methods, or accessing invoices all require operator intervention. For a self-serve SaaS product targeting solo agents, this creates unnecessary support burden and friction.
+
+---
+
+## Score Summary
+
+| # | Dimension | Score | #1 Gap |
+|---|-----------|-------|--------|
+| 1 | Feature Completeness | 7 | No client-facing portal |
+| 2 | Architecture Maturity | 8 | Synchronous DB in async handlers |
+| 3 | User Experience Balance | 7 | Agent portal is read-only |
+| 4 | AI Capability Depth | 8 | No conversation summarization |
+| 5 | Integration Breadth | 6 | No MLS/IDX integration |
+| 6 | Compliance & Security | 8 | No audit logging |
+| 7 | Observability | 7 | No external alerting/APM |
+| 8 | Business Model Readiness | 7 | No self-service billing for agents |
+| **Overall** | | **7.1** | |
+
+---
+
+## Top 5 Gaps to Address Next (Prioritized)
+
+### 1. Agent Portal Write Actions + Firebase Push Notifications
+
+**Impact:** Critical -- the portal is currently a display screen, and notifications never reach agents
+**Effort:** Medium (2-3 weeks combined)
+
+These two gaps are listed together because they are interdependent: enabling portal actions without notifications means agents do not know when there is something to act on.
+
+**Portal actions needed:**
+- Approve/reject pending triggers from the dashboard
+- Send a quick message or reply to a conversation
+- Create, edit, and view contact details (including preferences, scores, linked transactions)
+- Confirm or cancel showings from the schedule view
+- Enroll contacts in drip campaigns
+
+**Firebase implementation:**
+- Replace the TODO stub in `firebase_service.py` with actual FCM delivery
+- Add FCM token storage to the agents table (or a new table)
+- Ensure morning briefings, trigger approvals, delivery failures, and escalations actually reach agents
+
+Without these, the product requires agents to live in their SMS app to use Calloway. That is acceptable as a supplement but insufficient as a primary operational tool.
+
+### 2. MLS/IDX Integration
+
+**Impact:** High -- eliminates manual listing entry, enables automated property matching
+**Effort:** High (4-6 weeks)
+
+Integrate with RESO Web API or a data provider (Spark, Bridge, Trestle) to:
+- Auto-import agent listings from MLS and keep prices, statuses, and photos current
+- Enable automated buyer-listing matching against `lead_preferences` (areas, price range, beds, baths, property type)
+- Surface "new on market" alerts to relevant leads via the existing trigger system
+- Feed listing data into the RAG system for richer AI responses
+
+Solo agents cannot maintain accurate listing data manually across their active and showing inventory. This integration converts Calloway from a communication tool into a true operational platform. It also enables the AI to proactively match leads to new listings -- a high-value automation that justifies the subscription cost.
+
+### 3. Async Database Layer
+
+**Impact:** High -- production reliability under concurrent load
+**Effort:** Medium (2-3 weeks)
+
+Migrate from synchronous `psycopg2`/`get_db_connection()` to `asyncpg` or `psycopg` async mode:
+- Eliminates event loop blocking in FastAPI handlers
+- Enables true concurrent request handling for multiple simultaneous inbound messages
+- Critical before scaling beyond approximately 20 concurrent agents
+
+This is a prerequisite for production scalability. The current architecture will hit performance walls as tenant count grows and multiple agents receive messages simultaneously. The migration is mechanical but touches every file that calls `get_db_connection()`.
+
+### 4. Client-Facing Portal (Read-Only)
+
+**Impact:** High -- reduces agent workload, improves client experience, differentiates from competitors
+**Effort:** Medium (3-4 weeks)
+
+Build a lightweight web portal accessible via shareable links (no login required, token-based access) where clients can:
+- View their upcoming showing details (address, time, access instructions)
+- See transaction milestone progress (offer submitted -> inspection -> appraisal -> closing)
+- Browse active listings matching their saved preferences
+- Confirm, reschedule, or cancel showings without texting
+
+This is the product's largest user experience gap. Every client interaction currently requires an SMS round-trip. A self-service portal for routine status checks would reduce message volume (improving unit economics on lower-tier plans) while making clients feel more informed and engaged. It also provides a surface to display the agent's brand, which matters in real estate.
+
+### 5. Self-Service Billing + Plan Limit Enforcement
+
+**Impact:** Medium -- protects unit economics, reduces operator burden, enables scale
+**Effort:** Medium (2-3 weeks)
+
+- Build agent portal billing page: current plan, usage vs. limits (with progress bars), upgrade/downgrade buttons, payment method management, invoice history
+- Ensure plan limits are enforced at the pipeline level: message counts checked per billing cycle, contact limits checked at creation time, graceful degradation with template-only responses when over limit plus upgrade prompt
+- Add usage alerts at 80% and 100% of tier limits via push notification
+- Add overage options for agents who want to pay for more rather than being blocked
+
+Without enforcement and self-service, the pricing model is aspirational. Agents on Starter can potentially consume Professional-tier resources, and every plan change requires operator intervention. Neither is acceptable for a self-serve SaaS product at scale.
+
+---
+
+## Honorable Mentions (Gaps 6-10)
+
+6. **Conversation summarization** -- Compress older message history into running summaries to preserve context within the 8000 token budget. Critical for long-term client relationships which are the norm in real estate (buyers search for months).
+
+7. **External alerting/APM** -- Integrate Sentry for error tracking and PagerDuty/Opsgenie for on-call alerting. Configure alerts for trigger worker health, message delivery failure rate, API error rate, and cost anomalies. Low effort, high operational value.
+
+8. **CRM import/export** -- Enable agents to migrate from Follow Up Boss, kvCORE, or CSV with a one-time import. Without this, adoption requires agents to manually re-enter their entire contact database, which is a dealbreaker for anyone with 100+ contacts.
+
+9. **Agent analytics dashboard** -- Response time trends, lead conversion funnel, AI accuracy metrics (using the existing `feedback_score` field), cost breakdown by channel, commission pipeline value. Solo agents are deeply metrics-driven.
+
+10. **Audit logging** -- General-purpose audit trail beyond consent events for data access, configuration changes, and administrative actions. Increasingly important as the platform handles sensitive transaction data and scales to more agents.
+
+---
+
+## Conclusion
+
+Calloway is a 7.1/10 product with 8/10 foundations. The AI pipeline, tenant isolation, compliance infrastructure, trigger/automation system, and operator tooling are genuinely production-grade. The SMS command interface is surprisingly complete and represents the product's strongest interaction model.
+
+The primary imbalance is that the product has depth without breadth on the user experience surface. The backend can do far more than the frontend exposes. The agent portal is a read-only dashboard when it needs to be a work tool. Push notifications are designed but not delivered. Clients have no self-service surface at all.
+
+The integration layer covers communication channels well but misses real estate-specific data sources (MLS, DocuSign) that would make the difference between "useful supplement" and "indispensable operating system."
+
+Addressing the top 5 gaps in order would advance the overall score to approximately 8.5/10 and position Calloway for meaningful market traction with solo agents. The architectural foundation is strong enough to support this growth -- the investment is primarily in surface area and integrations, not in rearchitecting.
