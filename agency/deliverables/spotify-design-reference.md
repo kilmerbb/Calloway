@@ -1,7 +1,8 @@
-# Spotify Design Language Reference (2024-2026)
+# Spotify Design System (Encore) Reference for Calloway
 
-> Comprehensive reference for product designers adapting Spotify's visual language.
-> Compiled March 2026 from official Spotify Design publications, Encore design system documentation, developer guidelines, and industry analysis.
+**Prepared by:** Lyra, Product Designer
+**Date:** 2026-03-11
+**Purpose:** Reference document for adapting Spotify's Encore design system principles to Calloway's UI/UX (Jinja2 + HTMX, server-rendered dashboard).
 
 ---
 
@@ -10,727 +11,743 @@
 1. [Design Principles](#1-design-principles)
 2. [Color System](#2-color-system)
 3. [Typography](#3-typography)
-4. [Component Patterns](#4-component-patterns)
-5. [Layout & Spacing](#5-layout--spacing)
-6. [Navigation Patterns](#6-navigation-patterns)
-7. [Interaction & Motion](#7-interaction--motion)
-8. [Key Screen Breakdowns](#8-key-screen-breakdowns)
-9. [Design System Architecture (Encore)](#9-design-system-architecture-encore)
-10. [What Makes Spotify "Feel" Like Spotify](#10-what-makes-spotify-feel-like-spotify)
+4. [Spacing & Layout](#4-spacing--layout)
+5. [Component Patterns](#5-component-patterns)
+6. [Dark Mode Approach](#6-dark-mode-approach)
+7. [Mobile-First Patterns](#7-mobile-first-patterns)
+8. [Empty States & Loading](#8-empty-states--loading)
+9. [Accessibility Practices](#9-accessibility-practices)
+10. [Summary: What Calloway Should Adopt](#10-summary-what-calloway-should-adopt)
 
 ---
 
 ## 1. Design Principles
 
-Spotify consolidated its design principles from six to three in 2020. These remain the active guiding principles:
+Spotify consolidated its design principles to three core tenets in 2020. Encore, the internal design system, operationalizes these into component-level decisions.
 
 ### Relevant
-> "Spotify is made for you — it should feel personalized."
+> "Spotify is made for you -- it should feel personalized."
 
-- Present the right information at the right time, to the right person, in the right context.
-- Avoid "one-size-fits-all" experiences.
-- Personalization is not decoration — it is the core value proposition.
+Present the right information at the right time, in the right context. Avoid one-size-fits-all experiences. Personalization is the core value proposition, not decoration.
 
 ### Human
 > "While rooted in technology, it's all about people."
 
-- Dial up emotion when appropriate, stick to logic when needed — just like people.
-- The experience should feel dynamic, like culture itself.
-- Intuitive and conversational, never overly clever, technical, or coldly functional.
+Dial up emotion when appropriate, stick to logic when needed. The experience should feel dynamic, intuitive, and conversational -- never overly clever, technical, or coldly functional.
 
 ### Unified
 > "Everything designed looks and feels reassuringly Spotify."
 
-- Coherence across products builds familiarity and trust.
-- Follow the design system; start by reusing, not reinventing.
-- A user should know they are in Spotify regardless of platform or surface.
+Coherence across products builds familiarity and trust. Follow the design system; start by reusing, not reinventing. A user should recognize the product regardless of platform or surface.
 
 ### Quality Framework: TUNE
-Spotify also uses the TUNE framework to evaluate experience quality:
-- **T**one — Is the voice right for the brand?
-- **U**sable — Is it accessible to everyone?
-- **N**ecessary — Is that functionality truly needed?
-- **E**motive — Does it feel good to use? Does it feel like somebody cares?
+
+Spotify evaluates experience quality using the TUNE framework:
+- **T**one -- Is the voice right for the brand?
+- **U**sable -- Is it accessible to everyone?
+- **N**ecessary -- Is that functionality truly needed?
+- **E**motive -- Does it feel good to use? Does it feel like somebody cares?
+
+### Content-First Philosophy
+
+The UI exists to serve content, not compete with it. Dark backgrounds recede so artwork and text take center stage. Every element justifies its existence by supporting the user's primary task.
+
+### Configuration Over Customization
+
+Encore favors configuration (constrained options that guarantee cohesion) over open customization (freedom that risks inconsistency). When both are needed, configuration is layered on top of customizable primitives.
+
+### Calloway Adoption Notes
+
+| Principle | Calloway Relevance |
+|-----------|-------------------|
+| Content-first | **High.** The console should let conversation data, lead info, and agent actions be the focal point. Chrome should be minimal. |
+| Relevant / personalized | **High.** Each agent tenant sees only their data. The UI should surface what matters now (pending approvals, hot leads, upcoming showings). |
+| Human tone | **High.** Calloway communicates with real estate agents who are not technical. UI copy should be warm, conversational, sentence case. |
+| Unified / consistent | **High.** With HTMX partials and Jinja2 macros, define a set of configurable component templates rather than ad-hoc HTML. |
+| TUNE framework | **Adopt** as a quality checklist for console feature reviews. |
 
 ---
 
 ## 2. Color System
 
-### 2.1 Core Brand Colors
-
-| Name | Hex | RGB | Usage |
-|------|-----|-----|-------|
-| **Spotify Green** | `#1ED760` | 30, 215, 96 | Primary brand color, logo, key CTAs |
-| **Black** | `#191414` | 25, 20, 20 | Logo background, deep surfaces (note: not pure black) |
-| **White** | `#FFFFFF` | 255, 255, 255 | Primary text on dark backgrounds |
-
-### 2.2 UI Color Palette
+### 2.1 Brand Colors
 
 | Name | Hex | Usage |
 |------|-----|-------|
-| **Primary Background** | `#121212` | Main app background — near-black, not pure black |
-| **Elevated Surface** | `#181818` | Cards, panels, slightly raised surfaces |
-| **Surface Highlight** | `#212121` | Hovered cards, active surfaces |
-| **Elevated Surface 2** | `#282828` | Higher elevation elements, active states |
-| **Subdued Surface** | `#333333` | Progress bar tracks, dividers |
-| **Medium Gray** | `#535353` | Secondary icons, inactive controls |
-| **Subdued Text** | `#A7A7A7` | Tertiary text, timestamps, metadata |
-| **Secondary Text** | `#B3B3B3` | Subtitle text, artist names in lists |
-| **Primary Text** | `#FFFFFF` | Song titles, headings, primary content |
-| **Spotify Green** | `#1DB954` | UI accent — shuffle, active indicators, progress bars |
-| **Bright Green** | `#1ED760` | Primary CTA buttons, follow buttons |
+| Spotify Green | `#1ED760` | Primary brand, logo, key CTAs |
+| Black (brand) | `#191414` | Logo background (slightly warm, not pure black) |
+| White | `#FFFFFF` | Primary text on dark, backgrounds in light mode |
 
-### 2.3 Contextual / Dynamic Colors
+### 2.2 UI Surface Palette
 
-| Color | Hex (approx.) | Usage |
-|-------|---------------|-------|
-| **Error Red** | `#E91429` | Error states, destructive actions |
-| **Liked/Heart Green** | `#1DB954` | Liked songs indicator |
-| **Free Tier Accent** | `#1DB954` | Green accents for free users |
-| **Premium Gold** | Varies | Premium badge and upsell |
+| Name | Hex | Usage |
+|------|-----|-------|
+| Background (base) | `#121212` | Main app background (near-black, not pure black) |
+| Elevated Surface 1 | `#181818` | Cards, panels, slightly raised surfaces |
+| Elevated Surface 2 | `#212121` | Hovered cards, active surfaces |
+| Elevated Surface 3 | `#282828` | Higher elevation, active states |
+| Subdued Surface | `#333333` | Progress bar tracks, dividers |
+| Medium Gray | `#535353` | Secondary icons, inactive controls, disabled text |
+| Subdued Text | `#A7A7A7` | Tertiary text, timestamps, metadata |
+| Secondary Text | `#B3B3B3` | Subtitles, artist names, descriptions |
+| Primary Text | `#FFFFFF` | Headings, song titles, primary content |
+| UI Green (accent) | `#1DB954` | Shuffle, active indicators, progress fills |
+| CTA Green | `#1ED760` | Primary CTA button backgrounds |
 
-### 2.4 Gradient System
+### 2.3 Functional Colors
 
-- **Header gradients**: Album/playlist pages use a gradient derived from the dominant color of the artwork, fading from a saturated color at the top to `#121212` at the bottom.
-- **Gradient range**: Typically from approximately `#404040` (lighter gray) to `#181818` (near-black).
-- **Now Playing**: Background uses the album art's dominant color palette to create ambient gradients.
-- **Home page**: Section headers sometimes have subtle warm/cool tinted gradients.
+| Name | Hex | Usage |
+|------|-----|-------|
+| Error Red | `#E91429` | Error states, destructive actions |
+| Success Green | `#1ED760` | Success confirmations |
+| Warning | `#FFA42B` | Warning states |
 
-### 2.5 Dark Mode Philosophy
+### 2.4 Semantic Token Architecture
 
-Spotify is dark-mode-native — there is no light mode. Key principles:
-- **`#121212` not `#000000`**: Pure black is avoided. The slightly warm near-black reduces eye strain and allows elevation through lighter grays.
-- **Content-first darkness**: The dark background recedes, allowing album artwork to be the primary color source on any given screen.
-- **Elevation through luminance**: Higher surfaces are lighter grays, not shadows. This inverts the typical light-mode elevation model.
-- **Semantic tokens**: Spotify's internal Encore system uses semantic color tokens (e.g., background-base, background-elevated, background-overlay) that map to specific grays. The exact token names are proprietary, but the pattern follows: base → raised → overlay, with each level being a lighter shade of gray.
+Spotify's initial token system was non-semantic (raw values like `green-500`). They found this made safe changes impossible because the same token was used in unrelated contexts. They now invest heavily in **semantic tokens** that encode intent:
 
-### 2.6 Button Color Strategy: "Better in Black"
+- **Non-semantic (raw):** `green-500`, `gray-800` -- raw palette values
+- **Semantic (intent):** `background-base`, `text-primary`, `action-primary`, `surface-elevated` -- encode what the color means in context
 
-Spotify made a significant design decision about their green CTA buttons:
+This lets them change the value of `action-primary` without breaking `background-base`, even if both were originally the same hex.
 
-- **Old approach**: White text on a darkened "UI Green" (`#1DB954`) — contrast ratio was marginal.
-- **New approach**: Black text on bright Spotify Green (`#1ED760`) — contrast ratio of **10.9:1**.
-- On gray UI backgrounds, Spotify Green achieves a **9.7:1** contrast ratio.
-- This change allowed Spotify to use their vibrant original green instead of a muted version, making buttons pop more while being dramatically more accessible.
-- Buttons also changed from UPPER CASE to sentence case, improving readability and localization across 60+ languages.
+Spotify built a **color-theming algorithm** that takes a few input values and generates an entire color theme with **guaranteed accessible contrast ratios**. This is how they handle contextual theming (e.g., album-colored backgrounds) without manually checking every combination.
+
+### 2.5 Button Color Strategy: "Better in Black"
+
+A significant design decision about green CTA buttons:
+
+- **Old approach:** White text on a darkened "UI Green" (`#1DB954`) -- marginal contrast
+- **New approach:** Black text on bright green (`#1ED760`) -- contrast ratio of **10.9:1**
+- On gray backgrounds, Spotify Green achieves **9.7:1** contrast ratio
+- Buttons also changed from UPPER CASE to sentence case, improving readability
+
+### Calloway Adoption Notes
+
+- **Adopt:** Semantic token naming as CSS custom properties (`--color-bg-base`, `--color-text-primary`, `--color-action-primary`). This is the single most valuable pattern from Encore.
+- **Adopt:** The dark surface palette structure (base / elevated / muted / text hierarchy). Works well for dashboard UIs.
+- **Adopt:** Separate functional colors for error/success/warning states.
+- **Adapt:** Calloway's brand colors differ from Spotify's, but the token architecture is directly applicable. Define Calloway's palette, then map it through the same semantic layer.
+- **Skip:** The color-theming algorithm (Calloway does not need per-content dynamic theming).
+- **Skip:** Gradient storytelling (album-derived gradients are Spotify-specific).
+
+### CSS Custom Properties Template
+
+```css
+/* Backgrounds */
+--color-bg-base:         #121212;
+--color-bg-elevated:     #181818;
+--color-bg-elevated-2:   #212121;
+--color-bg-highlight:    #282828;
+--color-bg-press:        #333333;
+
+/* Text */
+--color-text-primary:    #FFFFFF;
+--color-text-secondary:  #B3B3B3;
+--color-text-subdued:    #A7A7A7;
+--color-text-disabled:   #535353;
+
+/* Brand */
+--color-accent:          #1ED760;
+--color-accent-ui:       #1DB954;
+
+/* Functional */
+--color-error:           #E91429;
+--color-success:         #1ED760;
+--color-warning:         #FFA42B;
+
+/* Interactive */
+--color-btn-primary-bg:    #1ED760;
+--color-btn-primary-text:  #000000;
+--color-btn-secondary-border: #727272;
+--color-btn-hover-overlay: rgba(255, 255, 255, 0.1);
+```
 
 ---
 
 ## 3. Typography
 
-### 3.1 Current Typeface: Spotify Mix (2024-Present)
+### 3.1 Typefaces
 
-Spotify launched **Spotify Mix** in May 2024, replacing Spotify Circular. It was created in partnership with Berlin-based foundry **Dinamo Typefaces** over approximately 18 months.
+**Spotify's proprietary typefaces (not available for licensing):**
 
-**Character:**
-- A typographic "remix" — blending geometric, grotesque, and humanist characteristics.
-- Sharp flicks of humanist strokes combined with smoother grotesque curves.
-- Distinctive almond-shaped counters in letters like "p", "d", "g" — subtly evoking audio wave transmission.
+- **Circular** (2015-2024): Geometric sans-serif by Lineto. Clean, modern, friendly. Four weights plus italics.
+- **Spotify Mix** (2024+): Custom variable font by Dinamo Typefaces. Variable weight, width, slant, and optical size axes.
 
-**Variable Font Axes:**
-- **Weight**: From thin to black (continuous, not discrete stops)
-- **Width**: From condensed to extended
-- **Slant**: Upright to italic (continuous)
-- **Optical Size**: Optimized for different display sizes
+**Spotify's recommended fallback stack for third parties:**
+```
+font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+```
 
-**Usage Philosophy:**
-- Condensed widths for narrow/tall screens (mobile).
-- Extended widths for wide layouts (desktop, landscape tablet).
-- Variable weight allows precise hierarchical tuning without managing multiple font files.
-- Optimized for legibility at small sizes (mobile body text) while retaining expressive flair at large sizes (headings, marketing).
+### 3.2 Typographic Scale
 
-### 3.2 Previous Typeface: Spotify Circular (2015-2024)
+Spotify's exact internal scale is proprietary, but UI analysis reveals this approximate system:
 
-- **Designer**: Lineto (Swiss type foundry)
-- **Classification**: Geometric sans-serif
-- **Weights**: Black, Bold, Medium, Book, Light (each with italic)
-- **Fallback stack**: Helvetica Neue, Arial, sans-serif
-- Circular is still referenced in many Figma resources and older implementations.
+| Level | Mobile | Desktop | Weight | Usage |
+|-------|--------|---------|--------|-------|
+| Display | 28-32px | 48-64px | Bold/Black | Hero headers, featured content |
+| H1 | 24px | 32px | Bold (700) | Page titles, section headers |
+| H2 | 20px | 24px | Bold (700) | Card titles, subsection headers |
+| H3 | 16px | 18px | Bold (700) | List item titles, song names |
+| Body | 14px | 14-16px | Regular (400) | Descriptions, body content |
+| Caption | 12px | 12px | Regular (400) | Timestamps, tertiary info |
+| Overline | 11-12px | 12px | Bold, uppercase | Category labels, section tags |
 
-### 3.3 Typographic Scale (Estimated from UI Analysis)
+### 3.3 Typography Principles
 
-Spotify's exact internal scale is proprietary within Encore, but UI analysis reveals this approximate system:
+- **Hierarchy through weight, not just size:** Spotify differentiates elements by switching from Bold to Regular at the same size, not always by changing size.
+- **Color as hierarchy:** Primary text `#FFFFFF`, secondary `#B3B3B3`, tertiary `#A7A7A7` -- three clear levels using the same font.
+- **Sentence case** for all interactive UI text (buttons, labels, navigation). Never ALL CAPS except for overlines.
+- **Line height:** Generous (approximately 1.3-1.5x), especially in body text, for scanability.
+- **Letter spacing:** Slightly tighter on large headings, standard on body, slightly wider on overlines/uppercase.
+- **Truncation:** Long text truncates with ellipsis rather than wrapping -- maintaining visual rhythm.
+- **Baseline grid:** Line heights divisible by 4 for alignment to a 4pt baseline grid.
 
-| Level | Size (Mobile) | Size (Desktop) | Weight | Usage |
-|-------|---------------|-----------------|--------|-------|
-| **Display** | 28-32px | 48-64px | Bold/Black | Hero headers, featured content |
-| **H1** | 24px | 32px | Bold | Page titles, section headers |
-| **H2** | 20px | 24px | Bold | Card titles, subsection headers |
-| **H3** | 16px | 18px | Bold | List item titles, song names |
-| **Body** | 14px | 14-16px | Book/Regular | Descriptions, metadata |
-| **Caption** | 12px | 12px | Book/Regular | Timestamps, tertiary info |
-| **Overline** | 11-12px | 12px | Bold, uppercase | Category labels, section tags |
+### Calloway Adoption Notes
 
-### 3.4 Typography Principles
-
-- **Hierarchy through weight, not just size**: Spotify often differentiates elements by switching from Bold to Book at the same size.
-- **Color as hierarchy**: Primary text is `#FFFFFF`, secondary is `#B3B3B3`, tertiary is `#A7A7A7` — creating three clear levels.
-- **Line height**: Generous (approximately 1.3-1.5x), especially in body text, for scannability.
-- **Letter spacing**: Slightly tighter on large headings, standard on body text, slightly wider on overlines/uppercase.
-- **Truncation**: Long text (song titles, artist names) truncates with ellipsis rather than wrapping — maintaining visual rhythm.
+- **Adopt:** System font stack for fastest load time and zero licensing cost. Alternatively, use **Inter** (open-source, similar geometric clarity to Circular).
+- **Adopt:** The hierarchy principle of weight differentiation over size differentiation. Use 2-3 sizes with 2-3 weights rather than many distinct sizes.
+- **Adopt:** Sentence case for all interactive UI text.
+- **Adopt:** Three-level text color hierarchy (primary / secondary / subdued) as semantic tokens.
+- **Adopt:** 4pt baseline grid for line-height alignment.
+- **Adopt:** Truncation with ellipsis for conversation previews, contact names, listing addresses.
+- **Skip:** Proprietary typefaces.
+- **Skip:** Variable font axes (over-engineering for a dashboard).
 
 ---
 
-## 4. Component Patterns
+## 4. Spacing & Layout
 
-### 4.1 Cards
+### 4.1 Base Unit: 8px
 
-**Playlist/Album Cards (Grid View):**
-- Square artwork with rounded corners (4px on mobile, 8px on larger screens per official guidelines).
-- Title below artwork in bold, 1-2 lines max with truncation.
-- Subtitle (artist/description) below title in subdued text color.
-- No visible border or shadow — cards are distinguished by their surface color (`#181818`) against the background (`#121212`).
-- Hover state: slight brightness increase on the card surface, and a play button fades in (circular green button with black play icon).
-
-**Horizontal Shelf Cards:**
-- Smaller square thumbnails (approx. 100-120px on mobile).
-- Text to the right or below depending on context.
-- Used in "Recently Played," "Made For You" shelves.
-
-**"Tall" Cards (Browse/Genre):**
-- Rectangular cards with background color per genre.
-- Category name overlaid in bold white text.
-- Slight rotation on the artwork image within the card (approx. 25deg tilt).
-- No rounded corners on the colored background — instead full bleed with slight rounding.
-
-### 4.2 List Items
-
-**Track List Item:**
-- Fixed height row (approximately 56-64px).
-- Left: track number or album art thumbnail (40x40px, rounded 2px).
-- Center: song title (white, bold) with artist/album beneath (gray, regular).
-- Right: duration timestamp in subdued text.
-- Hover: row background lightens subtly; explicit "..." menu icon appears.
-- Active/playing: song title turns Spotify Green; animated equalizer icon replaces the track number.
-
-**Artist/Podcast List Item:**
-- Circular avatar image (not square).
-- Name in bold white.
-- "Artist" or "Podcast" label beneath in subdued gray.
-
-### 4.3 Buttons
-
-**Primary CTA (e.g., "Shuffle Play", "Follow", "Get Premium"):**
-- Pill-shaped (fully rounded corners, `border-radius: 500px`).
-- Background: `#1ED760` (Spotify Green).
-- Text: Black, sentence case, bold weight.
-- Padding: Generous horizontal (32px+), standard vertical (12-14px).
-- Hover: Slight scale-up (1.04x) and brightness increase.
-- Press: Scale-down (0.98x).
-- Contrast ratio: 10.9:1 (black on green).
-
-**Secondary Button:**
-- Pill-shaped, same radius.
-- Border: 1px white or light gray.
-- Background: transparent.
-- Text: White, sentence case.
-- Hover: Background fills with white at low opacity (~10-15%).
-
-**Ghost/Tertiary Button:**
-- No border, no background.
-- Text or icon only in `#B3B3B3`.
-- Hover: Text brightens to white.
-
-**Icon Buttons:**
-- Circular or no background.
-- Icons: 24px standard, 16px small, 32px large.
-- Active state for toggles (like, shuffle, repeat): icon turns `#1DB954`.
-
-### 4.4 Chips / Filter Pills
-
-- Pill-shaped, small (`border-radius: 500px`).
-- Background: `#232323` (inactive), `#FFFFFF` (active).
-- Text: White (inactive), Black (active).
-- Used for filtering: "Music", "Podcasts", "Audiobooks" on the home screen.
-- Height: approximately 32px.
-- Horizontal scrollable row.
-
-### 4.5 Toggle / Switch
-
-- Standard iOS/Android toggle shape.
-- Active: green track with white circle.
-- Inactive: gray track with white circle.
-
-### 4.6 Progress Bar / Slider
-
-- Track: thin horizontal bar in `#535353`.
-- Fill: `#FFFFFF` (default) or `#1DB954` (when hovering/interacting).
-- Knob: small white circle, appears on hover (desktop) or always visible (mobile).
-- Height: approximately 4px.
-
-### 4.7 Search Input
-
-- Pill-shaped input field.
-- Background: `#242424` or `#FFFFFF` (on the search page it's a white input with black text).
-- Placeholder text in gray.
-- Search icon on the left.
-- No visible border.
-
-### 4.8 Badges & Labels
-
-- "NEW" badge: small, uppercase, sometimes on a colored pill.
-- "E" (Explicit): small gray rounded square with white "E", approximately 16px.
-- "PREMIUM" label: sometimes in gold or distinct color for upsell.
-- Notification dots: small colored circles on navigation icons.
-
----
-
-## 5. Layout & Spacing
-
-### 5.1 Spacing System
-
-Spotify follows the industry-standard **8px grid system**:
+Spotify (and most modern design systems) uses an **8px base unit**:
 
 | Token | Value | Common Usage |
 |-------|-------|--------------|
-| **xxs** | 4px | Inner component spacing, tight gaps |
-| **xs** | 8px | Between icon and text, tight component padding |
-| **sm** | 12px | Small margins, minor component gaps |
-| **md** | 16px | Standard card padding, list item gutters |
-| **lg** | 24px | Section spacing, card grid gaps |
-| **xl** | 32px | Page margins (mobile), major section gaps |
-| **xxl** | 48px | Desktop page margins, hero spacing |
-| **xxxl** | 64px | Desktop sidebar width clearance, major layout gaps |
+| `--space-1` | 4px | Icon-to-text gap, tight inner padding |
+| `--space-2` | 8px | Between icon and label, tight component padding |
+| `--space-3` | 12px | Small margins, minor component gaps |
+| `--space-4` | 16px | Standard card padding, list item gutters, mobile page margin |
+| `--space-6` | 24px | Section spacing, card grid gaps, tablet page margin |
+| `--space-8` | 32px | Major section gaps, mobile page top/bottom |
+| `--space-10` | 40px | Large layout divisions |
+| `--space-12` | 48px | Desktop page margins |
+| `--space-16` | 64px | Major layout gaps, sidebar clearance |
 
-### 5.2 Grid System
+### 4.2 Corner Radius
 
-**Mobile (< 768px):**
-- Single column or 2-column card grid.
-- Page margins: 16px left/right.
-- Card gap: 16px.
-- Full-width list items.
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--radius-xs` | 2px | Thumbnails in lists |
+| `--radius-sm` | 4px | Cards on mobile, small devices |
+| `--radius-md` | 8px | Cards on desktop, inputs, large devices |
+| `--radius-lg` | 12px | Modal dialogs |
+| `--radius-pill` | 500px | Buttons, chips, search input |
+| `--radius-circle` | 50% | Avatars, play buttons |
 
-**Tablet (768px - 1024px):**
-- 3-column card grid.
-- Page margins: 24px.
-- Sidebar may appear on iPad (left-side navigation).
+### 4.3 Grid System
 
-**Desktop (> 1024px):**
-- Left sidebar (fixed, approximately 280-350px, resizable).
-- Main content area: flexible.
-- Right panel: "Now Playing" queue (optional, collapsible).
-- Card grid: 4-6 columns depending on width.
-- Content max-width: approximately 1600px.
+| Breakpoint | Columns | Page Margin | Card Gap | Notes |
+|------------|---------|-------------|----------|-------|
+| Mobile (< 768px) | 1-2 | 16px | 16px | Full-width list items |
+| Tablet (768-1024px) | 3 | 24px | 16-24px | Sidebar may appear |
+| Desktop (> 1024px) | 4-6 | 24-48px | 16-24px | Fixed left sidebar (280-350px), optional right panel |
 
-### 5.3 Shelf/Row Pattern
+Content max-width: approximately 1600px.
 
-Spotify's primary content layout pattern is the **horizontal shelf**:
-- Section title (H2, bold) with optional "Show all" link aligned right.
-- Horizontally scrollable row of cards.
-- Peek: the last card is partially visible, indicating scrollability.
-- Spacing: 16-24px between cards.
-- Multiple shelves stack vertically to create the feed-like home screen.
+### 4.4 Layout Patterns
 
-### 5.4 Responsive Behavior
+**Horizontal Shelf Pattern:**
+- Section title (H2, bold) with optional "Show all" link aligned right
+- Horizontally scrollable row of cards
+- Last card partially visible ("peek") to indicate scrollability
+- 16-24px gap between cards
+- Multiple shelves stack vertically
 
-- Cards resize fluidly — they grow/shrink to fill columns rather than having fixed sizes.
-- At narrow widths, cards shift from grid to horizontally scrollable shelves.
-- Navigation transitions from bottom bar (mobile) to left sidebar (tablet/desktop).
-- The "Now Playing" bar is fixed to the bottom on all platforms; on desktop it spans the full width.
+**Responsive behavior:**
+- Cards resize fluidly (grow/shrink to fill columns) rather than fixed sizes
+- At narrow widths, multi-column grids become horizontally scrollable shelves
+- Navigation transitions from bottom bar (mobile) to left sidebar (desktop)
 
----
+### 4.5 Whitespace Philosophy
 
-## 6. Navigation Patterns
+Spotify uses **generous whitespace internally but tight spacing between components**. Each card has room to breathe inside, but shelves and sections are packed closely to encourage scrolling and discovery.
 
-### 6.1 Mobile Navigation
+### Calloway Adoption Notes
 
-**Bottom Navigation Bar:**
-- 3 primary destinations: **Home**, **Search**, **Your Library**.
-- Fixed at bottom, above the mini "Now Playing" bar.
-- Icons: outlined (inactive), filled (active).
-- Active icon: white (filled), with text label below.
-- Inactive icon: `#B3B3B3` (outlined).
-
-**Mini Now Playing Bar:**
-- Fixed above the bottom nav bar.
-- Shows: album art thumbnail, song title, artist, play/pause button.
-- Tappable to expand into full Now Playing screen.
-- Swipeable left/right for next/previous track.
-
-### 6.2 Desktop Navigation
-
-**Left Sidebar:**
-- Fixed position.
-- Two sections:
-  1. Top: Home and Search (icon + label).
-  2. Bottom: "Your Library" with expandable list of playlists, albums, artists.
-- Library items show as small rows with thumbnails + title.
-- Resizable: users can drag the sidebar wider/narrower.
-- Compact mode available (text only, no artwork).
-
-**Top Bar:**
-- Back/Forward navigation arrows.
-- User profile avatar and dropdown on the right.
-- Contextual: shows search input when on the Search page.
-
-### 6.3 Tablet Navigation (iPad)
-
-- Vertical sidebar on the left (always visible in landscape).
-- Horizontal page stacking for content browsing.
-- Works in both portrait and landscape orientations.
+- **Adopt:** 8px spacing scale as CSS custom properties. This is foundational.
+- **Adopt:** Consistent corner radius tokens.
+- **Adopt:** Fluid grid using CSS Grid with `auto-fill` / `minmax()` rather than fixed column counts.
+- **Adopt:** Left sidebar navigation for desktop console.
+- **Adapt:** Spotify's generous internal whitespace may need to be tighter for Calloway's data-dense dashboard. Use the same scale but allow denser configurations for tables, message threads, and trigger lists.
+- **Adapt:** The horizontal shelf pattern could work for "overview" screens (e.g., recent conversations, hot leads, upcoming showings as card rows) but not for detail views.
+- **Skip:** The "peek" scroll pattern (less relevant for dashboard data).
 
 ---
 
-## 7. Interaction & Motion
+## 5. Component Patterns
 
-### 7.1 Motion Principles
+### 5.1 Buttons
 
-Spotify follows three motion design principles:
+Spotify's button system follows a clear three-tier hierarchy:
 
-1. **Move with Purpose** — Motion provides orientation and signals that something is happening. Reduces frustration by showing responsiveness.
-2. **Provide Feedback** — Animations and transitions encourage exploration. Motion shows the interface is alive and responding.
-3. **Add Delight** — The little touches and attention to detail that make the interface come alive. Beauty through motion.
+| Level | Style | Usage |
+|-------|-------|-------|
+| **Primary** | Pill-shaped, solid green (`#1ED760`), black text | Main CTA -- one per view |
+| **Secondary** | Pill-shaped, 1px white/gray border, transparent background, white text | Supporting actions |
+| **Tertiary / Ghost** | No border, no background, `#B3B3B3` text/icon only | Low-emphasis actions |
+| **Icon Button** | Circular or no background, 24px icon standard | Toggle actions (like, shuffle) |
 
-### 7.2 Transitions
+Key design decisions:
+- **Black foreground on green:** 10.9:1 contrast ratio (far exceeding WCAG AA 4.5:1)
+- **Sentence case** text, not uppercase
+- **Reduced padding** (20-30% less than previous design) for space efficiency
+- **Pill shape** (`border-radius: 500px`) for standalone CTAs
+- **Hover:** scale up ~4% and brighten
+- **Press:** scale down ~2% for tactile feedback
 
-**Page Transitions:**
-- Crossfade between pages (not slide). Content fades out/in with a subtle opacity transition.
-- Duration: approximately 200-300ms.
-- Easing: ease-out for enters, ease-in for exits.
+### 5.2 Cards
 
-**Now Playing Expansion:**
-- Mini player expands to full-screen with a smooth upward slide + scale animation.
-- Album art scales up from thumbnail to large centered display.
-- Background color transitions from neutral to album-art-derived gradient.
+- **Primary content container** (playlists, albums, artists in Spotify; conversations, contacts, triggers in Calloway)
+- Elevated surface color (`#181818`) differentiates from background (`#121212`)
+- No visible border or shadow -- distinguished by surface color alone
+- Square or rectangular artwork/thumbnail with rounded corners (4px mobile, 8px desktop)
+- Title below in bold (1-2 lines max, truncated), subtitle in subdued text
+- **Hover:** surface brightens slightly; action button fades in
+- Spotify's "slots" pattern allows sub-components to be swapped while maintaining the card frame
 
-**List Item Animations:**
-- Staggered fade-in when loading a playlist (items appear sequentially with slight delay).
-- Smooth reorder animations when sorting changes.
+### 5.3 Lists / Tables
 
-### 7.3 Micro-Interactions
+- Fixed height rows (approximately 56-64px)
+- Left: thumbnail (40x40px, 2px radius) or track number
+- Center: primary text (white, bold) with secondary text beneath (gray, regular)
+- Right: metadata (duration, date) in subdued text
+- **Hover:** row background lightens subtly; action icons ("...") appear
+- **Active/playing state:** primary text turns green; animated indicator replaces index
+- Softly colored dividers between sections, not between every row
 
-**Heart/Like Animation:**
-- Built with Lottie (After Effects exported vector animations).
-- On tap: the heart fills with green and performs a subtle "pop" scale animation.
-- Proven to increase like engagement — delight drives behavior.
-- Designed using Spotify's Encore design language as a playground for translating principles into micro-interactions.
+### 5.4 Navigation
 
-**Play/Pause Button:**
-- Smooth morph between play triangle and pause bars (not a hard swap).
-- Subtle press effect on tap before state change.
-- Instant visual feedback even before audio begins — eliminates perceived latency.
+| Platform | Pattern |
+|----------|---------|
+| Desktop | Persistent left sidebar (icon + label), resizable, with top bar (back/forward, profile) |
+| Mobile | Bottom tab bar (3-5 items), fixed above mini-player |
+| Sub-navigation | Tabs or filter chips within content area, not nested sidebars |
 
-**Hover States (Desktop):**
-- Cards: play button fades in (circular green button with black triangle) overlaid on the bottom-right of the artwork. Card surface brightens slightly.
-- Buttons: scale up ~4% and brighten.
-- List items: row background lightens; action icons appear.
-- Seek bar: the scrubber knob appears; bar color may shift from white to green.
+- **Active indicator:** Filled icon + white text (active); outlined icon + gray text (inactive)
+- Platform-specific conventions are preserved (bottom tabs on mobile, sidebar on desktop)
 
-**Press States:**
-- Scale down ~2% on press for tactile feedback.
-- Snap back to 100% on release.
+### 5.5 Filter Chips
 
-### 7.4 Loading States
+- Pill-shaped (`border-radius: 500px`), height ~32px
+- Inactive: `#232323` background, white text
+- Active: `#FFFFFF` background, black text
+- Horizontally scrollable row
+- Used for filtering content types (Music, Podcasts, Audiobooks)
 
-- **Skeleton screens**: Content areas show placeholder shapes (gray rectangles and circles matching the expected layout) while data loads. This is the primary loading pattern — Spotify avoids spinners.
-- **Shimmer effect**: Skeleton placeholders may have a subtle left-to-right shimmer animation.
-- **Instant transitions**: Spotify's architecture prioritizes perceived speed. Cached data loads instantly; network data fills in progressively.
-- **No blank screens**: The app structure (nav, now playing bar) is always visible even while content areas load.
+### 5.6 Modals / Dialogs
 
-### 7.5 Empty States
+- Focus is trapped within the modal when open
+- Background dimmed with overlay
+- Clear close affordance (X button or swipe-down on mobile)
+- Focus moves into modal on open, returns to trigger element on close
+- Corner radius: ~12px
 
-- Illustrated or iconographic visual anchor.
-- Clear, concise headline explaining the empty state.
-- Actionable CTA button guiding the user to populate the state.
-- Example: empty "Liked Songs" shows an illustration with "Songs you like will appear here" and a "Find songs" button.
-- Tone: encouraging, not scolding. Consistent with the "Human" design principle.
+### 5.7 Forms & Inputs
 
-### 7.6 Accessibility: Reduced Motion
+- Encore Web provides standard form controls (inputs, selects, checkboxes, radio buttons)
+- Pill-shaped search input: `#242424` background, placeholder text in gray, search icon left
+- Clear labels (not placeholder-only labels)
+- Error states communicated through color + icon + text (multi-modal feedback, never color alone)
 
-Spotify is implementing an in-app "Reduced Animations" toggle that:
-- Reduces looping video on the Now Playing screen.
-- Minimizes animated cards in the Home feed.
-- Replaces high-velocity transitions with more subtle state changes.
-- Does not make the app static — just calmer.
+### 5.8 Progress Bar / Slider
 
----
+- Track: thin horizontal bar in `#535353` (4px height)
+- Fill: `#FFFFFF` (default) or `#1DB954` (on hover/interact)
+- Knob: small white circle, appears on hover (desktop) or always visible (mobile)
 
-## 8. Key Screen Breakdowns
+### 5.9 Badges & Labels
 
-### 8.1 Home Screen
+- "NEW" badge: small, uppercase, colored pill
+- "E" (Explicit): small gray rounded square with white "E", ~16px
+- Notification dots: small colored circles on navigation icons
 
-**Layout:**
-- Sticky top bar with greeting ("Good morning", "Good afternoon", "Good evening").
-- Filter chips row: "Music", "Podcasts", "Audiobooks" — horizontally scrollable pills.
-- Quick-access grid: 2-column grid of 6 recently played items (compact cards with small artwork + title).
-- Below: vertical stack of horizontal content shelves ("Made For You", "Recently Played", "Popular Playlists", etc.).
-- Each shelf: section title + "Show all" link + horizontally scrollable card row.
+### Calloway Adoption Notes
 
-**Visual Character:**
-- Dense but scannable. Heavy reliance on artwork as visual anchors.
-- Very little white space between shelves — creates a continuous "feed" feeling.
-- Dynamic: content changes based on time of day, listening history, and context.
-
-### 8.2 Search Screen
-
-**Layout:**
-- Large search input at top (white pill on Search page, dark pill elsewhere).
-- Below search: "Browse all" grid of genre/mood cards.
-- Genre cards: rectangular, colored backgrounds with white bold text + tilted artwork.
-- Each genre has a signature color (e.g., red for "Pop", orange for "Country").
-- Grid: 2 columns (mobile), 4+ columns (desktop).
-
-**After Search:**
-- Top result: large card with artwork and name.
-- Tabbed results: Songs, Artists, Albums, Playlists, Podcasts.
-- Results displayed as list items.
-
-### 8.3 Your Library
-
-**Layout:**
-- Top: filter chips ("Playlists", "Artists", "Albums", "Podcasts").
-- Sort and view toggle (list vs. grid).
-- List view: rows with thumbnail, title, type label, pin icon.
-- Grid view: card grid similar to home shelves.
-- Swipe actions on mobile for quick operations.
-
-**Visual Character:**
-- More utilitarian than Home — designed for retrieval, not discovery.
-- Pinned items appear at top.
-- Recently played items surface higher.
-
-### 8.4 Now Playing / Player Screen
-
-**Layout (Mobile Full-Screen):**
-- Background: full-screen gradient derived from album art's dominant colors.
-- Top: collapse chevron, context label ("Playing from [Playlist Name]"), overflow menu.
-- Center: large album artwork (rounded corners, approximately 85% of screen width).
-- Below artwork: song title (large, bold, white) + artist name (gray, tappable).
-- Progress bar: thin horizontal, white fill, with elapsed/remaining timestamps.
-- Controls row: shuffle, previous, play/pause (large centered circle), next, repeat.
-- Bottom: device picker icon, queue icon, share icon.
-
-**Visual Character:**
-- Immersive. The album art and its derived colors dominate.
-- Minimal chrome — the UI recedes to let the music's visual identity shine.
-- Canvas (8-second looping video) may replace static artwork for supported tracks.
-
-### 8.5 Artist Page
-
-**Layout:**
-- Hero image: large artist photo spanning the top, with the artist name overlaid in very large bold text.
-- Gradient fade from artist photo colors into `#121212`.
-- Monthly listeners count below the name.
-- Action bar: Play button (green circle), Follow button (outlined pill), overflow menu.
-- Sections: "Popular" tracks (numbered list), "Discography" (album cards), "Featuring [Artist]" (playlist cards), "Fans also like" (circular artist cards), "About" (bio + gallery).
-
-**Visual Character:**
-- Cinematic. The hero image sets a strong emotional tone.
-- The color gradient creates a seamless transition from artist imagery to structured content.
-
-### 8.6 Playlist Page
-
-**Layout:**
-- Header: playlist artwork (large), title, creator, description, follower/song count, total duration.
-- Gradient background derived from artwork colors.
-- Action bar: green play button, heart/like, download, overflow menu.
-- Track list: numbered rows with artwork thumbnail, title, artist, album, date added, duration.
-- Desktop: column headers (# Title Album Date Duration) with sortable columns.
+- **Adopt:** Three-tier button hierarchy (primary/secondary/tertiary). One primary CTA per view.
+- **Adopt:** Card pattern with elevated surface for conversation cards, lead cards, trigger cards.
+- **Adopt:** List patterns for conversation history, message threads, contact lists.
+- **Adopt:** Left sidebar navigation for desktop console; bottom tabs for mobile.
+- **Adopt:** Filter chips for conversation status filters, trigger type filters, date range selections.
+- **Adopt:** Modal focus trapping -- critical for HTMX-driven modals loaded via `hx-get`.
+- **Adopt:** Multi-modal error feedback (icon + text + color, not color alone).
+- **Adopt:** Badges for unread message counts, pending approval indicators, new lead markers.
+- **Adapt:** Spotify's list items are music-focused; Calloway needs conversation-preview list items (contact avatar, last message snippet, timestamp, status indicator).
+- **Skip:** Progress bar / slider (not relevant to Calloway's dashboard).
+- **Skip:** Genre-specific card colors (not applicable).
 
 ---
 
-## 9. Design System Architecture (Encore)
+## 6. Dark Mode Approach
 
-### 9.1 System of Systems
+### 6.1 Spotify's Dark-First Design
 
-Encore is not a single monolithic design system — it is a "family of design systems" or a "system of systems." It replaced 22 distinct internal design systems.
+Spotify is **dark by default** -- there is no official light mode. The dark theme is the primary design. This serves functional purposes:
 
-**Layers:**
+- Dark backgrounds make colorful content (album art) visually prominent
+- Reduces eye strain in typical music-listening environments
+- Creates a cinematic feel for media consumption
 
-1. **Encore Foundation** — The shared core: color tokens, typography, motion, spacing, writing guidelines, accessibility standards, and design tokens. This is the "minimum bar" for any Spotify product.
+### 6.2 Surface Elevation Model
 
-2. **Encore Web** — Web-specific components: buttons, dialogs, form controls, inputs, modals, tooltips. Used for web apps, desktop client (Electron), and other web-based surfaces.
+Dark mode uses **luminance to indicate elevation** (the inverse of light-mode shadow-based elevation):
 
-3. **Encore Mobile** — iOS and Android native components. A dedicated team builds reusable mobile components with cross-platform parity as a goal.
+| Level | Approximate Color | Meaning |
+|-------|-------------------|---------|
+| Background (base) | `#121212` | Lowest level, main canvas |
+| Surface 1 | `#181818` - `#1E1E1E` | Slightly elevated (cards, panels) |
+| Surface 2 | `#212121` | Elevated (active cards, popovers) |
+| Surface 3 | `#282828` - `#333333` | Highest elevation (modals, dropdowns) |
 
-4. **Local Design Systems** — Team-specific or product-specific components that need sharing within a domain but not company-wide. E.g., components specific to the podcast experience or creator tools.
+Higher elevation = lighter surface.
 
-### 9.2 Token Architecture
+### 6.3 Text on Dark Surfaces
 
-- Initially non-semantic (raw values like `green-500`, `space-16`).
-- Evolved to **semantic tokens** (e.g., `color-background-base`, `color-text-primary`, `color-accent-primary`).
-- Semantic tokens enable safe theming and refactoring — changing a token value updates all usages predictably.
-- A **color-theming algorithm** can generate an entire accessible color theme from a few input values, with guaranteed contrast ratios.
+| Role | Color | Effective Opacity |
+|------|-------|-------------------|
+| Primary text | `#FFFFFF` | 100% |
+| Secondary text | `#B3B3B3` | ~70% |
+| Subdued text | `#A7A7A7` | ~65% |
+| Disabled text | `#535353` | ~33% |
 
-### 9.3 Component Architecture
+### 6.4 Why Not Pure Black (`#000000`)
 
-- **Slots pattern**: Components expose named sub-component slots, allowing direct access to sub-component APIs. This prevents complexity from accumulating in parent components.
-- **Configuration vs. Customization**: Encore balances both. Configuration (props/variants) for consistency; slots for flexibility.
-- **Headless components**: Built on React ARIA and Base UI for interaction logic. Encore adds Spotify's brand, accessibility, and visual consistency on top.
+Spotify uses `#121212` (slightly warm near-black) rather than pure black:
+- Reduces eye strain in prolonged use
+- Allows elevation through lighter grays (impossible if starting at true black without visible increments)
+- Creates a softer, more welcoming appearance
 
-### 9.4 AI Integration (2026)
+### Calloway Adoption Notes
 
-- Encore now exposes documentation via an **MCP (Model Context Protocol) server**.
-- AI coding tools (e.g., Cursor) can generate Encore-compliant code without manual documentation lookup.
-- Testing framework compares AI-generated components against official Encore components.
-- The design system now serves both human designers and AI agents.
+- **Adapt:** Offer dark mode as an **option**, not the default. Real estate agents may prefer light mode for daytime use (showings, open houses, bright environments), but dark mode is valuable for evening/early-morning work.
+- **Adopt:** Surface elevation model using luminance for dark theme. Define 3-4 surface levels as CSS custom properties.
+- **Adopt:** Text opacity hierarchy (primary / secondary / subdued / disabled) using semantic tokens.
+- **Adopt:** `#121212` base (not pure black) for dark theme.
+- **Implementation:** Use CSS custom properties with `[data-theme="dark"]` and `[data-theme="light"]` selectors. Dark palette follows Spotify's luminance elevation; light palette uses shadows for elevation instead.
 
-### 9.5 Governance
+```css
+/* Dark theme (Spotify-style) */
+[data-theme="dark"] {
+  --color-bg-base: #121212;
+  --color-bg-elevated: #181818;
+  --color-bg-elevated-2: #212121;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #B3B3B3;
+}
 
-- Design tokens and component usage are tracked automatically by querying repositories across the company daily.
-- This enables data-driven decisions about deprecation, adoption, and system health.
+/* Light theme (Calloway default) */
+[data-theme="light"] {
+  --color-bg-base: #FFFFFF;
+  --color-bg-elevated: #F5F5F5;
+  --color-bg-elevated-2: #EEEEEE;
+  --color-text-primary: #121212;
+  --color-text-secondary: #535353;
+}
+```
 
 ---
 
-## 10. What Makes Spotify "Feel" Like Spotify
+## 7. Mobile-First Patterns
 
-### The Intangible Qualities
+### 7.1 Navigation Transformation
 
-**1. Content Is the UI**
-Spotify's UI is remarkably restrained. The chrome (navigation, controls, labels) is subdued in grays and near-blacks. Album artwork, artist photography, and playlist covers are the actual visual identity of any given screen. The UI is a stage, not a performer. This means Spotify always looks different — because the content changes — yet always feels like Spotify because the frame is consistent.
+| Desktop | Mobile |
+|---------|--------|
+| Persistent left sidebar | Bottom tab bar (3-5 items) |
+| Horizontal sub-tabs | Scrollable filter chips |
+| Multi-column grid | Single or two-column layout |
+| Hover states | Touch/press states |
+| Back/forward arrows in top bar | System back gesture |
 
-**2. Darkness as Canvas**
-The `#121212` background is not just an aesthetic choice — it is functional. It makes colors pop. Album art glows against it. The green accent cuts through it. The white text floats above it. Every color in the interface appears more vibrant because of the dark surround. This is the inverse of most SaaS products that use white backgrounds.
+### 7.2 Touch Targets
 
-**3. Generous but Dense**
-Spotify manages a paradox: it shows a lot of content while never feeling cramped. The trick is consistent spacing (8px grid), generous padding inside components, and tight spacing between components. Each card has room to breathe internally, but shelves are packed closely to encourage scrolling.
+- Minimum touch target: **44x44px** (Apple HIG) / **48x48dp** (Material Design)
+- Spotify uses generous tap targets, especially for primary actions
+- Interactive elements have sufficient spacing to prevent accidental taps
+- Standard list item height: 56-64px (adequate touch target)
 
-**4. Motion as Personality**
-Spotify's animations are not just functional feedback — they have character. The heart pop, the play button morph, the card hover reveal — these small moments feel playful without being childish. They communicate that this is software made by people who care about craft.
+### 7.3 Responsive Behavior
 
-**5. Gradient Storytelling**
-The album-art-derived gradients on Now Playing, artist pages, and playlist headers create an emotional bridge between content and UI. Every playlist has its own "mood" because the colors change. This makes each visit feel unique while maintaining structural consistency.
+- Content grids **collapse from multi-column to fewer columns**, not from grid to list
+- Navigation collapses from sidebar to bottom bar
+- Complex features consolidate into single views with sub-tabs/filters on mobile
+- Library gets its own dedicated page with sub-tab filters
 
-**6. Hierarchy Through Restraint**
-Spotify uses only white, one shade of green, and a few grays for text and interactive elements. There are no competing accent colors (no blues, no oranges, no reds for navigation). This extreme chromatic restraint means any use of green immediately signals "interactive" or "active." Users learn this language instinctively.
+### 7.4 Device-Specific Sizing
 
-**7. Sound-First Thinking**
-The UI is designed for an audio product — you should be able to set something playing in 1-2 taps and then pocket your phone. The persistent mini-player, the large play/shuffle buttons, the autoplay behavior — everything is optimized to minimize time-in-app. Paradoxically, this makes people spend more time in the app because the experience respects their primary intent.
+- Artwork corners: **4px** radius on small/medium devices, **8px** on large devices
+- Bottom nav bar height: ~56px
+- Mini player bar: ~56px (sits above bottom nav)
+- Filter chip height: ~32px
+- Combined bottom chrome (nav + player): ~112px
 
-**8. Cultural Currency**
-Spotify's visual language borrows from music culture — the bold typography, the editorial card layouts, the emphasis on visual identity. It feels more like a music magazine than a software tool. This is deliberate: the design team includes people with backgrounds in music, art, and fashion.
+### 7.5 Mobile Content Strategy
 
-**9. Personalization as Design**
-The home screen changes throughout the day. "Good morning" vs. "Good evening." Different content surfaces at different times. Mixes and recommendations use the user's actual listening data. The design system supports this by being flexible enough to accommodate algorithmically-driven layouts while maintaining visual coherence.
+- Primary information visible without scrolling
+- Secondary content available via scroll or tap-to-expand
+- Long text truncated with ellipsis; full text accessible on tap
+- Character accommodations for display: playlist name ~25 chars, artist name ~18 chars, track name ~23 chars
 
-**10. Accessibility as Standard**
-The "Better in Black" button redesign exemplifies Spotify's approach: they found a solution (black text on green) that was simultaneously more accessible (10.9:1 contrast ratio) and more visually striking. Accessibility at Spotify is not a compromise — it's a design advantage.
+### Calloway Adoption Notes
+
+- **Adopt:** Bottom tab bar for mobile console (Conversations, Contacts, Triggers, Settings -- 4 tabs).
+- **Adopt:** 44px minimum touch targets for all interactive elements.
+- **Adopt:** Responsive grid collapse pattern (reflow, not show/hide).
+- **Adopt:** Scrollable filter chips for mobile sub-navigation (conversation status, trigger types).
+- **Adopt:** 4px/8px adaptive corner radius.
+- **Adapt:** Calloway's data-dense views need progressive disclosure on mobile. Prioritize the most critical information (unread count, lead status, next showing time) and use tap-to-expand for details.
+- **Adapt:** The 112px combined bottom chrome (nav + player) is Spotify-specific. Calloway needs only the tab bar (~56px), freeing screen real estate.
+- **Critical:** HTMX partials should serve mobile-optimized fragments. Use `hx-target` to swap smaller, mobile-appropriate content sections rather than full-page reloads.
 
 ---
 
-## Appendix A: Key Color Reference (Quick Copy)
+## 8. Empty States & Loading
 
-```
-/* Backgrounds */
---bg-base:           #121212;
---bg-elevated:       #181818;
---bg-elevated-2:     #212121;
---bg-highlight:      #282828;
---bg-press:          #333333;
+### 8.1 Skeleton Screens (Loading States)
 
-/* Text */
---text-primary:      #FFFFFF;
---text-secondary:    #B3B3B3;
---text-subdued:      #A7A7A7;
---text-disabled:     #535353;
+Spotify uses skeleton screens extensively as its primary loading pattern -- **not spinners**:
 
-/* Brand */
---accent-green:      #1ED760;
---accent-green-ui:   #1DB954;
---brand-black:       #191414;
+- **Gray placeholder shapes** mimic the layout of real content (card outlines, text lines, circular avatars)
+- **Shimmer animation** (left-to-right wave) indicates loading in progress
+- Shimmer is preferred over pulse (opacity fade) because it feels faster perceptually
+- Animation speed is subtle (~1.5s infinite loop)
+- The app structure (navigation, bottom bar) is **always visible** even while content areas load
 
-/* Functional */
---error:             #E91429;
---success:           #1ED760;
---warning:           #FFA42B;
+### 8.2 Skeleton Best Practices
 
-/* Interactive */
---btn-primary-bg:    #1ED760;
---btn-primary-text:  #000000;
---btn-secondary-border: #727272;
---btn-hover-overlay: rgba(255, 255, 255, 0.1);
-```
+- Show skeleton for **primary structural elements** (cards, text blocks, images)
+- Do **not** skeleton-ize small elements (labels, buttons, form fields)
+- Do **not** use skeleton for modals, toasts, or dropdown menus
+- If content loads in under ~300ms, skip the skeleton entirely
+- Use progressive loading: structure first, then text, then images
+- The skeleton should match the expected layout dimensions to prevent layout shift
 
-## Appendix B: Typography Quick Reference
+### 8.3 Shimmer Implementation (CSS-Only)
 
-```
-/* Font Family */
---font-primary: 'Spotify Mix', 'Circular', Helvetica Neue, Arial, sans-serif;
+```css
+.skeleton {
+  background: linear-gradient(90deg, #212121 25%, #2a2a2a 50%, #212121 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
 
-/* Heading Scale (Mobile) */
---text-display:  32px / 1.2 / Bold;
---text-h1:       24px / 1.3 / Bold;
---text-h2:       20px / 1.3 / Bold;
---text-h3:       16px / 1.3 / Bold;
---text-body:     14px / 1.5 / Regular;
---text-caption:  12px / 1.4 / Regular;
---text-overline: 12px / 1.4 / Bold / uppercase / +0.1em tracking;
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 
-/* Heading Scale (Desktop) */
---text-display:  48-64px / 1.1 / Bold;
---text-h1:       32px / 1.2 / Bold;
---text-h2:       24px / 1.3 / Bold;
---text-h3:       18px / 1.3 / Bold;
---text-body:     14-16px / 1.5 / Regular;
+/* Skeleton variants */
+.skeleton-text   { height: 14px; width: 80%; margin-bottom: 8px; }
+.skeleton-title  { height: 20px; width: 60%; margin-bottom: 12px; }
+.skeleton-avatar { height: 40px; width: 40px; border-radius: 50%; }
+.skeleton-card   { height: 200px; width: 100%; border-radius: 8px; }
 ```
 
-## Appendix C: Component Dimensions Quick Reference
+### 8.4 Empty States
 
+Spotify's empty state pattern:
+
+1. **Illustration or icon** that relates to the empty context
+2. **Clear heading** explaining the state ("Songs you like will appear here")
+3. **Brief body text** with guidance on what to do next
+4. **Primary action button** to resolve the empty state ("Find songs")
+5. **Tone:** Encouraging, not apologetic. Consistent with the "Human" design principle.
+
+### Calloway Adoption Notes
+
+- **Adopt:** Skeleton screens for HTMX-loaded partials. When `hx-get` fires, show a skeleton in the target div via `hx-indicator`. Replace with real content on swap.
+- **Adopt:** Shimmer animation (CSS-only, no JS required). Works perfectly with server-rendered HTML.
+- **Adopt:** Progressive loading -- render page structure immediately (server-rendered), then fetch data-heavy sections via HTMX.
+- **Adopt:** Empty state pattern for all zero-data screens:
+  - No conversations: "No conversations yet. When clients text your Calloway number, they'll appear here."
+  - No contacts: "Your contact list is empty. Import contacts or wait for inbound messages."
+  - No triggers: "No scheduled follow-ups. Create a trigger to automate outreach."
+  - No leads: "No active leads. Leads are created when new contacts reach out."
+- **Skip:** Skeleton for sub-second loads. Calloway's server-rendered pages should load fast; only HTMX-fetched data panels need skeletons.
+- **Skip:** Spinners. Follow Spotify's lead and use skeleton screens instead.
+
+### HTMX Integration Pattern
+
+```html
+<!-- Skeleton shown while HTMX loads content -->
+<div id="conversations-list"
+     hx-get="/console/conversations"
+     hx-trigger="load"
+     hx-swap="innerHTML">
+  <!-- Skeleton placeholder (shown during load) -->
+  <div class="skeleton-row">
+    <div class="skeleton skeleton-avatar"></div>
+    <div style="flex: 1;">
+      <div class="skeleton skeleton-title"></div>
+      <div class="skeleton skeleton-text"></div>
+    </div>
+  </div>
+  <!-- Repeat 5-8 skeleton rows -->
+</div>
 ```
-/* Corner Radius */
---radius-none:    0px;
---radius-xs:      2px;    /* Thumbnails in lists */
---radius-sm:      4px;    /* Cards on mobile */
---radius-md:      8px;    /* Cards on desktop, inputs */
---radius-lg:      12px;   /* Modal dialogs */
---radius-pill:    500px;  /* Buttons, chips, search input */
---radius-circle:  50%;    /* Avatars, play button */
 
-/* Sizing */
---icon-sm:        16px;
---icon-md:        24px;
---icon-lg:        32px;
---avatar-sm:      32px;
---avatar-md:      48px;
---avatar-lg:      64px;
---thumbnail-sm:   40px;   /* List item thumbnails */
---thumbnail-md:   80px;   /* Grid small cards */
---thumbnail-lg:   232px;  /* Grid large cards */
---list-item-h:    56px;   /* Standard list item height */
---now-playing-h:  56px;   /* Mini player bar height */
---nav-bar-h:      56px;   /* Bottom navigation height */
---chip-h:         32px;   /* Filter chip height */
+---
 
-/* Spacing Scale (8px base) */
---space-1:  4px;
---space-2:  8px;
---space-3:  12px;
---space-4:  16px;
---space-5:  20px;
---space-6:  24px;
---space-8:  32px;
---space-10: 40px;
---space-12: 48px;
---space-16: 64px;
+## 9. Accessibility Practices
+
+### 9.1 Organizational Approach
+
+Spotify has a dedicated accessibility squad ("Mandalorian") that collaborates with the Encore design system team. Their philosophy:
+
+- **Bake accessibility into components** so product teams get it for free
+- Where baking in is not possible, provide **comprehensive documentation and guidance**
+- Go **beyond automated scans** -- manual testing with screen readers and keyboard navigation
+- Think about accessibility as **user experience**, not compliance
+
+### 9.2 Color Contrast
+
+- A **color-theming algorithm** guarantees accessible contrast ratios for any generated theme
+- Green-on-black button achieves **10.9:1** contrast (WCAG AAA level)
+- "UI green" on gray backgrounds achieves **9.7:1** contrast ratio
+- Multi-modal feedback: important information conveyed through color + icons + text -- **never color alone**
+- WCAG targets: 4.5:1 minimum for body text (AA), 3:1 for large text and UI components
+
+### 9.3 Keyboard Navigation
+
+- Standard **tab navigation** for form elements and buttons
+- **Arrow key navigation** for composite widgets (lists, grids, tab panels)
+- Recognition that keyboard users include both screen reader users and motor-accessibility users -- different needs
+- Preference for **native HTML elements** (`<button>`, `<input>`, `<select>`) which have built-in keyboard support
+
+### 9.4 Focus Management
+
+- **Modal focus trapping:** When a modal opens, focus moves into it and cannot tab out until dismissed
+- **Focus restoration:** When a modal closes, focus returns to the element that triggered it
+- **Visible focus indicators** on all interactive elements -- never `outline: none` without a replacement
+- Testing specifically for focus behavior, not just static accessibility audits
+
+### 9.5 ARIA Patterns
+
+- Prefer **semantic HTML** over ARIA roles where possible
+- Use ARIA only to fill gaps that semantic HTML cannot cover
+- Caution against incorrect ARIA usage (wrong roles on div elements), which is **worse than no ARIA**
+- Follow WAI-ARIA authoring practices for complex widgets (menus, dialogs, tab panels)
+- `aria-live` regions for dynamic content updates
+
+### 9.6 Screen Reader Support
+
+- Components tested with major screen readers (VoiceOver, NVDA, JAWS)
+- Alt text and `aria-label` requirements documented per component
+- Live regions (`aria-live`) for dynamic content updates
+
+### 9.7 Reduced Motion
+
+Spotify implements an in-app "Reduced Animations" toggle:
+- Reduces looping video and animated cards
+- Replaces high-velocity transitions with subtle state changes
+- Does not make the app static -- just calmer
+- Respects `prefers-reduced-motion` media query
+
+### Calloway Adoption Notes
+
+- **Adopt:** Semantic HTML first, ARIA as supplement. Use `<button>`, `<input>`, `<dialog>`, `<nav>`, `<main>`, `<aside>` elements rather than styled divs.
+- **Adopt:** Focus trapping for HTMX-loaded modals. When a modal partial loads via `hx-get`, use JS to trap focus and restore on close.
+- **Adopt:** `aria-live="polite"` on HTMX target regions so screen readers announce content updates. This is **critical** for HTMX, which swaps DOM content dynamically.
+- **Adopt:** Visible focus indicators (ring or outline) on all interactive elements.
+- **Adopt:** Multi-modal feedback for all status changes (toast notifications should include icon + text + color).
+- **Adopt:** Minimum contrast ratios: 4.5:1 for body text, 3:1 for large text and UI components.
+- **Adopt:** `prefers-reduced-motion` support -- disable shimmer animations and transitions for users who prefer reduced motion.
+- **Critical for Calloway:** HTMX swaps DOM content without full page reloads, which can confuse screen readers. Every `hx-target` container should have `aria-live="polite"` or use `hx-on::after-swap` to announce changes.
+
+### HTMX Accessibility Pattern
+
+```html
+<!-- Mark HTMX target regions as live for screen readers -->
+<div id="conversation-detail"
+     aria-live="polite"
+     aria-atomic="false"
+     hx-get="/console/conversations/123"
+     hx-trigger="click"
+     hx-swap="innerHTML">
+  <!-- Content swapped by HTMX will be announced -->
+</div>
+
+<!-- Modal with focus trapping -->
+<dialog id="approval-modal" aria-labelledby="modal-title">
+  <h2 id="modal-title">Approve message?</h2>
+  <!-- Modal content -->
+  <button hx-post="/approve/123" hx-target="#conversation-detail">
+    Approve and send
+  </button>
+  <button onclick="this.closest('dialog').close()">Cancel</button>
+</dialog>
 ```
+
+---
+
+## 10. Summary: What Calloway Should Adopt
+
+### High Priority (Adopt Directly)
+
+| Pattern | Why It Matters for Calloway |
+|---------|----------------------------|
+| Semantic color tokens as CSS custom properties | Enables theming, maintainability, dark mode support |
+| 8px spacing scale | Consistent, predictable layouts across all console views |
+| Three-tier button hierarchy (primary/secondary/tertiary) | Clear action hierarchy for approve/reject/dismiss flows |
+| Card-based content containers | Natural fit for conversations, leads, triggers, showings |
+| Skeleton screens for HTMX loads | Better perceived performance than spinners |
+| Semantic HTML + ARIA live regions | Essential for HTMX accessibility |
+| System font stack | Fast load, no licensing, works everywhere |
+| Focus trapping for modals | Accessibility compliance for approval modals |
+| Multi-modal error/status feedback | Inclusive design for varied conditions |
+| Sentence case for UI labels | Approachable, professional tone |
+| Empty states with guidance + CTA | Smooth onboarding for new agent tenants |
+| Visible focus indicators | Keyboard accessibility |
+
+### Medium Priority (Adapt to Calloway's Context)
+
+| Pattern | Adaptation Needed |
+|---------|-------------------|
+| Dark mode | Offer as option, not default; agents work in varied lighting |
+| Generous internal whitespace | Tighter for data-dense dashboard views (tables, threads) |
+| Fluid grid layout | Use for overview cards; tables for detailed data |
+| Mobile bottom tab bar | Map to Calloway's 4 console sections |
+| Progressive disclosure on mobile | Collapse secondary info behind tap-to-expand |
+| Filter chips | Use for conversation status, trigger type, date range filters |
+| Horizontal shelf layout | Potential for "overview" dashboard (recent activity, hot leads) |
+
+### Low Priority (Skip or Defer)
+
+| Pattern | Why Skip |
+|---------|----------|
+| Color-theming algorithm | No per-content dynamic theming needed |
+| System of systems governance | Single product, single team |
+| Slots pattern for components | React-specific; Jinja2 macros + HTMX partials serve same purpose |
+| Variable font (Spotify Mix) | Proprietary; system fonts sufficient |
+| Component usage analytics | Premature for current scale |
+| Gradient storytelling | Music/media-specific; not relevant to real estate dashboard |
+| Reduced motion toggle in-app | Support `prefers-reduced-motion` CSS instead |
 
 ---
 
 ## Sources
 
-- [Reimagining Design Systems at Spotify — Spotify Design](https://spotify.design/article/reimagining-design-systems-at-spotify)
-- [Can I get an Encore? Spotify's Design System, Three Years On — Spotify Design](https://spotify.design/article/can-i-get-an-encore-spotifys-design-system-three-years-on)
-- [How Spotify's Design System Goes Beyond Platforms — Figma Blog](https://www.figma.com/blog/creating-coherence-how-spotifys-design-system-goes-beyond-platforms/)
-- [How Spotify is Making Their Design System AI-Ready — Into Design Systems](https://www.intodesignsystems.com/blog/how-spotify-design-system-ai-ready)
-- [Introducing Spotify's New Design Principles — Spotify Design](https://spotify.design/article/introducing-spotifys-new-design-principles)
-- [Better in Black: Rethinking our Most Important Buttons — Spotify Design](https://spotify.design/article/better-in-black-rethinking-our-most-important-buttons)
-- [Bringing the Spotify Heart to Life — Spotify Design](https://spotify.design/article/bringing-the-spotify-heart-to-life)
-- [Design & Branding Guidelines — Spotify for Developers](https://developer.spotify.com/documentation/design)
-- [Spotify Brand Color Palette — Pick Color Online](https://pickcoloronline.com/brands/spotify/)
-- [Spotify Color Palette — Design Pieces](https://www.designpieces.com/palette/spotify-color-palette-hex-and-rgb/)
-- [Spotify Colors — U.S. Brand Colors](https://usbrandcolors.com/spotify-colors/)
-- [What Font Does Spotify Use in 2025 — FontsArena](https://fontsarena.com/blog/what-font-does-spotify-use/)
-- [Spotify Mix: New Spotify Custom Typeface — Dinamo Typefaces](https://abcdinamo.com/news/spotify)
-- [Introducing Spotify Mix — Spotify Newsroom](https://newsroom.spotify.com/2024-05-22/introducing-spotify-mix-our-new-and-exclusive-font/)
-- [Spotify (2024 redesign) — Fonts In Use](https://fontsinuse.com/uses/63891/spotify-2024-redesign)
-- [Spotify Launches New Bespoke Typeface with Dinamo — It's Nice That](https://www.itsnicethat.com/articles/spotify-dinamo-new-typeface-spotify-mix-project-230524)
-- [Dark Mode Hex Code Analysis — Medium (Bootcamp)](https://medium.com/design-bootcamp/the-enigmatic-beauty-of-dark-mode-a-hex-code-analysis-of-spotify-twitter-and-facebooks-dark-56d9cff242ca)
-- [Spotify Brand Guidelines — Designers Choice](https://designers-choice.net/spotify-brand-guidelines/)
-- [Breaking Down Spotify's Design Principles — Medium (Bootcamp)](https://medium.com/design-bootcamp/breaking-down-spotifys-design-principles-simplicity-personalization-and-accessibility-158bbc248f8)
-- [Spotify Brand Color Palette UIs — Mobbin](https://mobbin.com/colors/brand/spotify)
-- [A New Experience for Spotify for iPad — Spotify Design](https://spotify.design/article/a-new-experience-for-spotify-for-ipad)
-- [Spotify Rolls Out New Android Tablet UI — Ubergizmo](https://www.ubergizmo.com/2026/01/spotify-android-tablet-ui/)
-- [Spotify Colors: 5 Ways Spotify Uses Colors — Eggradients](https://www.eggradients.com/blog/spotify-colors)
-- [Encore x Accessibility — Spotify Engineering](https://engineering.atspotify.com/2023/03/encore-x-accessibility-a-balancing-act)
-- [How Spotify's UX is Helping Them Win — UX Collective](https://uxdesign.cc/ux-ui-analysis-spotify-31f3855a1740)
-- [Spotify Preps Reduced Animations Toggle — Find Articles](https://www.findarticles.com/spotify-preps-reduced-animations-toggle/)
+- [Reimagining Design Systems at Spotify](https://spotify.design/article/reimagining-design-systems-at-spotify)
+- [Can I Get an Encore? Three Years On](https://spotify.design/article/can-i-get-an-encore-spotifys-design-system-three-years-on)
+- [How Spotify's Design System Goes Beyond Platforms (Figma Blog)](https://www.figma.com/blog/creating-coherence-how-spotifys-design-system-goes-beyond-platforms/)
+- [Encore x Accessibility: A Balancing Act (Spotify Engineering)](https://engineering.atspotify.com/2023/03/encore-x-accessibility-a-balancing-act)
+- [Multiple Layers of Abstraction in Design Systems (Spotify Engineering)](https://engineering.atspotify.com/2023/05/multiple-layers-of-abstraction-in-design-systems)
+- [Better in Black: Rethinking Our Most Important Buttons](https://spotify.design/article/better-in-black-rethinking-our-most-important-buttons)
+- [Design & Branding Guidelines (Spotify for Developers)](https://developer.spotify.com/documentation/design)
+- [Spotify Brand Color Palette (Mobbin)](https://mobbin.com/colors/brand/spotify)
+- [What Font Does Spotify Use? (FontsArena)](https://fontsarena.com/blog/what-font-does-spotify-use/)
+- [How Spotify Leverages Design Systems (BTNG Studio)](https://www.btng.studio/insights/how-spotify-leverages-design-systems)
+- [Spotify Colors: How Spotify Uses Color (Eggradients)](https://www.eggradients.com/blog/spotify-colors)
+- [Spotify Color Palette (Design Pieces)](https://www.designpieces.com/palette/spotify-color-palette-hex-and-rgb/)
+- [How Spotify's UX Is Helping Them Win (UX Collective)](https://uxdesign.cc/ux-ui-analysis-spotify-31f3855a1740)
