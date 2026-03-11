@@ -1,5 +1,10 @@
+import logging
+import sys
+
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -31,12 +36,31 @@ class Settings(BaseSettings):
     CONSOLE_PASSWORD: str = "changeme"
     CONSOLE_SESSION_SECRET: str = "console-secret-change-in-production"
 
+    # CORS — comma-separated allowed origins (e.g. "https://app.calloway.ai,https://admin.calloway.ai")
+    CORS_ALLOWED_ORIGINS: str = ""
+
     # Environment
     ENVIRONMENT: str = "development"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
+    def validate_production_secrets(self) -> None:
+        """Refuse to start in production with default credentials."""
+        if self.ENVIRONMENT == "development":
+            return
+        errors = []
+        if self.CONSOLE_PASSWORD == "changeme":
+            errors.append("CONSOLE_PASSWORD is still the default 'changeme'")
+        if self.CONSOLE_SESSION_SECRET == "console-secret-change-in-production":
+            errors.append("CONSOLE_SESSION_SECRET is still the default")
+        if errors:
+            for e in errors:
+                logger.critical(f"SECURITY: {e}")
+            sys.exit(1)
+
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    settings.validate_production_secrets()
+    return settings

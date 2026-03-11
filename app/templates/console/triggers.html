@@ -2,16 +2,16 @@
 {% block content %}
 <form method="get" class="filters">
     <div class="form-group">
-        <label>Status</label>
-        <select name="status" title="Filter triggers by their current status">
+        <label for="status-filter">Status</label>
+        <select name="status" id="status-filter" title="Filter triggers by their current status">
             {% for s in ['pending', 'completed', 'error', 'cancelled', 'all'] %}
             <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|capitalize }}</option>
             {% endfor %}
         </select>
     </div>
     <div class="form-group">
-        <label>Agent</label>
-        <select name="agent" title="Filter triggers by tenant">
+        <label for="agent-filter">Agent</label>
+        <select name="agent" id="agent-filter" title="Filter triggers by tenant">
             <option value="">All</option>
             {% for a in agents %}
             <option value="{{ a.id }}" {% if agent_filter == a.id|string %}selected{% endif %}>{{ a.name }}</option>
@@ -53,14 +53,17 @@
             <td>
                 {% if t.status == 'error' %}
                 <form method="post" action="/console/triggers/{{ t.id }}/retry" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="btn btn-outline btn-sm" title="Reset this trigger to pending and attempt execution again">Retry</button>
                 </form>
                 {% endif %}
                 {% if t.status == 'pending' %}
-                <form method="post" action="/console/triggers/{{ t.id }}/fire-now" style="display:inline;">
-                    <button type="submit" class="btn btn-outline btn-sm" title="Execute this trigger immediately instead of waiting for the scheduled time">Fire Now</button>
+                <form method="post" action="/console/triggers/{{ t.id }}/fire-now" style="display:inline;" onsubmit="return confirm('Fire this trigger now? This will send a real message to the contact.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-outline btn-sm" title="Execute this trigger immediately — sends a real message">Fire Now</button>
                 </form>
-                <form method="post" action="/console/triggers/{{ t.id }}/cancel" style="display:inline;">
+                <form method="post" action="/console/triggers/{{ t.id }}/cancel" style="display:inline;" onsubmit="return confirm('Cancel this trigger?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="btn btn-danger btn-sm" title="Cancel this trigger — it will not fire">Cancel</button>
                 </form>
                 {% endif %}

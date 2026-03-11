@@ -1,27 +1,61 @@
-import json
+import logging
 from uuid import UUID
 from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+_pool: ConnectionPool | None = None
 
 
 def get_connection_string() -> str:
     settings = get_settings()
-    # Supabase connection string derived from project URL
-    # Format: postgresql://postgres:[SERVICE_KEY]@[HOST]:5432/postgres
-    # For local dev, use DATABASE_URL env var or default to local postgres
     if settings.ENVIRONMENT == "development":
         return "postgresql://postgres:postgres@localhost:5432/realtor_ai"
-    # Extract host from Supabase URL
     host = settings.SUPABASE_URL.replace("https://", "").replace("http://", "")
     return f"postgresql://postgres.{host}:{settings.SUPABASE_SERVICE_KEY}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
 
 
+def init_pool(min_size: int = 2, max_size: int = 20) -> None:
+    """Initialize the global connection pool. Call once at app startup."""
+    global _pool
+    if _pool is not None:
+        return
+    _pool = ConnectionPool(
+        get_connection_string(),
+        min_size=min_size,
+        max_size=max_size,
+        kwargs={"row_factory": dict_row},
+    )
+    logger.info(f"DB pool initialized (min={min_size}, max={max_size})")
+
+
+def close_pool() -> None:
+    """Close the global connection pool. Call at app shutdown."""
+    global _pool
+    if _pool:
+        _pool.close()
+        _pool = None
+        logger.info("DB pool closed")
+
+
 def get_db_connection() -> psycopg.Connection:
-    """Get a new database connection with dict row factory."""
+    """Get a connection from the pool (context-managed).
+
+    Usage:
+        with get_db_connection() as conn:
+            ...
+    If the pool hasn't been initialized (e.g. during tests), falls back
+    to a direct connection for backward compatibility.
+    """
+    if _pool is not None:
+        return _pool.connection()
+    # Fallback for tests / scripts that haven't called init_pool()
     return psycopg.connect(get_connection_string(), row_factory=dict_row)
 
 

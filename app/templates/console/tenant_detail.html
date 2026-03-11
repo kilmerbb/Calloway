@@ -8,10 +8,12 @@
     <div style="display: flex; gap: 0.5rem;">
         <a href="/console/tenants/{{ agent.id }}/edit" class="btn btn-outline btn-sm" title="Edit this tenant's profile, tone, autonomy, and settings">Edit Config</a>
         <form method="post" action="/console/tenants/{{ agent.id }}/test-sms" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="btn btn-outline btn-sm" title="Send a test SMS to the tenant's phone number to verify Twilio is working">Test SMS</button>
         </form>
         {% if agent.current_status != 'deactivated' %}
         <form method="post" action="/console/tenants/{{ agent.id }}/deactivate" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Deactivate this tenant?')" title="Disable this tenant — stops all AI responses and scheduled triggers">Deactivate</button>
         </form>
         {% endif %}

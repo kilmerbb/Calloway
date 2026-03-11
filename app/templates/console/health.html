@@ -11,7 +11,7 @@
             <div class="card-label">{{ service|capitalize }}</div>
             <div class="card-value">
                 <span class="status-dot status-{{ color }}"></span>
-                {{ color }}
+                <span class="status-label">{{ color }}</span>
             </div>
         </div>
         {% endfor %}
@@ -41,19 +41,30 @@
 <div class="section">
     <div class="section-title" title="Manually trigger operations for a specific tenant">Manual Actions</div>
     <p style="color: var(--text-muted); margin-bottom: 0.5rem;">Run daily scan for a specific agent:</p>
-    <form method="get" action="/console/health" style="display: flex; gap: 0.5rem; max-width: 400px;">
+    <div style="display: flex; gap: 0.5rem; max-width: 400px;">
         <select id="scan-agent" style="flex:1;" title="Choose the tenant to run the daily scan for">
             <option value="">Select agent...</option>
+            {% for a in agents %}
+            <option value="{{ a.id }}">{{ a.name }}</option>
+            {% endfor %}
         </select>
-        <button type="button" class="btn btn-outline btn-sm" onclick="runScan()" title="Trigger the daily scan immediately for the selected tenant — checks contacts, triggers, and health">Run Scan</button>
-    </form>
+        <button type="button" class="btn btn-outline btn-sm" onclick="runScan()" title="Trigger the daily scan immediately for the selected tenant">Run Scan</button>
+    </div>
     <script>
-    fetch('/console/tenants').then(r => r.text()).then(() => {});
     function runScan() {
-        const agentId = document.getElementById('scan-agent').value;
-        if (agentId) {
-            fetch('/console/health/run-scan/' + agentId, {method:'POST'}).then(() => location.reload());
-        }
+        var agentId = document.getElementById('scan-agent').value;
+        if (!agentId) return;
+        if (!confirm('Run daily scan for this agent now?')) return;
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/console/health/run-scan/' + agentId;
+        var csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrf_token';
+        csrf.value = '{{ csrf_token }}';
+        form.appendChild(csrf);
+        document.body.appendChild(form);
+        form.submit();
     }
     </script>
 </div>

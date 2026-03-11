@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -5,31 +6,53 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.config import get_settings
 from app.api.webhooks import router as webhooks_router
 from app.api.health import router as health_router
 from app.api.conversations import router as conversations_router
 from app.api.onboarding import router as onboarding_router
 from app.api.console import router as console_router
 from app.api.harness import router as harness_router
+from app.db.connection import init_pool, close_pool
+from app.services.redis_pool import get_redis_pool
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup — initialize connection pools
+    init_pool()
+    logger.info("Database connection pool initialized")
     yield
-    # Shutdown
+    # Shutdown — clean up connection pools
+    close_pool()
+    pool = get_redis_pool()
+    pool.close()
+    logger.info("Connection pools closed")
 
+
+settings = get_settings()
 
 app = FastAPI(
-    title="Solo Realtor AI",
+    title="Calloway",
     description="AI operational assistant for solo real estate agents",
     version="1.0.0",
     lifespan=lifespan,
 )
 
+# CORS — explicit origins in production, permissive in development
+_origins = (
+    [o.strip() for o in settings.CORS_ALLOWED_ORIGINS.split(",") if o.strip()]
+    if settings.CORS_ALLOWED_ORIGINS
+    else []
+)
+if settings.ENVIRONMENT == "development" and not _origins:
+    _origins = ["http://localhost:3000", "http://localhost:8000"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

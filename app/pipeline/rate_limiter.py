@@ -64,13 +64,16 @@ def check_cost_cap(agent_id: UUID) -> bool:
         return False
 
 
+def _get_redis():
+    """Get a Redis client from the shared pool."""
+    from app.services.redis_pool import get_redis_pool
+    return get_redis_pool()
+
+
 def _check_contact_rate(phone: str) -> dict | None:
     """Check per-contact hourly and daily rate limits using Redis."""
     try:
-        import redis
-        from app.config import get_settings
-        settings = get_settings()
-        r = redis.from_url(settings.REDIS_URL, socket_timeout=2)
+        r = _get_redis()
 
         hour_key = f"rate:{phone}:hour"
         day_key = f"rate:{phone}:day"
@@ -109,10 +112,7 @@ def _check_contact_rate(phone: str) -> dict | None:
 def _check_unknown_rate(phone: str, agent: AgentConfig) -> dict | None:
     """Check unknown number daily rate limit."""
     try:
-        import redis
-        from app.config import get_settings
-        settings = get_settings()
-        r = redis.from_url(settings.REDIS_URL, socket_timeout=2)
+        r = _get_redis()
 
         key = f"unknown:{phone}"
         count = r.incr(key)

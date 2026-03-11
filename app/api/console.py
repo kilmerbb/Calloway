@@ -3,10 +3,13 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
-from app.api.console_auth import verify_password, create_session, check_session, clear_session
+from app.api.console_auth import (
+    verify_password, create_session, check_session, clear_session,
+    generate_csrf_token, validate_csrf_token,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +19,11 @@ TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "console"
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
 
-def _render(request: Request, template: str, **ctx):
-    """Render a template with the new TemplateResponse signature."""
+def _render(request: Request, template: str, response: Response | None = None, **ctx):
+    """Render a template with CSRF token injected."""
+    resp = response or Response()
+    csrf = generate_csrf_token(request, resp)
+    ctx["csrf_token"] = csrf
     return templates.TemplateResponse(request, template, ctx)
 
 
@@ -25,6 +31,13 @@ def _require_auth(request: Request) -> RedirectResponse | None:
     """Return a redirect if not authenticated, else None."""
     if not check_session(request):
         return RedirectResponse("/console/login", status_code=303)
+    return None
+
+
+def _check_csrf(request: Request, csrf_token: str | None) -> Response | None:
+    """Return 403 if CSRF token is invalid, else None."""
+    if not validate_csrf_token(request, csrf_token):
+        return Response("CSRF validation failed", status_code=403)
     return None
 
 
@@ -39,6 +52,8 @@ async def login_page(request: Request):
 
 @router.post("/login")
 async def login_submit(request: Request, password: str = Form(...)):
+    # No CSRF on login — the password itself is the auth factor,
+    # and this may be the first page visited (no CSRF cookie yet).
     if verify_password(password):
         response = RedirectResponse("/console/dashboard", status_code=303)
         create_session(response)
@@ -114,6 +129,10 @@ async def onboard_submit(request: Request):
         return redirect
 
     form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
     from app.services.console_queries import create_agent_from_wizard
 
     try:
@@ -149,6 +168,12 @@ async def tenant_list(request: Request):
         agents = [a for a in agents if search.lower() in a["name"].lower()
                   or search.lower() in (a.get("market") or "").lower()]
 
+    # Support JSON response for HTMX/JS consumers
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept:
+        from fastapi.responses import JSONResponse
+        return JSONResponse([{"id": str(a["id"]), "name": a["name"]} for a in agents])
+
     return _render(request, "tenants.html",
         page_title="Tenants", active_nav="tenants",
         agents=agents, search=search, sort_by=sort_by,
@@ -172,6 +197,10 @@ async def tenant_create(request: Request):
         return redirect
 
     form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
     from app.services.console_queries import create_agent_tenant
 
     try:
@@ -224,6 +253,10 @@ async def tenant_update(request: Request, agent_id: str):
         return redirect
 
     form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
     from app.services.console_queries import update_agent_tenant
 
     try:
@@ -244,6 +277,11 @@ async def tenant_deactivate(request: Request, agent_id: str):
     if redirect:
         return redirect
 
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
     from app.services.console_queries import deactivate_agent
     deactivate_agent(agent_id)
     return RedirectResponse(f"/console/tenants/{agent_id}", status_code=303)
@@ -254,6 +292,11 @@ async def tenant_test_sms(request: Request, agent_id: str):
     redirect = _require_auth(request)
     if redirect:
         return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
 
     from app.services.console_queries import send_test_sms
     try:
@@ -339,6 +382,11 @@ async def trigger_retry(request: Request, trigger_id: str):
     if redirect:
         return redirect
 
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
     from app.services.console_queries import retry_trigger
     retry_trigger(trigger_id)
     return RedirectResponse("/console/triggers", status_code=303)
@@ -350,6 +398,11 @@ async def trigger_cancel(request: Request, trigger_id: str):
     if redirect:
         return redirect
 
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
     from app.services.console_queries import cancel_trigger
     cancel_trigger(trigger_id)
     return RedirectResponse("/console/triggers", status_code=303)
@@ -360,6 +413,11 @@ async def trigger_fire_now(request: Request, trigger_id: str):
     redirect = _require_auth(request)
     if redirect:
         return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
 
     from app.services.console_queries import fire_trigger_now
     fire_trigger_now(trigger_id)
@@ -417,11 +475,12 @@ async def health_overview(request: Request):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_health_overview
+    from app.services.console_queries import get_health_overview, get_all_agents
 
     return _render(request, "health.html",
         page_title="Health", active_nav="health",
         health=get_health_overview(),
+        agents=get_all_agents(),
     )
 
 
@@ -440,6 +499,11 @@ async def manual_daily_scan(request: Request, agent_id: str):
     redirect = _require_auth(request)
     if redirect:
         return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
 
     from app.services.console_queries import run_manual_scan
     run_manual_scan(agent_id)

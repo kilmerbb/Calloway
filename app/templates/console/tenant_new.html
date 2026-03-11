@@ -5,6 +5,7 @@
 {% endif %}
 
 <form method="post" action="/console/tenants/new" style="max-width: 600px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="section">
         <div class="section-title">Agent Profile</div>
         <div class="form-group"><label>Name *</label><input type="text" name="name" required title="Full name of the real estate agent"></div>

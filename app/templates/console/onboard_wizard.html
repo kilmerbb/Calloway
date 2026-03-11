@@ -16,6 +16,7 @@
     </div>
 
     <form method="post" action="/console/onboard" id="wizardForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
         <!-- ========== STEP 1: Agent Profile ========== -->
         <div class="wizard-step active" data-step="1" data-title="Agent Profile">
