@@ -6,12 +6,21 @@
        hx-select="#contactList" hx-swap="outerHTML" name="search" value="{{ search }}">
 
 <div class="filter-row">
-    <a href="/agent/contacts" class="filter-chip {% if not role_filter %}active{% endif %}">All</a>
+    <a href="/agent/contacts" class="filter-chip {% if not role_filter and not source_filter %}active{% endif %}">All</a>
     <a href="/agent/contacts?role=buyer" class="filter-chip {% if role_filter == 'buyer' %}active{% endif %}">Buyers</a>
     <a href="/agent/contacts?role=seller" class="filter-chip {% if role_filter == 'seller' %}active{% endif %}">Sellers</a>
     <a href="/agent/contacts?role=lead" class="filter-chip {% if role_filter == 'lead' %}active{% endif %}">Leads</a>
     <a href="/agent/contacts?role=past_client" class="filter-chip {% if role_filter == 'past_client' %}active{% endif %}">Past Clients</a>
 </div>
+
+{% if lead_sources %}
+<div class="filter-row" style="margin-top:0;">
+    <span style="font-size:12px; color:var(--text-muted); margin-right:4px;">Source:</span>
+    {% for src in lead_sources %}
+    <a href="/agent/contacts?source={{ src }}" class="filter-chip {% if source_filter == src %}active{% endif %}">{{ src }}</a>
+    {% endfor %}
+</div>
+{% endif %}
 
 <div id="contactList">
     {% for c in contacts %}
@@ -20,9 +29,10 @@
         <div class="list-content">
             <div class="list-name">{{ c.name }}</div>
             <div class="list-meta">
-                {{ c.phone }}
+                {{ c.phone }}{% if c.email and c.email != c.phone %} &middot; {{ c.email }}{% endif %}
                 {% if c.role %}&middot; <span class="badge badge-gray">{{ c.role }}</span>{% endif %}
                 {% if c.lifecycle_stage %}<span class="badge badge-blue">{{ c.lifecycle_stage|replace('_', ' ') }}</span>{% endif %}
+                {% if c.lead_source %}<span class="badge badge-green">{{ c.lead_source }}</span>{% endif %}
             </div>
         </div>
         <div class="list-right">

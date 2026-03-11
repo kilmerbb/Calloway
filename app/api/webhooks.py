@@ -269,6 +269,7 @@ async def process_vapi_transcript(payload: dict):
                 phone=event.sender_phone,
                 role="lead",
                 lifecycle_stage="new_lead",
+                lead_source="voice",
             )
 
         # Classify and route
@@ -318,6 +319,107 @@ async def process_vapi_transcript(payload: dict):
 
 
 @router.post("/email/inbound")
-async def email_inbound(request: Request):
-    """Receives BCC'd email. Implemented later."""
+async def email_inbound(request: Request, background_tasks: BackgroundTasks):
+    """Receives inbound email via SendGrid Inbound Parse webhook."""
+    form_data = await request.form()
+    payload = dict(form_data)
+
+    to_address = payload.get("to", "")
+    agent = _resolve_agent_from_email(to_address)
+    if agent is None:
+        logger.warning("No agent found for email address: %s", to_address)
+        return {"status": "no_agent"}
+
+    background_tasks.add_task(process_inbound_email, str(agent.id), payload)
     return {"status": "ok"}
+
+
+def _resolve_agent_from_email(to_address: str):
+    """Find the agent whose email matches the To address."""
+    from app.db.connection import get_db_connection
+    from app.services.agent_config import get_agent_by_id
+    from uuid import UUID
+
+    email = to_address
+    if "<" in to_address:
+        email = to_address.split("<")[1].rstrip(">").strip()
+
+    try:
+        with get_db_connection() as conn:
+            row = conn.execute(
+                "SELECT id FROM agents WHERE email = %s",
+                [email],
+            ).fetchone()
+        if row:
+            return get_agent_by_id(UUID(str(row["id"])))
+    except Exception as e:
+        logger.error("Agent email lookup failed: %s", e)
+    return None
+
+
+async def process_inbound_email(agent_id: str, payload: dict):
+    """Process an inbound email through the full pipeline."""
+    from uuid import UUID
+    from app.pipeline.normalizer import normalize_email_event
+    from app.pipeline.resolver import resolve_contact
+    from app.pipeline.classifier import classify_intent
+    from app.pipeline.router import route_and_handle
+    from app.pipeline.dispatcher import dispatch
+    from app.services.agent_config import get_agent_by_id
+    from app.services.email_service import parse_inbound_email, _extract_email
+    from app.tools.contacts import create_contact
+    from app.db.connection import get_db_connection
+
+    try:
+        aid = UUID(agent_id)
+        agent = get_agent_by_id(aid)
+        if not agent:
+            logger.error("Agent %s not found", agent_id)
+            return
+
+        parsed = parse_inbound_email(payload)
+        event = normalize_email_event(payload, aid)
+
+        # Archive email
+        try:
+            with get_db_connection() as conn:
+                conn.execute(
+                    """INSERT INTO emails (agent_id, from_address, to_address, subject, body)
+                       VALUES (%s, %s, %s, %s, %s)""",
+                    [agent_id, parsed["from_address"], parsed["to_address"],
+                     parsed["subject"], parsed["text"]],
+                )
+                conn.commit()
+        except Exception as e:
+            logger.error("Failed to archive email: %s", e)
+
+        # Resolve contact
+        contact, is_agent_command = resolve_contact(event, agent)
+
+        # Auto-create contact for unknown email senders
+        if not contact and not is_agent_command and parsed["from_address"]:
+            sender_email = _extract_email(parsed["from_address"])
+            sender_name = parsed["from_name"] or sender_email.split("@")[0]
+            contact = create_contact(
+                agent_id=aid,
+                name=sender_name,
+                phone=sender_email,
+                email=sender_email,
+                role="lead",
+                lifecycle_stage="new_lead",
+                lead_source="email",
+            )
+            logger.info("Auto-created contact from email: %s", sender_name)
+
+        # Classify and route
+        intent = classify_intent(event, contact, agent)
+        decision = route_and_handle(event, contact, intent, agent)
+
+        # Dispatch
+        dispatch(decision, event, contact, agent, is_agent_command)
+
+        logger.info("Processed email: from=%s intent=%s model=%s",
+                     parsed["from_address"], intent.intent, decision.model_used)
+
+    except Exception as e:
+        logger.error("Email pipeline error: %s", e, exc_info=True)

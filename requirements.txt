@@ -8,6 +8,7 @@ supabase==2.11.0
 redis==5.2.1
 httpx==0.28.1
 anthropic==0.42.0
+sendgrid==6.11.0
 stripe==11.4.1
 twilio==9.4.0
 google-auth==2.37.0

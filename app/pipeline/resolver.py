@@ -23,25 +23,33 @@ def resolve_contact(
     # Check if sender is the agent themselves
     if event.sender_phone == agent.phone:
         return None, True
+    if event.channel == "email" and event.sender_phone == agent.email:
+        return None, True
 
-    # Look up contact by phone
+    # Look up contact by phone or email
     try:
         with get_db_connection() as conn:
-            row = conn.execute(
-                """SELECT * FROM contacts
-                   WHERE agent_id = %s AND phone = %s""",
-                [str(event.agent_id), event.sender_phone],
-            ).fetchone()
+            if event.channel == "email":
+                row = conn.execute(
+                    """SELECT * FROM contacts
+                       WHERE agent_id = %s AND (email = %s OR phone = %s)""",
+                    [str(event.agent_id), event.sender_phone, event.sender_phone],
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    """SELECT * FROM contacts
+                       WHERE agent_id = %s AND phone = %s""",
+                    [str(event.agent_id), event.sender_phone],
+                ).fetchone()
 
         if row:
             contact = Contact(**row)
-            logger.info(f"Resolved contact: {contact.name} ({contact.role})")
+            logger.info("Resolved contact: %s (%s)", contact.name, contact.role)
             return contact, False
 
-        logger.info(f"Unknown sender: {event.sender_phone}")
+        logger.info("Unknown sender: %s (channel=%s)", event.sender_phone, event.channel)
         return None, False
 
     except Exception as e:
-        logger.error(f"Contact resolution failed: {e}")
-        # On DB error, process as unknown rather than failing
+        logger.error("Contact resolution failed: %s", e, exc_info=True)
         return None, False

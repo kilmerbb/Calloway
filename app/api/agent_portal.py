@@ -265,6 +265,7 @@ async def contacts_list(request: Request):
 
     search = request.query_params.get("search", "")
     role_filter = request.query_params.get("role", "")
+    source_filter = request.query_params.get("source", "")
 
     from app.db.connection import get_db_connection
 
@@ -275,18 +276,31 @@ async def contacts_list(request: Request):
         query += " AND role = %s"
         params.append(role_filter)
 
+    if source_filter:
+        query += " AND lead_source = %s"
+        params.append(source_filter)
+
     if search:
-        query += " AND (name ILIKE %s OR phone ILIKE %s)"
-        params.extend([f"%{search}%", f"%{search}%"])
+        query += " AND (name ILIKE %s OR phone ILIKE %s OR email ILIKE %s)"
+        params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
 
     query += " ORDER BY last_contact_at DESC NULLS LAST"
 
     with get_db_connection() as conn:
         contacts = conn.execute(query, params).fetchall()
 
+        # Get distinct lead sources for filter chips
+        sources = conn.execute(
+            "SELECT DISTINCT lead_source FROM contacts WHERE agent_id = %s AND lead_source IS NOT NULL ORDER BY lead_source",
+            [agent_id],
+        ).fetchall()
+
+    lead_sources = [s["lead_source"] for s in sources]
+
     return _render(request, "contacts.html",
         page_title="Contacts", active_nav="contacts", agent=agent,
         contacts=contacts, search=search, role_filter=role_filter,
+        source_filter=source_filter, lead_sources=lead_sources,
     )
 
 

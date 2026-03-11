@@ -58,18 +58,20 @@ def create_contact(
     email: str | None = None,
     preferences: dict | None = None,
     linked_listing_id: UUID | None = None,
+    lead_source: str | None = None,
 ) -> Contact:
     """Create a new contact and optionally a lead_preferences row."""
     with get_db_connection() as conn:
         row = conn.execute(
             """INSERT INTO contacts (agent_id, name, phone, email, role, lifecycle_stage,
-                linked_listing_id, preferences, last_contact_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now())
+                linked_listing_id, preferences, lead_source, last_contact_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, now())
                RETURNING *""",
             [
                 str(agent_id), name, phone, email, role, lifecycle_stage,
                 str(linked_listing_id) if linked_listing_id else None,
                 "{}" if not preferences else str(preferences).replace("'", '"'),
+                lead_source,
             ],
         ).fetchone()
         conn.commit()
@@ -127,7 +129,7 @@ def update_contact(contact_id: UUID, **updates) -> Contact:
         "linked_listing_id", "preferences", "notes", "silent_mode",
         "consent_status", "consent_granted_at", "consent_revoked_at",
         "consent_method", "consent_message", "consent_response",
-        "language_detected", "interaction_count",
+        "language_detected", "interaction_count", "lead_source",
     }
     filtered = {k: v for k, v in updates.items() if k in valid_fields and v is not None}
 

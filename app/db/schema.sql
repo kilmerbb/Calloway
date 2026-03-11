@@ -53,6 +53,7 @@ CREATE TABLE contacts (
     consent_method  TEXT,
     consent_message TEXT,
     consent_response TEXT,
+    lead_source     TEXT,
     language_detected TEXT DEFAULT 'en',
     interaction_count INT DEFAULT 0,
     created_at      TIMESTAMPTZ DEFAULT now(),
@@ -62,6 +63,8 @@ CREATE TABLE contacts (
 CREATE UNIQUE INDEX idx_contacts_agent_phone ON contacts(agent_id, phone);
 CREATE INDEX idx_contacts_agent_lifecycle ON contacts(agent_id, lifecycle_stage);
 CREATE INDEX idx_contacts_agent_last_contact ON contacts(agent_id, last_contact_at);
+CREATE INDEX idx_contacts_agent_email ON contacts(agent_id, email) WHERE email IS NOT NULL;
+CREATE INDEX idx_contacts_lead_source ON contacts(agent_id, lead_source) WHERE lead_source IS NOT NULL;
 
 -- ============================================================
 -- 2A. consent_log

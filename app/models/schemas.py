@@ -54,6 +54,7 @@ class Contact(BaseModel):
     consent_method: str | None = None
     consent_message: str | None = None
     consent_response: str | None = None
+    lead_source: str | None = None
     language_detected: str = "en"
     interaction_count: int = 0
     created_at: datetime | None = None

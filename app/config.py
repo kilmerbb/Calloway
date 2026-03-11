@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
 
+    # SendGrid (email)
+    SENDGRID_API_KEY: str = ""
+    SENDGRID_INBOUND_SECRET: str = ""
+
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 

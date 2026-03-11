@@ -62,6 +62,16 @@ def dispatch(
                 body=decision.response_text,
                 agent_id=agent.id,
             )
+        elif contact and event.channel == "email" and contact.email:
+            # Send to client via email
+            from app.services.email_service import send_client_email
+            send_client_email(
+                agent_id=agent.id,
+                contact_id=contact.id,
+                message=decision.response_text,
+                from_email=agent.email,
+                to_email=contact.email,
+            )
         elif contact:
             # Send to client via RCS/SMS
             send_client_message(
