@@ -316,6 +316,8 @@ def handle_full_reasoning(
     agent: AgentConfig,
 ) -> AgentDecision:
     """Full reasoning with Claude Sonnet and tools."""
+    from app.config import get_settings
+
     client = get_anthropic_client()
 
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
@@ -324,6 +326,22 @@ def handle_full_reasoning(
         market=agent.market or "their market",
         tone=agent.style_profile.get("tone", "professional"),
     )
+
+    # RAG context injection
+    settings = get_settings()
+    if settings.RAG_ENABLED:
+        try:
+            from app.services.rag_service import get_rag_service
+            rag = get_rag_service()
+            rag_context = rag.get_context_for_message(
+                agent_id=agent.id,
+                contact_id=contact.id if contact else None,
+                message_text=event.body,
+            )
+            if rag_context:
+                system_prompt += f"\n\n{rag_context}"
+        except Exception as e:
+            logger.warning("RAG context retrieval failed, proceeding without: %s", e)
 
     if contact:
         system_prompt += f"\n\nCURRENT CLIENT: {contact.name} ({contact.role}, {contact.lifecycle_stage})"

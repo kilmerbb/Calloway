@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     SENDGRID_API_KEY: str = ""
     SENDGRID_INBOUND_SECRET: str = ""
 
+    # Voyage AI (RAG embeddings)
+    VOYAGE_API_KEY: str = ""
+    RAG_ENABLED: bool = False
+    RAG_TOP_K: int = 5
+    RAG_CHUNK_SIZE: int = 512
+    RAG_CHUNK_OVERLAP: int = 50
+
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 
