@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Firebase
     FIREBASE_SERVER_KEY: str = ""
 
+    # Stripe
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 

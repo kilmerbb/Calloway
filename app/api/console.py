@@ -511,6 +511,71 @@ async def manual_daily_scan(request: Request, agent_id: str):
 
 
 # ============================================================
+# Billing
+# ============================================================
+
+@router.get("/billing", response_class=HTMLResponse)
+async def billing_overview(request: Request):
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    from app.services.billing_service import get_billing_summary, PLAN_TIERS
+
+    return _render(request, "billing.html",
+        page_title="Billing", active_nav="billing",
+        subscriptions=get_billing_summary(),
+        plan_tiers=PLAN_TIERS,
+    )
+
+
+@router.post("/billing/{agent_id}/change-plan")
+async def billing_change_plan(request: Request, agent_id: str):
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    new_tier = form.get("plan_tier")
+    if not new_tier:
+        return RedirectResponse("/console/billing", status_code=303)
+
+    from uuid import UUID
+    from app.services.billing_service import change_plan
+    try:
+        change_plan(UUID(agent_id), new_tier)
+    except Exception as e:
+        logger.error(f"Plan change failed: {e}")
+
+    return RedirectResponse("/console/billing", status_code=303)
+
+
+@router.post("/billing/{agent_id}/cancel")
+async def billing_cancel(request: Request, agent_id: str):
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    from uuid import UUID
+    from app.services.billing_service import cancel_subscription
+    try:
+        cancel_subscription(UUID(agent_id))
+    except Exception as e:
+        logger.error(f"Subscription cancellation failed: {e}")
+
+    return RedirectResponse("/console/billing", status_code=303)
+
+
+# ============================================================
 # User Manual
 # ============================================================
 
