@@ -153,11 +153,18 @@ CREATE TABLE messages (
     ai_generated    BOOLEAN DEFAULT false,
     model_used      TEXT,
     tokens_used     INT,
+    provider_message_id TEXT,
+    delivery_status TEXT DEFAULT 'pending',
+    delivered_at    TIMESTAMPTZ,
+    failure_reason  TEXT,
+    feedback_score  INT,
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX idx_messages_conversation_created ON messages(conversation_id, created_at);
 CREATE INDEX idx_messages_agent_created ON messages(agent_id, created_at);
+CREATE INDEX idx_messages_provider_id ON messages(provider_message_id) WHERE provider_message_id IS NOT NULL;
+CREATE INDEX idx_messages_delivery_status ON messages(agent_id, delivery_status) WHERE delivery_status IN ('failed', 'undelivered');
 
 -- ============================================================
 -- 7. showings

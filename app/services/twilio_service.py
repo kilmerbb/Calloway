@@ -74,9 +74,11 @@ def send_client_message(
                 conv_id = new_conv["id"]
 
             conn.execute(
-                """INSERT INTO messages (agent_id, conversation_id, sender_type, body, ai_generated)
-                   VALUES (%s, %s, 'ai', %s, true)""",
-                [str(agent_id), str(conv_id), message],
+                """INSERT INTO messages (agent_id, conversation_id, sender_type, body,
+                    ai_generated, provider_message_id, delivery_status)
+                   VALUES (%s, %s, 'ai', %s, true, %s, %s)""",
+                [str(agent_id), str(conv_id), message,
+                 result.get("sid"), result.get("status", "pending")],
             )
 
             # Update contact last_contact_at

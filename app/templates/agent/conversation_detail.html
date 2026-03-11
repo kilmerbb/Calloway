@@ -28,6 +28,9 @@
         <div class="chat-time" style="color:rgba(255,255,255,0.7);">
             {{ m.created_at.strftime('%b %d %I:%M%p').lstrip('0') if m.created_at else '' }}
             {% if m.ai_generated %} &middot; AI{% if m.model_used %}/{{ m.model_used }}{% endif %}{% endif %}
+            {% if m.delivery_status == 'delivered' %} &middot; &#10003;{% endif %}
+            {% if m.delivery_status == 'read' %} &middot; &#10003;&#10003;{% endif %}
+            {% if m.delivery_status == 'failed' or m.delivery_status == 'undelivered' %} &middot; <span style="color:#ff6b6b;">&#9888; {{ m.delivery_status }}</span>{% endif %}
         </div>
     </div>
     {% endif %}

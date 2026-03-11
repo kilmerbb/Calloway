@@ -116,6 +116,10 @@ class Message(BaseModel):
     ai_generated: bool = False
     model_used: str | None = None
     tokens_used: int | None = None
+    provider_message_id: str | None = None
+    delivery_status: str = "pending"
+    delivered_at: datetime | None = None
+    failure_reason: str | None = None
     feedback_score: int | None = None
     created_at: datetime | None = None
 

@@ -167,9 +167,59 @@ async def twilio_status(request: Request):
 
     message_sid = payload.get("MessageSid", "")
     status = payload.get("MessageStatus", "")
-    logger.info(f"Message {message_sid} status: {status}")
+    error_code = payload.get("ErrorCode", "")
+    error_message = payload.get("ErrorMessage", "")
 
-    # TODO: Update message delivery status in messages table
+    logger.info("Message %s status: %s", message_sid, status,
+                extra={"tool_name": "twilio_status"})
+
+    if message_sid:
+        from app.db.connection import get_db_connection
+
+        try:
+            with get_db_connection() as conn:
+                if status in ("delivered", "read"):
+                    conn.execute(
+                        """UPDATE messages
+                           SET delivery_status = %s, delivered_at = now()
+                           WHERE provider_message_id = %s""",
+                        [status, message_sid],
+                    )
+                elif status in ("failed", "undelivered"):
+                    failure = f"{error_code}: {error_message}" if error_code else error_message
+                    conn.execute(
+                        """UPDATE messages
+                           SET delivery_status = %s, failure_reason = %s
+                           WHERE provider_message_id = %s""",
+                        [status, failure or None, message_sid],
+                    )
+
+                    # Notify agent of delivery failure
+                    msg = conn.execute(
+                        """SELECT m.agent_id, c.name as contact_name
+                           FROM messages m
+                           JOIN conversations cv ON cv.id = m.conversation_id
+                           LEFT JOIN contacts c ON c.id = cv.contact_id
+                           WHERE m.provider_message_id = %s""",
+                        [message_sid],
+                    ).fetchone()
+                    if msg:
+                        logger.warning(
+                            "Message delivery failed to %s: %s",
+                            msg.get("contact_name", "unknown"), failure,
+                            extra={"agent_id": str(msg["agent_id"])},
+                        )
+                else:
+                    # queued, sent, sending — intermediate statuses
+                    conn.execute(
+                        """UPDATE messages
+                           SET delivery_status = %s
+                           WHERE provider_message_id = %s""",
+                        [status, message_sid],
+                    )
+                conn.commit()
+        except Exception as e:
+            logger.error("Failed to update delivery status: %s", e, exc_info=True)
 
     return Response(
         content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
