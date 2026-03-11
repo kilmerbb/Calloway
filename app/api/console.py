@@ -407,3 +407,18 @@ async def manual_daily_scan(request: Request, agent_id: str):
     from app.services.console_queries import run_manual_scan
     run_manual_scan(agent_id)
     return RedirectResponse("/console/health", status_code=303)
+
+
+# ============================================================
+# User Manual
+# ============================================================
+
+@router.get("/manual", response_class=HTMLResponse)
+async def user_manual(request: Request):
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    return _render(request, "manual.html",
+        page_title="User Manual", active_nav="manual",
+    )
