@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    @page { size: letter; margin: 0.75in; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 11px; color: #1a1a1a; line-height: 1.5; }
+    h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px 0; color: #0f172a; }
+    h1 small { font-size: 13px; font-weight: 400; color: #64748b; display: block; margin-top: 2px; }
+    h2 { font-size: 14px; font-weight: 700; color: #1e40af; margin: 18px 0 8px 0; padding-bottom: 4px; border-bottom: 2px solid #dbeafe; }
+    h3 { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin: 12px 0 4px 0; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 10.5px; }
+    th { background: #f1f5f9; color: #334155; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left; border: 1px solid #e2e8f0; }
+    td { padding: 5px 8px; border: 1px solid #e2e8f0; vertical-align: top; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    .required { color: #dc2626; font-weight: 700; }
+    .field-name { font-weight: 600; white-space: nowrap; }
+    .hint { color: #64748b; font-style: italic; font-size: 10px; }
+    .tip { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; padding: 6px 10px; margin: 6px 0 10px 0; font-size: 10px; color: #1e40af; }
+    .tip strong { color: #1e3a8a; }
+    .section-note { color: #64748b; font-size: 10px; margin: -4px 0 8px 0; }
+    .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 9px; text-align: center; }
+    .tag { display: inline-block; background: #dbeafe; color: #1e40af; font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 3px; }
+    .tag-green { background: #dcfce7; color: #166534; }
+    .tag-gray { background: #f1f5f9; color: #475569; }
+    .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<h1>Calloway &mdash; Discovery Call Intake Sheet
+<small>Operator reference for onboarding new real estate agent clients</small>
+</h1>
+
+<!-- STEP 1 -->
+<h2>Step 1: Agent Profile</h2>
+<table>
+<tr><th style="width:15%">Field</th><th style="width:8%">Req?</th><th style="width:32%">What to Ask</th><th>Definition</th></tr>
+<tr><td class="field-name">Full Name</td><td class="required">Yes</td><td>&ldquo;What name do you go by with clients?&rdquo;</td><td>Display name the AI uses when signing messages. Should match their brand (e.g. &ldquo;Sarah Mitchell&rdquo; not &ldquo;S. Mitchell&rdquo;).</td></tr>
+<tr><td class="field-name">Email</td><td class="required">Yes</td><td>&ldquo;Best email for system notifications?&rdquo;</td><td>Receives error alerts, weekly reports, and account recovery. Not shared with clients.</td></tr>
+<tr><td class="field-name">Phone</td><td class="required">Yes</td><td>&ldquo;What&rsquo;s your cell number?&rdquo;</td><td>Agent&rsquo;s personal number in +1XXXXXXXXXX format. Where the AI sends command-channel SMS and escalation alerts.</td></tr>
+<tr><td class="field-name">Brokerage</td><td class="tag-gray">No</td><td>&ldquo;Which brokerage are you with?&rdquo;</td><td>Firm name (e.g. &ldquo;Keller Williams Realty&rdquo;). Used in the AI&rsquo;s context so it knows the agent&rsquo;s affiliation.</td></tr>
+<tr><td class="field-name">Market Area</td><td class="tag-gray">No</td><td>&ldquo;What&rsquo;s your primary area?&rdquo;</td><td>Geographic market (e.g. &ldquo;Philadelphia Metro&rdquo;). Helps the AI give location-aware responses.</td></tr>
+<tr><td class="field-name">Timezone</td><td class="tag-gray">No</td><td>&ldquo;Which timezone are you in?&rdquo;</td><td>Eastern / Central / Mountain / Pacific. Controls briefing times, after-hours rules, and scheduling. Default: Eastern.</td></tr>
+</table>
+
+<!-- STEP 2 -->
+<h2>Step 2: Communication Style</h2>
+<table>
+<tr><th style="width:15%">Field</th><th style="width:8%">Req?</th><th style="width:32%">What to Ask</th><th>Definition</th></tr>
+<tr><td class="field-name">Tone</td><td class="tag-gray">No</td><td>&ldquo;How would you describe your texting style &mdash; polished, warm, or laid back?&rdquo;</td><td><strong>Professional:</strong> &ldquo;Good afternoon, I&rsquo;d be happy to schedule that.&rdquo; <strong>Friendly:</strong> &ldquo;Hey! Absolutely, let&rsquo;s get that set up.&rdquo; <strong>Casual:</strong> &ldquo;Sure thing! When works best?&rdquo;</td></tr>
+<tr><td class="field-name">Emoji Usage</td><td class="tag-gray">No</td><td>&ldquo;Do you use emojis when you text clients?&rdquo;</td><td>Yes or No. If yes, AI mirrors light emoji usage. If no, messages stay text-only.</td></tr>
+<tr><td class="field-name">Greeting Style</td><td class="tag-gray">No</td><td>&ldquo;How do you usually open a text?&rdquo;</td><td>AI&rsquo;s default opening pattern (e.g. &ldquo;Hi Sarah!&rdquo; or &ldquo;Hey there&rdquo;). Blank = match tone naturally.</td></tr>
+<tr><td class="field-name">Sign-off Style</td><td class="tag-gray">No</td><td>&ldquo;How do you usually sign off?&rdquo;</td><td>Closing line the AI appends (e.g. &ldquo;Best, Sarah&rdquo; or &ldquo;Talk soon!&rdquo;). Blank = no sign-off.</td></tr>
+<tr><td class="field-name">Communication Notes</td><td class="tag-gray">No</td><td>&ldquo;Anything else about how you talk to clients?&rdquo;</td><td>Free-text notes baked into the system prompt. Examples: &ldquo;Never say &lsquo;no problem&rsquo;&rdquo;, &ldquo;Call properties &lsquo;homes&rsquo; not &lsquo;houses&rsquo;&rdquo;.</td></tr>
+</table>
+<div class="tip"><strong>Pro tip:</strong> Ask them to forward 3&ndash;5 recent client text threads. Read them before filling this section &mdash; you&rsquo;ll nail the voice much faster.</div>
+
+<!-- STEP 3 -->
+<h2>Step 3: Scheduling &amp; Availability</h2>
+<table>
+<tr><th style="width:15%">Field</th><th style="width:8%">Req?</th><th style="width:32%">What to Ask</th><th>Definition</th></tr>
+<tr><td class="field-name">Showing Duration</td><td class="tag-gray">No</td><td>&ldquo;How long are your typical showings?&rdquo;</td><td>30 / 45 / 60 / 90 minutes. AI blocks this on the calendar per showing. Default: 60 min.</td></tr>
+<tr><td class="field-name">Buffer Time</td><td class="tag-gray">No</td><td>&ldquo;How much travel time between back-to-back showings?&rdquo;</td><td>15 / 30 / 45 / 60 minutes. Prevents bookings too close together. Default: 30 min.</td></tr>
+<tr><td class="field-name">Earliest Showing</td><td class="tag-gray">No</td><td>&ldquo;What&rsquo;s the earliest you&rsquo;d do a showing?&rdquo;</td><td>Time of day (e.g. 9:00 AM). AI won&rsquo;t book before this.</td></tr>
+<tr><td class="field-name">Latest Showing</td><td class="tag-gray">No</td><td>&ldquo;Latest you&rsquo;d start a showing?&rdquo;</td><td>Time of day (e.g. 6:00 PM). AI won&rsquo;t book after this.</td></tr>
+<tr><td class="field-name">After-Hours Mode</td><td class="tag-gray">No</td><td>&ldquo;When a client texts at 11pm, what should happen?&rdquo;</td><td><strong>Acknowledge &amp; Queue:</strong> AI says &ldquo;Thanks! [Agent] will follow up in the morning.&rdquo; <strong>Handle Normally:</strong> AI responds 24/7. <strong>Silent:</strong> No reply; logged for morning briefing.</td></tr>
+<tr><td class="field-name">Briefing Time</td><td class="tag-gray">No</td><td>&ldquo;What time do you want your daily summary?&rdquo;</td><td>Time in their timezone (e.g. 7:30 AM). AI sends overnight activity, upcoming showings, pending items. Default: 7:30 AM.</td></tr>
+</table>
+
+<!-- STEP 4 -->
+<h2>Step 4: Autonomy &amp; Trust Level</h2>
+<table>
+<tr><th style="width:15%">Field</th><th style="width:8%">Req?</th><th style="width:32%">What to Ask</th><th>Definition</th></tr>
+<tr><td class="field-name">Operating Mode</td><td class="tag-gray">No</td><td>&ldquo;How much should the AI do on its own at first?&rdquo;</td><td><strong>Supervised</strong> <span class="tag-green" style="font-size:9px;padding:1px 4px;border-radius:3px;">Week 1 rec.</span>: AI drafts, agent approves. <strong>Proactive:</strong> Routine auto, sensitive asks. <strong>Autonomous:</strong> Fully independent. <strong>Command Only:</strong> Agent triggers manually.</td></tr>
+<tr><td class="field-name">Escalate: Pricing</td><td class="tag-gray">No</td><td>&ldquo;Loop you in on pricing/negotiations?&rdquo;</td><td>AI escalates pricing and offer questions. Default: Yes.</td></tr>
+<tr><td class="field-name">Escalate: Legal</td><td class="tag-gray">No</td><td>&ldquo;Same for legal or contract questions?&rdquo;</td><td>AI flags legal, contract, disclosure topics. Default: Yes.</td></tr>
+<tr><td class="field-name">Escalate: Unhappy</td><td class="tag-gray">No</td><td>&ldquo;When a client seems frustrated?&rdquo;</td><td>AI detects negative sentiment, escalates. Default: Yes.</td></tr>
+<tr><td class="field-name">Escalate: Personal</td><td class="tag-gray">No</td><td>&ldquo;Personal or emotional conversations?&rdquo;</td><td>AI escalates sensitive personal topics. Default: Off.</td></tr>
+<tr><td class="field-name">Escalate: New Lead</td><td class="tag-gray">No</td><td>&ldquo;New unknown number texts in?&rdquo;</td><td>AI notifies agent on first-ever message from unknown. Default: Off.</td></tr>
+<tr><td class="field-name">Notification Method</td><td class="tag-gray">No</td><td>&ldquo;How do you want alerts?&rdquo;</td><td>SMS / Push (Firebase) / Both.</td></tr>
+<tr><td class="field-name">Notification Frequency</td><td class="tag-gray">No</td><td>&ldquo;Instant or batched?&rdquo;</td><td><strong>Immediate:</strong> Every event. <strong>Batched</strong> (default): Every 30 min. <strong>Briefing Only:</strong> Daily digest only.</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<!-- STEP 5 -->
+<h2>Step 5: Active Listings</h2>
+<p class="section-note">Repeat for each listing. Can be skipped and added later from the tenant detail page.</p>
+<table>
+<tr><th style="width:15%">Field</th><th style="width:8%">Req?</th><th style="width:32%">What to Ask</th><th>Definition</th></tr>
+<tr><td class="field-name">Address</td><td class="tag-gray">No</td><td>&ldquo;Full address?&rdquo;</td><td>Street, city, state, zip. AI uses for directions and property identification.</td></tr>
+<tr><td class="field-name">Price</td><td class="tag-gray">No</td><td>&ldquo;List price?&rdquo;</td><td>Current asking price. Accepts $450,000 or 450000.</td></tr>
+<tr><td class="field-name">Beds</td><td class="tag-gray">No</td><td>&ldquo;Bedrooms?&rdquo;</td><td>Bedroom count.</td></tr>
+<tr><td class="field-name">Baths</td><td class="tag-gray">No</td><td>&ldquo;Bathrooms?&rdquo;</td><td>Bathroom count (supports halves like 2.5).</td></tr>
+<tr><td class="field-name">Sqft</td><td class="tag-gray">No</td><td>&ldquo;Square footage?&rdquo;</td><td>Living area square footage.</td></tr>
+<tr><td class="field-name">Status</td><td class="tag-gray">No</td><td>&ldquo;Active, pending, or coming soon?&rdquo;</td><td><strong>Active:</strong> On market. <strong>Pending:</strong> Under contract. <strong>Coming Soon:</strong> Not yet on MLS.</td></tr>
+<tr><td class="field-name">Showing Instructions</td><td class="tag-gray">No</td><td>&ldquo;Any special showing instructions?&rdquo;</td><td>&ldquo;Call 30 min before&rdquo;, &ldquo;Occupied &mdash; knock first&rdquo;, &ldquo;Use back entrance.&rdquo;</td></tr>
+<tr><td class="field-name">Lockbox Code</td><td class="tag-gray">No</td><td>&ldquo;Lockbox code?&rdquo;</td><td>Shared with verified agents for confirmed showings. Stored securely.</td></tr>
+</table>
+
+<!-- STEP 6 -->
+<h2>Step 6: Active Clients</h2>
+<p class="section-note">Repeat for each client. Can be skipped and bulk-imported later. During handoff, agent introduces AI to 2&ndash;3 of these first.</p>
+<table>
+<tr><th style="width:15%">Field</th><th style="width:8%">Req?</th><th style="width:32%">What to Ask</th><th>Definition</th></tr>
+<tr><td class="field-name">Name</td><td class="tag-gray">No</td><td>&ldquo;Client&rsquo;s name?&rdquo;</td><td>How the AI addresses them. Can be a couple: &ldquo;Mike &amp; Lisa Chen.&rdquo;</td></tr>
+<tr><td class="field-name">Phone</td><td class="tag-gray">No</td><td>&ldquo;Their cell number?&rdquo;</td><td>+1XXXXXXXXXX format. How AI matches incoming texts to known clients.</td></tr>
+<tr><td class="field-name">Email</td><td class="tag-gray">No</td><td>&ldquo;Email?&rdquo;</td><td>For email-based communications or records.</td></tr>
+<tr><td class="field-name">Role</td><td class="tag-gray">No</td><td>&ldquo;Buyer, seller, or both?&rdquo;</td><td><strong>Buyer</strong> / <strong>Seller</strong> / <strong>Both</strong> / <strong>Lead</strong> (not yet client) / <strong>Past Client</strong>. Determines which AI scenarios activate.</td></tr>
+<tr><td class="field-name">Stage</td><td class="tag-gray">No</td><td>&ldquo;Where are they in the process?&rdquo;</td><td><strong>New Lead</strong> &rarr; <strong>Active Search</strong> &rarr; <strong>Showings Scheduled</strong> &rarr; <strong>Offer Pending</strong> &rarr; <strong>Under Contract</strong> &rarr; <strong>Closed</strong></td></tr>
+<tr><td class="field-name">Notes</td><td class="tag-gray">No</td><td>&ldquo;Anything the AI should know?&rdquo;</td><td>Free text: &ldquo;Pre-approved $500K&rdquo;, &ldquo;Looking in Fishtown&rdquo;, &ldquo;Weekend showings only.&rdquo;</td></tr>
+</table>
+
+<!-- STEP 7 -->
+<h2>Step 7: Channel Setup</h2>
+<table>
+<tr><th style="width:15%">Field</th><th style="width:8%">Req?</th><th style="width:32%">What to Ask</th><th>Definition</th></tr>
+<tr><td class="field-name">Twilio Number</td><td class="required">Yes</td><td><em>Operator provisions &mdash; not a client question</em></td><td>Dedicated number clients text to reach the AI. Must be provisioned in Twilio first. +1XXXXXXXXXX.</td></tr>
+<tr><td class="field-name">Google Review Link</td><td class="tag-gray">No</td><td>&ldquo;Do you have a Google Business review link?&rdquo;</td><td>URL to Google review page (g.page/r/&hellip;). AI can share with satisfied clients post-closing.</td></tr>
+<tr><td class="field-name">System Prompt Override</td><td class="tag-gray">No</td><td><em>Operator-only &mdash; advanced</em></td><td>Custom instructions replacing default AI prompt. Leave blank 99% of the time. Only for edge cases the style/autonomy settings don&rsquo;t cover.</td></tr>
+</table>
+
+<div style="margin-top: 20px; padding: 10px 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;">
+    <strong style="color: #166534;">Summary:</strong> <span style="color: #166534;">34 total fields across 7 steps. Only 4 required (name, email, phone, Twilio number). Everything else has sensible defaults. Average discovery call: 30&ndash;45 minutes.</span>
+</div>
+
+<div class="footer">Calloway Onboarding Intake Sheet &mdash; Internal Operator Reference</div>
+
+</body>
+</html>
