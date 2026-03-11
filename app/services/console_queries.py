@@ -42,7 +42,7 @@ def get_system_pulse() -> dict:
             ).fetchone()
 
             cost_today = conn.execute(
-                """SELECT COALESCE(SUM(llm_cost_cents), 0) as cost
+                """SELECT COALESCE(SUM(llm_cost_cents + sms_cost_cents + voice_cost_cents), 0) as cost
                    FROM usage_metrics WHERE date = CURRENT_DATE"""
             ).fetchone()
 
@@ -472,7 +472,10 @@ def get_cost_summary(days: int = 30) -> dict:
         with get_db_connection() as conn:
             row = conn.execute(
                 """SELECT
-                    COALESCE(SUM(llm_cost_cents), 0) as total_cost,
+                    COALESCE(SUM(llm_cost_cents), 0) as total_llm_cost,
+                    COALESCE(SUM(sms_cost_cents), 0) as total_sms_cost,
+                    COALESCE(SUM(voice_cost_cents), 0) as total_voice_cost,
+                    COALESCE(SUM(sms_segments_sent), 0) as total_sms_segments,
                     COALESCE(SUM(messages_sent + messages_received), 0) as total_messages,
                     COALESCE(SUM(voice_minutes), 0) as total_voice,
                     COALESCE(SUM(showings_booked), 0) as total_showings,
@@ -484,16 +487,23 @@ def get_cost_summary(days: int = 30) -> dict:
 
             daily = conn.execute(
                 """SELECT date,
-                    COALESCE(SUM(llm_cost_cents), 0) as cost,
-                    COALESCE(SUM(messages_sent + messages_received), 0) as messages
+                    COALESCE(SUM(llm_cost_cents + sms_cost_cents + voice_cost_cents), 0) as cost,
+                    COALESCE(SUM(messages_sent + messages_received), 0) as messages,
+                    COALESCE(SUM(sms_cost_cents), 0) as sms_cost,
+                    COALESCE(SUM(voice_cost_cents), 0) as voice_cost
                    FROM usage_metrics
                    WHERE date >= CURRENT_DATE - %s
                    GROUP BY date ORDER BY date""",
                 [days],
             ).fetchall()
 
+        total_cost = (row["total_llm_cost"] + row["total_sms_cost"] + row["total_voice_cost"]) if row else 0
         return {
-            "total_cost_dollars": round((row["total_cost"] if row else 0) / 100, 2),
+            "total_cost_dollars": round(total_cost / 100, 2),
+            "llm_cost_dollars": round((row["total_llm_cost"] if row else 0) / 100, 2),
+            "sms_cost_dollars": round((row["total_sms_cost"] if row else 0) / 100, 2),
+            "voice_cost_dollars": round((row["total_voice_cost"] if row else 0) / 100, 2),
+            "total_sms_segments": row["total_sms_segments"] if row else 0,
             "total_messages": row["total_messages"] if row else 0,
             "total_voice_minutes": float(row["total_voice"] if row else 0),
             "total_showings": row["total_showings"] if row else 0,
@@ -503,7 +513,9 @@ def get_cost_summary(days: int = 30) -> dict:
     except Exception as e:
         logger.error(f"Cost summary query failed: {e}")
         return {
-            "total_cost_dollars": 0, "total_messages": 0,
+            "total_cost_dollars": 0, "llm_cost_dollars": 0,
+            "sms_cost_dollars": 0, "voice_cost_dollars": 0,
+            "total_sms_segments": 0, "total_messages": 0,
             "total_voice_minutes": 0, "total_showings": 0,
             "total_llm_calls": 0, "daily": [],
         }
@@ -518,24 +530,30 @@ def get_cost_by_agent(days: int = 30) -> list[dict]:
                     COALESCE(SUM(um.messages_sent + um.messages_received), 0) as messages,
                     COALESCE(SUM(um.llm_calls), 0) as llm_calls,
                     COALESCE(SUM(um.llm_tokens_used), 0) as tokens,
-                    COALESCE(SUM(um.llm_cost_cents), 0) as cost_cents,
+                    COALESCE(SUM(um.llm_cost_cents), 0) as llm_cost_cents,
+                    COALESCE(SUM(um.sms_cost_cents), 0) as sms_cost_cents,
+                    COALESCE(SUM(um.voice_cost_cents), 0) as voice_cost_cents,
+                    COALESCE(SUM(um.sms_segments_sent), 0) as sms_segments,
                     COALESCE(SUM(um.voice_minutes), 0) as voice_minutes
                    FROM agents a
                    LEFT JOIN usage_metrics um ON um.agent_id = a.id
                      AND um.date >= CURRENT_DATE - %s
                    GROUP BY a.id, a.name
-                   ORDER BY cost_cents DESC""",
+                   ORDER BY llm_cost_cents + sms_cost_cents + voice_cost_cents DESC""",
                 [days],
             ).fetchall()
 
         result = []
         for r in (rows or []):
             msgs = r["messages"] or 0
-            cost = r["cost_cents"] or 0
+            total_cost = (r["llm_cost_cents"] or 0) + (r["sms_cost_cents"] or 0) + (r["voice_cost_cents"] or 0)
             result.append({
                 **r,
-                "cost_dollars": round(cost / 100, 2),
-                "cost_per_message": round(cost / max(msgs, 1) / 100, 4),
+                "cost_dollars": round(total_cost / 100, 2),
+                "llm_cost_dollars": round((r["llm_cost_cents"] or 0) / 100, 2),
+                "sms_cost_dollars": round((r["sms_cost_cents"] or 0) / 100, 2),
+                "voice_cost_dollars": round((r["voice_cost_cents"] or 0) / 100, 2),
+                "cost_per_message": round(total_cost / max(msgs, 1) / 100, 4),
             })
         return result
     except Exception as e:
