@@ -658,12 +658,19 @@ function renumberEntries(type) {
     });
 }
 
+// Escape HTML to prevent XSS when inserting user input
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 // Build review summary
 function buildReviewSummary() {
     const form = document.getElementById('wizardForm');
     const fd = new FormData(form);
 
-    const val = (name) => fd.get(name) || '—';
+    const val = (name) => escapeHtml(fd.get(name) || '—');
 
     const toneMap = {professional: 'Professional', friendly: 'Friendly', casual: 'Casual'};
     const modeMap = {supervised: 'Supervised', proactive: 'Proactive', autonomous: 'Autonomous', manual: 'Command Only'};
@@ -671,29 +678,37 @@ function buildReviewSummary() {
 
     // Count listings with addresses
     let listingsList = '';
+    let listingsCount = 0;
     let i = 0;
     while (true) {
         const addr = fd.get(`listing_address_${i}`);
         if (addr === null) break;
         if (addr.trim()) {
             const price = fd.get(`listing_price_${i}`) || '';
-            listingsList += `<li>${addr} ${price ? '(' + price + ')' : ''}</li>`;
+            listingsList += `<li>${escapeHtml(addr)} ${price ? '(' + escapeHtml(price) + ')' : ''}</li>`;
+            listingsCount++;
         }
         i++;
     }
 
     // Count clients with names
     let clientsList = '';
+    let clientsCount = 0;
     i = 0;
     while (true) {
         const name = fd.get(`client_name_${i}`);
         if (name === null) break;
         if (name.trim()) {
             const role = fd.get(`client_role_${i}`) || '';
-            clientsList += `<li>${name} — ${role}</li>`;
+            clientsList += `<li>${escapeHtml(name)} — ${escapeHtml(role)}</li>`;
+            clientsCount++;
         }
         i++;
     }
+
+    const rawTone = fd.get('tone') || '—';
+    const rawAfterHours = fd.get('after_hours_mode') || '—';
+    const rawAutonomy = fd.get('autonomy_level') || '—';
 
     document.getElementById('reviewSummary').innerHTML = `
         <div class="review-section">
@@ -703,19 +718,19 @@ function buildReviewSummary() {
         </div>
         <div class="review-section">
             <div class="review-label">Communication</div>
-            <div class="review-value">${toneMap[val('tone')] || val('tone')} tone &middot; Emoji: ${val('emoji')}</div>
+            <div class="review-value">${escapeHtml(toneMap[rawTone] || rawTone)} tone &middot; Emoji: ${val('emoji')}</div>
         </div>
         <div class="review-section">
             <div class="review-label">Scheduling</div>
             <div class="review-value">${val('showing_duration')} min showings &middot; ${val('buffer_minutes')} min buffer &middot; ${val('earliest_showing')}–${val('latest_showing')}</div>
-            <div class="review-value text-muted">After hours: ${afterHoursMap[val('after_hours_mode')] || val('after_hours_mode')} &middot; Briefing at ${val('briefing_time')}</div>
+            <div class="review-value text-muted">After hours: ${escapeHtml(afterHoursMap[rawAfterHours] || rawAfterHours)} &middot; Briefing at ${val('briefing_time')}</div>
         </div>
         <div class="review-section">
             <div class="review-label">Autonomy</div>
-            <div class="review-value">${modeMap[val('autonomy_level')] || val('autonomy_level')} mode</div>
+            <div class="review-value">${escapeHtml(modeMap[rawAutonomy] || rawAutonomy)} mode</div>
         </div>
-        ${listingsList ? `<div class="review-section"><div class="review-label">Listings (${listingsList.split('</li>').length - 1})</div><ul class="review-list">${listingsList}</ul></div>` : ''}
-        ${clientsList ? `<div class="review-section"><div class="review-label">Clients (${clientsList.split('</li>').length - 1})</div><ul class="review-list">${clientsList}</ul></div>` : ''}
+        ${listingsList ? `<div class="review-section"><div class="review-label">Listings (${listingsCount})</div><ul class="review-list">${listingsList}</ul></div>` : ''}
+        ${clientsList ? `<div class="review-section"><div class="review-label">Clients (${clientsCount})</div><ul class="review-list">${clientsList}</ul></div>` : ''}
         <div class="review-section">
             <div class="review-label">Channel</div>
             <div class="review-value">Twilio: ${val('twilio_number')}</div>
