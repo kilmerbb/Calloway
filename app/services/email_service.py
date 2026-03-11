@@ -15,6 +15,7 @@ def send_email(
     subject: str,
     body: str,
     agent_id: UUID | None = None,
+    html_content: str | None = None,
 ) -> dict:
     """Send an email via SendGrid. Returns {"message_id": ..., "status": ...}."""
     settings = get_settings()
@@ -26,14 +27,24 @@ def send_email(
 
     try:
         import sendgrid
-        from sendgrid.helpers.mail import Mail
+        from sendgrid.helpers.mail import Content, Mail
 
         sg = sendgrid.SendGridAPIClient(api_key=api_key)
+
+        # Build HTML content: use caller-provided HTML or wrap plain text
+        if html_content:
+            final_html = html_content
+        else:
+            escaped_body = body.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            paragraphs = "".join(f"<p>{line}</p>" for line in escaped_body.split("\n") if line.strip())
+            final_html = f"<html><body>{paragraphs}</body></html>"
+
         message = Mail(
             from_email=from_email,
             to_emails=to,
             subject=subject,
             plain_text_content=body,
+            html_content=Content("text/html", final_html),
         )
         response = sg.send(message)
         message_id = response.headers.get("X-Message-Id", "")

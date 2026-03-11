@@ -36,6 +36,14 @@ PLAN_TIERS = {
 TRIAL_DAYS = 14
 
 
+def _validate_plan_tier(plan_tier: str) -> dict:
+    """Validate that plan_tier is a known tier and return its config."""
+    if plan_tier not in PLAN_TIERS:
+        valid = ", ".join(sorted(PLAN_TIERS.keys()))
+        raise ValueError(f"Invalid plan tier '{plan_tier}'. Valid tiers: {valid}")
+    return PLAN_TIERS[plan_tier]
+
+
 def _get_stripe():
     """Lazy-import stripe to avoid import errors when not installed."""
     import stripe
@@ -49,61 +57,101 @@ def _get_stripe():
 def create_customer_and_subscription(
     agent_id: UUID, agent_name: str, agent_email: str, plan_tier: str = "starter"
 ) -> dict:
-    """Create a Stripe customer with a trial subscription."""
-    stripe = _get_stripe()
-    tier = PLAN_TIERS[plan_tier]
+    """Create a Stripe customer with a trial subscription.
 
-    # Create Stripe customer
-    customer = stripe.Customer.create(
-        name=agent_name,
-        email=agent_email,
-        metadata={"agent_id": str(agent_id), "plan_tier": plan_tier},
-    )
+    Inserts a DB row first (with placeholder Stripe IDs), then creates Stripe
+    resources, then updates the DB row.  If Stripe fails after DB insert the
+    incomplete row is deleted so no orphan records remain.
+    """
+    tier = _validate_plan_tier(plan_tier)
 
-    # Create subscription with trial
-    subscription = stripe.Subscription.create(
-        customer=customer.id,
-        items=[{"price_data": {
-            "unit_amount": tier["price_cents"],
-            "currency": "usd",
-            "recurring": {"interval": "month"},
-            "product_data": {"name": f"Calloway {tier['name']}"},
-        }}],
-        trial_period_days=TRIAL_DAYS,
-        metadata={"agent_id": str(agent_id)},
-    )
+    # Step 1 — Insert DB row with placeholder Stripe IDs
+    try:
+        with get_db_connection() as conn:
+            conn.execute(
+                """INSERT INTO subscriptions
+                   (agent_id, stripe_customer_id, stripe_subscription_id,
+                    plan_tier, status, trial_ends_at,
+                    current_period_start, current_period_end,
+                    monthly_price_cents, message_limit, contact_limit)
+                   VALUES (%s, %s, %s, %s, %s, NULL, now(), now(), %s, %s, %s)
+                   ON CONFLICT (agent_id) DO UPDATE SET
+                    plan_tier = EXCLUDED.plan_tier,
+                    status = EXCLUDED.status,
+                    monthly_price_cents = EXCLUDED.monthly_price_cents,
+                    message_limit = EXCLUDED.message_limit,
+                    contact_limit = EXCLUDED.contact_limit,
+                    updated_at = now()""",
+                [
+                    str(agent_id), "pending", "pending",
+                    plan_tier, "trialing",
+                    tier["price_cents"], tier["message_limit"], tier["contact_limit"],
+                ],
+            )
+            conn.commit()
+    except Exception as e:
+        logger.error("DB insert failed for agent %s: %s", agent_id, e, exc_info=True)
+        return {"error": str(e)}
 
-    # Store in database
-    with get_db_connection() as conn:
-        conn.execute(
-            """INSERT INTO subscriptions
-               (agent_id, stripe_customer_id, stripe_subscription_id,
-                plan_tier, status, trial_ends_at,
-                current_period_start, current_period_end,
-                monthly_price_cents, message_limit, contact_limit)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-               ON CONFLICT (agent_id) DO UPDATE SET
-                stripe_customer_id = EXCLUDED.stripe_customer_id,
-                stripe_subscription_id = EXCLUDED.stripe_subscription_id,
-                plan_tier = EXCLUDED.plan_tier,
-                status = EXCLUDED.status,
-                trial_ends_at = EXCLUDED.trial_ends_at,
-                current_period_start = EXCLUDED.current_period_start,
-                current_period_end = EXCLUDED.current_period_end,
-                monthly_price_cents = EXCLUDED.monthly_price_cents,
-                message_limit = EXCLUDED.message_limit,
-                contact_limit = EXCLUDED.contact_limit,
-                updated_at = now()""",
-            [
-                str(agent_id), customer.id, subscription.id,
-                plan_tier, "trialing",
-                datetime.fromtimestamp(subscription.trial_end, tz=timezone.utc) if subscription.trial_end else None,
-                datetime.fromtimestamp(subscription.current_period_start, tz=timezone.utc),
-                datetime.fromtimestamp(subscription.current_period_end, tz=timezone.utc),
-                tier["price_cents"], tier["message_limit"], tier["contact_limit"],
-            ],
+    # Step 2 — Create Stripe customer and subscription
+    try:
+        stripe = _get_stripe()
+
+        customer = stripe.Customer.create(
+            name=agent_name,
+            email=agent_email,
+            metadata={"agent_id": str(agent_id), "plan_tier": plan_tier},
         )
-        conn.commit()
+
+        subscription = stripe.Subscription.create(
+            customer=customer.id,
+            items=[{"price_data": {
+                "unit_amount": tier["price_cents"],
+                "currency": "usd",
+                "recurring": {"interval": "month"},
+                "product_data": {"name": f"Calloway {tier['name']}"},
+            }}],
+            trial_period_days=TRIAL_DAYS,
+            metadata={"agent_id": str(agent_id)},
+        )
+    except Exception as e:
+        logger.error("Stripe API error for agent %s: %s", agent_id, e, exc_info=True)
+        # Clean up the placeholder DB row
+        try:
+            with get_db_connection() as conn:
+                conn.execute(
+                    "DELETE FROM subscriptions WHERE agent_id = %s AND stripe_customer_id = 'pending'",
+                    [str(agent_id)],
+                )
+                conn.commit()
+        except Exception as cleanup_err:
+            logger.error("Failed to clean up DB row for agent %s: %s", agent_id, cleanup_err)
+        return {"error": str(e)}
+
+    # Step 3 — Update DB row with real Stripe IDs
+    try:
+        with get_db_connection() as conn:
+            conn.execute(
+                """UPDATE subscriptions
+                   SET stripe_customer_id = %s,
+                       stripe_subscription_id = %s,
+                       trial_ends_at = %s,
+                       current_period_start = %s,
+                       current_period_end = %s,
+                       updated_at = now()
+                   WHERE agent_id = %s""",
+                [
+                    customer.id, subscription.id,
+                    datetime.fromtimestamp(subscription.trial_end, tz=timezone.utc) if subscription.trial_end else None,
+                    datetime.fromtimestamp(subscription.current_period_start, tz=timezone.utc),
+                    datetime.fromtimestamp(subscription.current_period_end, tz=timezone.utc),
+                    str(agent_id),
+                ],
+            )
+            conn.commit()
+    except Exception as e:
+        logger.error("DB update with Stripe IDs failed for agent %s: %s", agent_id, e, exc_info=True)
+        return {"error": str(e)}
 
     logger.info(f"Created subscription for agent {agent_id}: {plan_tier} (trial)")
     return {
@@ -118,8 +166,7 @@ def create_customer_and_subscription(
 
 def change_plan(agent_id: UUID, new_tier: str) -> dict:
     """Change an agent's subscription plan tier."""
-    stripe = _get_stripe()
-    tier = PLAN_TIERS[new_tier]
+    tier = _validate_plan_tier(new_tier)
 
     with get_db_connection() as conn:
         sub = conn.execute(
@@ -130,22 +177,26 @@ def change_plan(agent_id: UUID, new_tier: str) -> dict:
     if not sub or not sub["stripe_subscription_id"]:
         raise ValueError("No active subscription found")
 
-    # Update Stripe subscription
-    subscription = stripe.Subscription.retrieve(sub["stripe_subscription_id"])
-    stripe.Subscription.modify(
-        sub["stripe_subscription_id"],
-        items=[{
-            "id": subscription["items"]["data"][0]["id"],
-            "price_data": {
-                "unit_amount": tier["price_cents"],
-                "currency": "usd",
-                "recurring": {"interval": "month"},
-                "product_data": {"name": f"Calloway {tier['name']}"},
-            },
-        }],
-        proration_behavior="create_prorations",
-        metadata={"plan_tier": new_tier},
-    )
+    try:
+        stripe = _get_stripe()
+        subscription = stripe.Subscription.retrieve(sub["stripe_subscription_id"])
+        stripe.Subscription.modify(
+            sub["stripe_subscription_id"],
+            items=[{
+                "id": subscription["items"]["data"][0]["id"],
+                "price_data": {
+                    "unit_amount": tier["price_cents"],
+                    "currency": "usd",
+                    "recurring": {"interval": "month"},
+                    "product_data": {"name": f"Calloway {tier['name']}"},
+                },
+            }],
+            proration_behavior="create_prorations",
+            metadata={"plan_tier": new_tier},
+        )
+    except Exception as e:
+        logger.error("Stripe API error changing plan for agent %s: %s", agent_id, e, exc_info=True)
+        return {"error": str(e)}
 
     # Update database
     with get_db_connection() as conn:
@@ -164,8 +215,6 @@ def change_plan(agent_id: UUID, new_tier: str) -> dict:
 
 def cancel_subscription(agent_id: UUID, at_period_end: bool = True) -> dict:
     """Cancel an agent's subscription."""
-    stripe = _get_stripe()
-
     with get_db_connection() as conn:
         sub = conn.execute(
             "SELECT stripe_subscription_id FROM subscriptions WHERE agent_id = %s",
@@ -175,15 +224,20 @@ def cancel_subscription(agent_id: UUID, at_period_end: bool = True) -> dict:
     if not sub or not sub["stripe_subscription_id"]:
         raise ValueError("No active subscription found")
 
-    if at_period_end:
-        stripe.Subscription.modify(
-            sub["stripe_subscription_id"],
-            cancel_at_period_end=True,
-        )
-        new_status = "active"  # Still active until period end
-    else:
-        stripe.Subscription.cancel(sub["stripe_subscription_id"])
-        new_status = "canceled"
+    try:
+        stripe = _get_stripe()
+        if at_period_end:
+            stripe.Subscription.modify(
+                sub["stripe_subscription_id"],
+                cancel_at_period_end=True,
+            )
+            new_status = "active"  # Still active until period end
+        else:
+            stripe.Subscription.cancel(sub["stripe_subscription_id"])
+            new_status = "canceled"
+    except Exception as e:
+        logger.error("Stripe API error cancelling subscription for agent %s: %s", agent_id, e, exc_info=True)
+        return {"error": str(e)}
 
     with get_db_connection() as conn:
         conn.execute(

@@ -135,26 +135,117 @@ def score_contact(agent_id: UUID, contact_id: UUID) -> dict:
 
 
 def score_all_contacts(agent_id: UUID) -> list[dict]:
-    """Score all contacts for an agent. Returns sorted list."""
+    """Score all contacts for an agent. Returns sorted list.
+
+    Uses batch queries to avoid N+1 DB round trips.
+    """
+    now = datetime.now(timezone.utc)
+
     with get_db_connection() as conn:
         contacts = conn.execute(
-            """SELECT id, name, phone, lifecycle_stage, last_contact_at, interaction_count
+            """SELECT id, name, phone, lifecycle_stage, last_contact_at,
+                      interaction_count, consent_status
                FROM contacts WHERE agent_id = %s
                AND lifecycle_stage NOT IN ('inactive')
                ORDER BY last_contact_at DESC NULLS LAST""",
             [str(agent_id)],
         ).fetchall()
 
+        # Batch fetch: upcoming showings per contact
+        upcoming_rows = conn.execute(
+            """SELECT contact_id, COUNT(*) as cnt FROM showings
+               WHERE agent_id = %s AND start_time > %s
+               AND status IN ('confirmed', 'hold')
+               GROUP BY contact_id""",
+            [str(agent_id), now],
+        ).fetchall()
+        upcoming_showings = {r["contact_id"]: r["cnt"] for r in upcoming_rows}
+
+        # Batch fetch: recent showings (last 7 days) per contact
+        recent_rows = conn.execute(
+            """SELECT contact_id, COUNT(*) as cnt FROM showings
+               WHERE agent_id = %s AND start_time > %s
+               GROUP BY contact_id""",
+            [str(agent_id), now - timedelta(days=7)],
+        ).fetchall()
+        recent_showings = {r["contact_id"]: r["cnt"] for r in recent_rows}
+
+        # Batch fetch: all lead preferences for this agent's contacts
+        pref_rows = conn.execute(
+            """SELECT lp.* FROM lead_preferences lp
+               JOIN contacts c ON c.id = lp.contact_id
+               WHERE c.agent_id = %s""",
+            [str(agent_id)],
+        ).fetchall()
+        prefs_by_contact = {r["contact_id"]: r for r in pref_rows}
+
     results = []
     for c in contacts:
-        scored = score_contact(agent_id, c["id"])
+        breakdown = {}
+
+        # Recency scoring
+        if c["last_contact_at"]:
+            lc = c["last_contact_at"]
+            if not lc.tzinfo:
+                lc = lc.replace(tzinfo=timezone.utc)
+            days_since = (now - lc).days
+            if days_since == 0:
+                breakdown["contacted_today"] = SCORING_RULES["contacted_today"]
+            elif days_since <= 3:
+                breakdown["contacted_3d"] = SCORING_RULES["contacted_3d"]
+            elif days_since <= 7:
+                breakdown["contacted_7d"] = SCORING_RULES["contacted_7d"]
+            elif days_since <= 14:
+                breakdown["contacted_14d"] = SCORING_RULES["contacted_14d"]
+            elif days_since <= 30:
+                breakdown["contacted_30d"] = SCORING_RULES["contacted_30d"]
+            else:
+                breakdown["no_contact_30d"] = SCORING_RULES["no_contact_30d"]
+
+        # Interaction count
+        ic = c["interaction_count"] or 0
+        if ic >= 10:
+            breakdown["high_interaction"] = SCORING_RULES["high_interaction"]
+        elif ic >= 5:
+            breakdown["medium_interaction"] = SCORING_RULES["medium_interaction"]
+        elif ic >= 1:
+            breakdown["low_interaction"] = SCORING_RULES["low_interaction"]
+
+        # Lifecycle stage
+        stage = c["lifecycle_stage"]
+        if stage in SCORING_RULES:
+            breakdown[stage] = SCORING_RULES[stage]
+
+        # Showings (from pre-fetched data)
+        contact_id = c["id"]
+        if upcoming_showings.get(contact_id, 0) > 0:
+            breakdown["has_showing_scheduled"] = SCORING_RULES["has_showing_scheduled"]
+        if recent_showings.get(contact_id, 0) > 0:
+            breakdown["had_showing_week"] = SCORING_RULES["had_showing_week"]
+
+        # Consent
+        cs = c["consent_status"]
+        key = f"consent_{cs}" if f"consent_{cs}" in SCORING_RULES else "consent_pending"
+        breakdown[key] = SCORING_RULES[key]
+
+        # Preferences (from pre-fetched data)
+        prefs = prefs_by_contact.get(contact_id)
+        if prefs:
+            breakdown["has_preferences"] = SCORING_RULES["has_preferences"]
+            if prefs.get("preapproved"):
+                breakdown["preapproved"] = SCORING_RULES["preapproved"]
+
+        score = sum(breakdown.values())
+        score = max(0, min(100, score))
+        tier = _score_to_tier(score)
+
         results.append({
-            "contact_id": c["id"],
+            "contact_id": contact_id,
             "name": c["name"],
             "phone": c["phone"],
             "lifecycle_stage": c["lifecycle_stage"],
-            "score": scored["score"],
-            "tier": scored["tier"],
+            "score": score,
+            "tier": tier,
         })
 
     results.sort(key=lambda x: x["score"], reverse=True)
