@@ -94,6 +94,43 @@ async def dashboard_activity_feed(request: Request):
 
 
 # ============================================================
+# Onboarding Wizard
+# ============================================================
+
+@router.get("/onboard", response_class=HTMLResponse)
+async def onboard_wizard(request: Request):
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+    return _render(request, "onboard_wizard.html",
+        page_title="Onboard New Agent", active_nav="onboard", error=None,
+    )
+
+
+@router.post("/onboard")
+async def onboard_submit(request: Request):
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    from app.services.console_queries import create_agent_from_wizard
+
+    try:
+        result = create_agent_from_wizard(dict(form))
+        return _render(request, "onboard_success.html",
+            page_title="Onboarding Complete", active_nav="onboard",
+            agent_id=result["agent_id"],
+            agent_name=result["agent_name"],
+            checklist=result["checklist"],
+        )
+    except ValueError as e:
+        return _render(request, "onboard_wizard.html",
+            page_title="Onboard New Agent", active_nav="onboard", error=str(e),
+        )
+
+
+# ============================================================
 # Tenants
 # ============================================================
 

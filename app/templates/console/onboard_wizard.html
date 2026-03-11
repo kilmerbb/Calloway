@@ -1,0 +1,729 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<div class="wizard-container">
+    <!-- Progress bar -->
+    <div class="wizard-progress">
+        <div class="wizard-progress-bar" id="progressBar" style="width: 14.28%"></div>
+    </div>
+    <div class="wizard-steps-label">
+        <span id="stepLabel">Step 1 of 7</span>
+        <span id="stepName" class="text-muted">Agent Profile</span>
+    </div>
+
+    <form method="post" action="/console/onboard" id="wizardForm">
+
+        <!-- ========== STEP 1: Agent Profile ========== -->
+        <div class="wizard-step active" data-step="1" data-title="Agent Profile">
+            <div class="wizard-step-header">
+                <h2>Who is your new client?</h2>
+                <p class="text-muted">Basic info about the real estate agent you're onboarding. This comes from the discovery call intake.</p>
+            </div>
+
+            <div class="wizard-card">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Full Name <span class="required">*</span></label>
+                        <input type="text" name="name" required placeholder="e.g. Sarah Mitchell">
+                        <span class="form-hint">As they want it displayed to clients</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Email <span class="required">*</span></label>
+                        <input type="email" name="email" required placeholder="sarah@mitchellrealty.com">
+                        <span class="form-hint">For system notifications and reports</span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Phone <span class="required">*</span></label>
+                        <input type="tel" name="phone" required placeholder="+15551234567">
+                        <span class="form-hint">Agent's personal number (E.164 format)</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Brokerage</label>
+                        <input type="text" name="brokerage" placeholder="e.g. Keller Williams Realty">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Market Area</label>
+                        <input type="text" name="market" placeholder="e.g. Philadelphia Metro">
+                        <span class="form-hint">Primary geographic area they serve</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Timezone</label>
+                        <select name="timezone">
+                            <option value="America/New_York">Eastern (ET)</option>
+                            <option value="America/Chicago">Central (CT)</option>
+                            <option value="America/Denver">Mountain (MT)</option>
+                            <option value="America/Los_Angeles">Pacific (PT)</option>
+                        </select>
+                        <span class="form-hint">For scheduling and daily briefings</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== STEP 2: Communication Style ========== -->
+        <div class="wizard-step" data-step="2" data-title="Communication Style">
+            <div class="wizard-step-header">
+                <h2>How does this agent communicate?</h2>
+                <p class="text-muted">The AI mirrors their personal brand. Get this from the discovery call — ask them to forward you a few recent client texts so you can match their voice.</p>
+            </div>
+
+            <div class="wizard-card">
+                <div class="form-group">
+                    <label>Overall Tone</label>
+                    <div class="option-cards">
+                        <label class="option-card">
+                            <input type="radio" name="tone" value="professional" checked>
+                            <div class="option-card-body">
+                                <strong>Professional</strong>
+                                <span class="text-muted">Polished and businesslike. "Good afternoon, I'd be happy to schedule that showing."</span>
+                            </div>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="tone" value="friendly">
+                            <div class="option-card-body">
+                                <strong>Friendly</strong>
+                                <span class="text-muted">Warm and approachable. "Hey! Absolutely, let's get that showing set up for you."</span>
+                            </div>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="tone" value="casual">
+                            <div class="option-card-body">
+                                <strong>Casual</strong>
+                                <span class="text-muted">Relaxed and conversational. "Sure thing! When works best for you?"</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Emoji Usage</label>
+                        <select name="emoji">
+                            <option value="no">No emojis</option>
+                            <option value="yes">Use emojis</option>
+                        </select>
+                        <span class="form-hint">Does this agent use emojis in their own texts?</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Greeting Style</label>
+                        <input type="text" name="greeting_style" placeholder="e.g. Hi [name]! or Hey there">
+                        <span class="form-hint">How they typically open a message</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Sign-off Style</label>
+                    <input type="text" name="signoff_style" placeholder="e.g. Best, Sarah or Talk soon!">
+                    <span class="form-hint">How they typically close a message</span>
+                </div>
+
+                <div class="form-group">
+                    <label>Communication Notes</label>
+                    <textarea name="style_notes" placeholder="Any other style notes: phrases they use often, topics to avoid, how they handle tough conversations, etc."></textarea>
+                    <span class="form-hint">These get baked into the AI's system prompt</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== STEP 3: Scheduling & Availability ========== -->
+        <div class="wizard-step" data-step="3" data-title="Scheduling & Availability">
+            <div class="wizard-step-header">
+                <h2>When and how do they work?</h2>
+                <p class="text-muted">Scheduling preferences control how the AI books showings and manages the agent's calendar. After-hours rules determine what happens when clients text outside working hours.</p>
+            </div>
+
+            <div class="wizard-card">
+                <div class="section-title" style="margin-top: 0">Showing Preferences</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Default Showing Duration (minutes)</label>
+                        <select name="showing_duration">
+                            <option value="30">30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60" selected>60 minutes</option>
+                            <option value="90">90 minutes</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Buffer Between Showings (minutes)</label>
+                        <select name="buffer_minutes">
+                            <option value="15">15 minutes</option>
+                            <option value="30" selected>30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60">60 minutes</option>
+                        </select>
+                        <span class="form-hint">Travel time between back-to-back showings</span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Earliest Showing Time</label>
+                        <input type="time" name="earliest_showing" value="09:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Latest Showing Time</label>
+                        <input type="time" name="latest_showing" value="18:00">
+                    </div>
+                </div>
+
+                <div class="section-title">After-Hours Rules</div>
+                <div class="form-group">
+                    <label>When a client texts after hours, the AI should...</label>
+                    <div class="option-cards">
+                        <label class="option-card">
+                            <input type="radio" name="after_hours_mode" value="acknowledge" checked>
+                            <div class="option-card-body">
+                                <strong>Acknowledge & Queue</strong>
+                                <span class="text-muted">"Thanks for reaching out! [Agent] will follow up first thing in the morning." Then notify the agent.</span>
+                            </div>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="after_hours_mode" value="handle">
+                            <div class="option-card-body">
+                                <strong>Handle Normally</strong>
+                                <span class="text-muted">AI responds as usual regardless of time. Good for agents who want 24/7 coverage.</span>
+                            </div>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="after_hours_mode" value="silent">
+                            <div class="option-card-body">
+                                <strong>Silent / Log Only</strong>
+                                <span class="text-muted">No response sent. Message is logged and agent gets a morning briefing.</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section-title">Daily Briefing</div>
+                <div class="form-group">
+                    <label>Briefing Time</label>
+                    <input type="time" name="briefing_time" value="07:30">
+                    <span class="form-hint">When the agent receives their daily summary (their timezone)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== STEP 4: Autonomy & Trust ========== -->
+        <div class="wizard-step" data-step="4" data-title="Autonomy & Trust Level">
+            <div class="wizard-step-header">
+                <h2>How much control should the AI have?</h2>
+                <p class="text-muted">This is the trust gradient. Most new agents start in Supervised or Proactive mode for Week 1, then graduate to more autonomy as they build trust with the system.</p>
+            </div>
+
+            <div class="wizard-card">
+                <div class="form-group">
+                    <label>Starting Operating Mode</label>
+                    <div class="option-cards">
+                        <label class="option-card">
+                            <input type="radio" name="autonomy_level" value="supervised" checked>
+                            <div class="option-card-body">
+                                <strong>Supervised</strong>
+                                <span class="badge badge-green" style="margin-left:0.5rem">Recommended for Week 1</span>
+                                <span class="text-muted">AI drafts responses and waits for agent approval before sending. Agent sees everything first.</span>
+                            </div>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="autonomy_level" value="proactive">
+                            <div class="option-card-body">
+                                <strong>Proactive</strong>
+                                <span class="text-muted">AI handles routine tasks (showing confirmations, listing info) automatically, but asks for approval on anything sensitive.</span>
+                            </div>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="autonomy_level" value="autonomous">
+                            <div class="option-card-body">
+                                <strong>Autonomous</strong>
+                                <span class="text-muted">AI handles everything independently. Agent gets notification summaries. Best for agents who fully trust the system.</span>
+                            </div>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="autonomy_level" value="manual">
+                            <div class="option-card-body">
+                                <strong>Command Only</strong>
+                                <span class="text-muted">AI only responds when the agent explicitly triggers it via commands. Fully manual control.</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section-title">Escalation Preferences</div>
+                <div class="form-group">
+                    <label>Always escalate to the agent when...</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="escalate_pricing" value="yes" checked>
+                            <span>Client asks about pricing or negotiations</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="escalate_legal" value="yes" checked>
+                            <span>Legal questions or contract-related topics</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="escalate_unhappy" value="yes" checked>
+                            <span>Client expresses frustration or dissatisfaction</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="escalate_personal" value="yes">
+                            <span>Personal or emotional conversations</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="escalate_new_lead" value="yes">
+                            <span>First message from a brand-new lead</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section-title">Notification Preferences</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Notification Method</label>
+                        <select name="notification_method">
+                            <option value="sms">SMS to agent's phone</option>
+                            <option value="push">Push notification (Firebase)</option>
+                            <option value="both">Both SMS and push</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Notification Frequency</label>
+                        <select name="notification_frequency">
+                            <option value="immediate">Immediate (every event)</option>
+                            <option value="batched" selected>Batched (every 30 min)</option>
+                            <option value="briefing_only">Daily briefing only</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== STEP 5: Listings ========== -->
+        <div class="wizard-step" data-step="5" data-title="Active Listings">
+            <div class="wizard-step-header">
+                <h2>What listings are they working?</h2>
+                <p class="text-muted">Add their active listings so the AI can answer showing requests, provide property details, and handle listing inquiries. You can always add more later.</p>
+            </div>
+
+            <div class="wizard-card" id="listingsContainer">
+                <div class="listing-entry" data-index="0">
+                    <div class="listing-header">
+                        <strong>Listing 1</strong>
+                        <button type="button" class="btn btn-sm btn-outline remove-listing" style="display:none" onclick="removeListing(this)">Remove</button>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:2">
+                            <label>Address</label>
+                            <input type="text" name="listing_address_0" placeholder="123 Main St, Philadelphia, PA 19103">
+                        </div>
+                        <div class="form-group">
+                            <label>Price</label>
+                            <input type="text" name="listing_price_0" placeholder="$450,000">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Beds</label>
+                            <input type="text" name="listing_beds_0" placeholder="3">
+                        </div>
+                        <div class="form-group">
+                            <label>Baths</label>
+                            <input type="text" name="listing_baths_0" placeholder="2">
+                        </div>
+                        <div class="form-group">
+                            <label>Sqft</label>
+                            <input type="text" name="listing_sqft_0" placeholder="1,800">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select name="listing_status_0">
+                                <option value="active">Active</option>
+                                <option value="pending">Pending</option>
+                                <option value="coming_soon">Coming Soon</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex:2">
+                            <label>Showing Instructions</label>
+                            <input type="text" name="listing_showing_0" placeholder="e.g. Call listing agent 30 min before, lockbox on back door">
+                        </div>
+                        <div class="form-group">
+                            <label>Lockbox Code</label>
+                            <input type="text" name="listing_lockbox_0" placeholder="e.g. 1234">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-outline" style="margin-top: 0.75rem" onclick="addListing()">+ Add Another Listing</button>
+            <p class="text-muted" style="margin-top: 0.5rem; font-size: 12px;">No listings yet? That's fine — skip this step and add them from the tenant detail page later.</p>
+        </div>
+
+        <!-- ========== STEP 6: Active Clients ========== -->
+        <div class="wizard-step" data-step="6" data-title="Active Clients">
+            <div class="wizard-step-header">
+                <h2>Who are their active clients?</h2>
+                <p class="text-muted">Add the agent's current clients so the AI recognizes them immediately. During the handoff call, the agent will introduce the AI to 2-3 of these clients first.</p>
+            </div>
+
+            <div class="wizard-card" id="clientsContainer">
+                <div class="client-entry" data-index="0">
+                    <div class="listing-header">
+                        <strong>Client 1</strong>
+                        <button type="button" class="btn btn-sm btn-outline remove-client" style="display:none" onclick="removeClient(this)">Remove</button>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Name</label>
+                            <input type="text" name="client_name_0" placeholder="e.g. Mike & Lisa Chen">
+                        </div>
+                        <div class="form-group">
+                            <label>Phone</label>
+                            <input type="tel" name="client_phone_0" placeholder="+15559876543">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" name="client_email_0" placeholder="mike.chen@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Role</label>
+                            <select name="client_role_0">
+                                <option value="buyer">Buyer</option>
+                                <option value="seller">Seller</option>
+                                <option value="both">Buyer & Seller</option>
+                                <option value="lead">Lead (not yet client)</option>
+                                <option value="past_client">Past Client</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Stage</label>
+                            <select name="client_stage_0">
+                                <option value="new_lead">New Lead</option>
+                                <option value="active_search">Active Search</option>
+                                <option value="showing_scheduled">Showings Scheduled</option>
+                                <option value="offer_pending">Offer Pending</option>
+                                <option value="under_contract">Under Contract</option>
+                                <option value="closed">Closed</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Notes</label>
+                            <input type="text" name="client_notes_0" placeholder="e.g. Pre-approved for $500K, looking in Fishtown">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-outline" style="margin-top: 0.75rem" onclick="addClient()">+ Add Another Client</button>
+            <p class="text-muted" style="margin-top: 0.5rem; font-size: 12px;">You can bulk-import clients later from the tenant detail page.</p>
+        </div>
+
+        <!-- ========== STEP 7: Channel Setup & Review ========== -->
+        <div class="wizard-step" data-step="7" data-title="Channel Setup & Review">
+            <div class="wizard-step-header">
+                <h2>Final setup and review</h2>
+                <p class="text-muted">Configure the communication channel and review everything before creating this agent's instance.</p>
+            </div>
+
+            <div class="wizard-card">
+                <div class="section-title" style="margin-top: 0">Channel Configuration</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Twilio Phone Number <span class="required">*</span></label>
+                        <input type="tel" name="twilio_number" required placeholder="+15559876543">
+                        <span class="form-hint">The dedicated number clients will text. Must be provisioned in Twilio first.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Google Review Link</label>
+                        <input type="text" name="google_review_link" placeholder="https://g.page/r/...">
+                        <span class="form-hint">AI can share this with satisfied clients after closing</span>
+                    </div>
+                </div>
+
+                <div class="section-title">System Prompt Override</div>
+                <div class="form-group">
+                    <label>Custom Instructions (optional)</label>
+                    <textarea name="system_prompt" rows="4" placeholder="Leave blank to use the default system prompt. Only override this if the agent has very specific requirements that aren't covered by the style and autonomy settings above."></textarea>
+                    <span class="form-hint">Advanced: overrides the default AI instructions entirely</span>
+                </div>
+            </div>
+
+            <div class="wizard-card" style="margin-top: 1rem">
+                <div class="section-title" style="margin-top: 0">Review Summary</div>
+                <div id="reviewSummary" class="review-summary">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation buttons -->
+        <div class="wizard-nav">
+            <button type="button" class="btn btn-outline" id="prevBtn" onclick="changeStep(-1)" style="visibility: hidden">Back</button>
+            <div class="wizard-nav-center">
+                <span class="wizard-dots" id="wizardDots"></span>
+            </div>
+            <button type="button" class="btn btn-primary" id="nextBtn" onclick="changeStep(1)">Continue</button>
+            <button type="submit" class="btn btn-primary" id="submitBtn" style="display: none">Create Agent Instance</button>
+        </div>
+
+    </form>
+</div>
+
+<script>
+let currentStep = 1;
+const totalSteps = 7;
+let listingCount = 1;
+let clientCount = 1;
+
+// Step names
+const stepNames = ['', 'Agent Profile', 'Communication Style', 'Scheduling & Availability', 'Autonomy & Trust Level', 'Active Listings', 'Active Clients', 'Channel Setup & Review'];
+
+function changeStep(dir) {
+    // Validate required fields before advancing
+    if (dir > 0 && !validateCurrentStep()) return;
+
+    const steps = document.querySelectorAll('.wizard-step');
+    steps[currentStep - 1].classList.remove('active');
+    currentStep += dir;
+    steps[currentStep - 1].classList.add('active');
+    updateNav();
+
+    // Build review summary on last step
+    if (currentStep === totalSteps) buildReviewSummary();
+
+    window.scrollTo(0, 0);
+}
+
+function updateNav() {
+    document.getElementById('progressBar').style.width = (currentStep / totalSteps * 100) + '%';
+    document.getElementById('stepLabel').textContent = `Step ${currentStep} of ${totalSteps}`;
+    document.getElementById('stepName').textContent = stepNames[currentStep];
+    document.getElementById('prevBtn').style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+    document.getElementById('nextBtn').style.display = currentStep === totalSteps ? 'none' : 'inline-block';
+    document.getElementById('submitBtn').style.display = currentStep === totalSteps ? 'inline-block' : 'none';
+
+    // Update dots
+    let dots = '';
+    for (let i = 1; i <= totalSteps; i++) {
+        const cls = i === currentStep ? 'dot active' : (i < currentStep ? 'dot completed' : 'dot');
+        dots += `<span class="${cls}" onclick="goToStep(${i})"></span>`;
+    }
+    document.getElementById('wizardDots').innerHTML = dots;
+}
+
+function goToStep(step) {
+    if (step < currentStep) {
+        const steps = document.querySelectorAll('.wizard-step');
+        steps[currentStep - 1].classList.remove('active');
+        currentStep = step;
+        steps[currentStep - 1].classList.add('active');
+        updateNav();
+    }
+}
+
+function validateCurrentStep() {
+    const step = document.querySelector(`.wizard-step[data-step="${currentStep}"]`);
+    const required = step.querySelectorAll('[required]');
+    for (const input of required) {
+        if (!input.value.trim()) {
+            input.focus();
+            input.style.borderColor = 'var(--red)';
+            setTimeout(() => input.style.borderColor = '', 2000);
+            return false;
+        }
+    }
+    return true;
+}
+
+// Listing management
+function addListing() {
+    const idx = listingCount++;
+    const container = document.getElementById('listingsContainer');
+    const entry = document.createElement('div');
+    entry.className = 'listing-entry';
+    entry.dataset.index = idx;
+    entry.innerHTML = `
+        <div class="listing-header">
+            <strong>Listing ${idx + 1}</strong>
+            <button type="button" class="btn btn-sm btn-outline remove-listing" onclick="removeListing(this)">Remove</button>
+        </div>
+        <div class="form-row">
+            <div class="form-group" style="flex:2">
+                <label>Address</label>
+                <input type="text" name="listing_address_${idx}" placeholder="123 Main St, Philadelphia, PA 19103">
+            </div>
+            <div class="form-group">
+                <label>Price</label>
+                <input type="text" name="listing_price_${idx}" placeholder="$450,000">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Beds</label><input type="text" name="listing_beds_${idx}" placeholder="3"></div>
+            <div class="form-group"><label>Baths</label><input type="text" name="listing_baths_${idx}" placeholder="2"></div>
+            <div class="form-group"><label>Sqft</label><input type="text" name="listing_sqft_${idx}" placeholder="1,800"></div>
+            <div class="form-group"><label>Status</label>
+                <select name="listing_status_${idx}">
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="coming_soon">Coming Soon</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group" style="flex:2"><label>Showing Instructions</label><input type="text" name="listing_showing_${idx}" placeholder="e.g. Call listing agent 30 min before"></div>
+            <div class="form-group"><label>Lockbox Code</label><input type="text" name="listing_lockbox_${idx}" placeholder="e.g. 1234"></div>
+        </div>
+    `;
+    container.appendChild(entry);
+    // Show remove button on first listing if there are now multiple
+    if (container.children.length > 1) {
+        container.querySelector('.remove-listing').style.display = 'inline-block';
+    }
+}
+
+function removeListing(btn) {
+    const entry = btn.closest('.listing-entry');
+    entry.remove();
+    renumberEntries('listing');
+}
+
+// Client management
+function addClient() {
+    const idx = clientCount++;
+    const container = document.getElementById('clientsContainer');
+    const entry = document.createElement('div');
+    entry.className = 'client-entry';
+    entry.dataset.index = idx;
+    entry.innerHTML = `
+        <div class="listing-header">
+            <strong>Client ${idx + 1}</strong>
+            <button type="button" class="btn btn-sm btn-outline remove-client" onclick="removeClient(this)">Remove</button>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Name</label><input type="text" name="client_name_${idx}" placeholder="e.g. Mike & Lisa Chen"></div>
+            <div class="form-group"><label>Phone</label><input type="tel" name="client_phone_${idx}" placeholder="+15559876543"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Email</label><input type="email" name="client_email_${idx}" placeholder="mike.chen@email.com"></div>
+            <div class="form-group"><label>Role</label>
+                <select name="client_role_${idx}">
+                    <option value="buyer">Buyer</option><option value="seller">Seller</option>
+                    <option value="both">Buyer & Seller</option><option value="lead">Lead</option>
+                    <option value="past_client">Past Client</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Stage</label>
+                <select name="client_stage_${idx}">
+                    <option value="new_lead">New Lead</option><option value="active_search">Active Search</option>
+                    <option value="showing_scheduled">Showings Scheduled</option><option value="offer_pending">Offer Pending</option>
+                    <option value="under_contract">Under Contract</option><option value="closed">Closed</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Notes</label><input type="text" name="client_notes_${idx}" placeholder="e.g. Pre-approved for $500K"></div>
+        </div>
+    `;
+    container.appendChild(entry);
+    if (container.children.length > 1) {
+        container.querySelector('.remove-client').style.display = 'inline-block';
+    }
+}
+
+function removeClient(btn) {
+    const entry = btn.closest('.client-entry');
+    entry.remove();
+    renumberEntries('client');
+}
+
+function renumberEntries(type) {
+    const container = document.getElementById(type === 'listing' ? 'listingsContainer' : 'clientsContainer');
+    const entries = container.querySelectorAll(`.${type}-entry, .listing-entry, .client-entry`);
+    entries.forEach((entry, i) => {
+        entry.querySelector('strong').textContent = `${type === 'listing' ? 'Listing' : 'Client'} ${i + 1}`;
+        const removeBtn = entry.querySelector(`.remove-${type}, .remove-listing, .remove-client`);
+        if (removeBtn) removeBtn.style.display = entries.length > 1 ? 'inline-block' : 'none';
+    });
+}
+
+// Build review summary
+function buildReviewSummary() {
+    const form = document.getElementById('wizardForm');
+    const fd = new FormData(form);
+
+    const val = (name) => fd.get(name) || '—';
+
+    const toneMap = {professional: 'Professional', friendly: 'Friendly', casual: 'Casual'};
+    const modeMap = {supervised: 'Supervised', proactive: 'Proactive', autonomous: 'Autonomous', manual: 'Command Only'};
+    const afterHoursMap = {acknowledge: 'Acknowledge & Queue', handle: 'Handle Normally', silent: 'Silent / Log Only'};
+
+    // Count listings with addresses
+    let listingsList = '';
+    let i = 0;
+    while (true) {
+        const addr = fd.get(`listing_address_${i}`);
+        if (addr === null) break;
+        if (addr.trim()) {
+            const price = fd.get(`listing_price_${i}`) || '';
+            listingsList += `<li>${addr} ${price ? '(' + price + ')' : ''}</li>`;
+        }
+        i++;
+    }
+
+    // Count clients with names
+    let clientsList = '';
+    i = 0;
+    while (true) {
+        const name = fd.get(`client_name_${i}`);
+        if (name === null) break;
+        if (name.trim()) {
+            const role = fd.get(`client_role_${i}`) || '';
+            clientsList += `<li>${name} — ${role}</li>`;
+        }
+        i++;
+    }
+
+    document.getElementById('reviewSummary').innerHTML = `
+        <div class="review-section">
+            <div class="review-label">Agent</div>
+            <div class="review-value">${val('name')} &middot; ${val('email')} &middot; ${val('phone')}</div>
+            <div class="review-value text-muted">${val('brokerage')} &middot; ${val('market')}</div>
+        </div>
+        <div class="review-section">
+            <div class="review-label">Communication</div>
+            <div class="review-value">${toneMap[val('tone')] || val('tone')} tone &middot; Emoji: ${val('emoji')}</div>
+        </div>
+        <div class="review-section">
+            <div class="review-label">Scheduling</div>
+            <div class="review-value">${val('showing_duration')} min showings &middot; ${val('buffer_minutes')} min buffer &middot; ${val('earliest_showing')}–${val('latest_showing')}</div>
+            <div class="review-value text-muted">After hours: ${afterHoursMap[val('after_hours_mode')] || val('after_hours_mode')} &middot; Briefing at ${val('briefing_time')}</div>
+        </div>
+        <div class="review-section">
+            <div class="review-label">Autonomy</div>
+            <div class="review-value">${modeMap[val('autonomy_level')] || val('autonomy_level')} mode</div>
+        </div>
+        ${listingsList ? `<div class="review-section"><div class="review-label">Listings (${listingsList.split('</li>').length - 1})</div><ul class="review-list">${listingsList}</ul></div>` : ''}
+        ${clientsList ? `<div class="review-section"><div class="review-label">Clients (${clientsList.split('</li>').length - 1})</div><ul class="review-list">${clientsList}</ul></div>` : ''}
+        <div class="review-section">
+            <div class="review-label">Channel</div>
+            <div class="review-value">Twilio: ${val('twilio_number')}</div>
+        </div>
+    `;
+}
+
+// Initialize dots
+updateNav();
+</script>
+
+{% endblock %}

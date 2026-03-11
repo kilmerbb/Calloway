@@ -208,6 +208,164 @@ textarea { min-height: 80px; resize: vertical; }
 details summary { cursor: pointer; padding: 0.25rem 0; }
 details summary:hover { color: var(--accent); }
 
+/* ============================================================
+   Onboarding Wizard
+   ============================================================ */
+
+.wizard-container { max-width: 800px; }
+
+.wizard-progress {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+}
+
+.wizard-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.wizard-steps-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.wizard-step { display: none; }
+.wizard-step.active { display: block; animation: fadeIn 0.25s ease; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.wizard-step-header { margin-bottom: 1.25rem; }
+.wizard-step-header h2 { font-size: 20px; font-weight: 600; margin-bottom: 0.25rem; }
+.wizard-step-header p { font-size: 14px; }
+
+.wizard-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+}
+
+.wizard-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.wizard-nav-center { display: flex; align-items: center; gap: 6px; }
+
+.wizard-dots { display: flex; gap: 6px; }
+.wizard-dots .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.wizard-dots .dot.active { background: var(--accent); width: 20px; border-radius: 4px; }
+.wizard-dots .dot.completed { background: var(--green); }
+
+/* Form helpers */
+.form-row { display: flex; gap: 1rem; }
+.form-row .form-group { flex: 1; }
+.form-hint { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.required { color: var(--red); }
+.text-muted { color: var(--text-muted); }
+
+/* Option cards (radio/checkbox styled as cards) */
+.option-cards { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.option-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.option-card:hover { border-color: var(--accent); }
+.option-card input[type="radio"],
+.option-card input[type="checkbox"] { margin-top: 3px; accent-color: var(--accent); }
+.option-card input:checked ~ .option-card-body { color: var(--text); }
+.option-card:has(input:checked) { border-color: var(--accent); background: rgba(59,130,246,0.05); }
+
+.option-card-body { display: flex; flex-direction: column; }
+.option-card-body strong { font-size: 14px; margin-bottom: 2px; }
+.option-card-body .text-muted { font-size: 12px; }
+
+/* Checkbox group */
+.checkbox-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+}
+.checkbox-item:hover { border-color: var(--accent); }
+.checkbox-item input { accent-color: var(--accent); }
+
+/* Listing / Client entries */
+.listing-entry, .client-entry {
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.listing-entry:last-child, .client-entry:last-child { border-bottom: none; }
+.listing-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+/* Review summary */
+.review-summary { }
+.review-section {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.review-section:last-child { border-bottom: none; }
+.review-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.review-value { font-size: 14px; }
+.review-list { margin: 0.25rem 0 0 1rem; font-size: 13px; }
+.review-list li { margin-bottom: 2px; }
+
+/* Checklist (success page) */
+.checklist-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.checklist-item:last-child { border-bottom: none; }
+.checklist-icon { font-size: 16px; width: 20px; text-align: center; }
+.checklist-item.done .checklist-icon { color: var(--green); }
+.checklist-label { flex: 1; }
+.checklist-hint { font-size: 12px; }
+
+.next-steps-list { margin: 0.5rem 0 0 1.25rem; }
+.next-steps-list li { margin-bottom: 0.75rem; font-size: 14px; }
+
 /* Responsive */
 @media (max-width: 768px) {
     .sidebar { transform: translateX(-100%); transition: transform 0.2s; position: fixed; z-index: 20; }
@@ -215,4 +373,6 @@ details summary:hover { color: var(--accent); }
     .main-content { margin-left: 0; }
     .detail-grid { grid-template-columns: 1fr; }
     .card-grid { grid-template-columns: repeat(2, 1fr); }
+    .form-row { flex-direction: column; gap: 0; }
+    .wizard-container { max-width: 100%; }
 }

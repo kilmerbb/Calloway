@@ -665,6 +665,157 @@ def get_health_status_color() -> str:
 # Tenant Management (Phase 2)
 # ============================================================
 
+def create_agent_from_wizard(form_data: dict) -> dict:
+    """Create a new agent from the onboarding wizard, including listings and contacts."""
+    required = ["name", "email", "phone", "twilio_number"]
+    for field in required:
+        if not form_data.get(field):
+            raise ValueError(f"Missing required field: {field}")
+
+    try:
+        with get_db_connection() as conn:
+            # Check Twilio number uniqueness
+            existing = conn.execute(
+                "SELECT id FROM agents WHERE twilio_number = %s",
+                [form_data["twilio_number"]],
+            ).fetchone()
+            if existing:
+                raise ValueError(f"Twilio number {form_data['twilio_number']} is already assigned.")
+
+            # Build enriched profiles from wizard data
+            style_profile = {
+                "tone": form_data.get("tone", "professional"),
+                "emoji": form_data.get("emoji", "no") == "yes",
+                "greeting_style": form_data.get("greeting_style", ""),
+                "signoff_style": form_data.get("signoff_style", ""),
+                "notes": form_data.get("style_notes", ""),
+            }
+            autonomy_rules = {
+                "level": form_data.get("autonomy_level", "supervised"),
+                "escalate_pricing": form_data.get("escalate_pricing") == "yes",
+                "escalate_legal": form_data.get("escalate_legal") == "yes",
+                "escalate_unhappy": form_data.get("escalate_unhappy") == "yes",
+                "escalate_personal": form_data.get("escalate_personal") == "yes",
+                "escalate_new_lead": form_data.get("escalate_new_lead") == "yes",
+                "notification_method": form_data.get("notification_method", "sms"),
+                "notification_frequency": form_data.get("notification_frequency", "batched"),
+            }
+            scheduling_prefs = {
+                "default_duration": int(form_data.get("showing_duration", 60)),
+                "buffer_minutes": int(form_data.get("buffer_minutes", 30)),
+                "earliest_showing": form_data.get("earliest_showing", "09:00"),
+                "latest_showing": form_data.get("latest_showing", "18:00"),
+                "after_hours_mode": form_data.get("after_hours_mode", "acknowledge"),
+            }
+
+            # Create agent
+            row = conn.execute(
+                """INSERT INTO agents (name, email, phone, twilio_number, brokerage,
+                   market, timezone, style_profile, autonomy_rules, scheduling_prefs,
+                   listing_rules, briefing_time, google_review_link, system_prompt)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   RETURNING id""",
+                [
+                    form_data["name"], form_data["email"], form_data["phone"],
+                    form_data["twilio_number"], form_data.get("brokerage"),
+                    form_data.get("market"), form_data.get("timezone", "America/New_York"),
+                    json.dumps(style_profile), json.dumps(autonomy_rules),
+                    json.dumps(scheduling_prefs),
+                    json.dumps({"dom_alert_days": [30, 60, 90]}),
+                    form_data.get("briefing_time", "07:30"),
+                    form_data.get("google_review_link"),
+                    form_data.get("system_prompt") or None,
+                ],
+            ).fetchone()
+            agent_id = str(row["id"])
+
+            # Insert listings
+            listings_added = 0
+            idx = 0
+            while True:
+                addr = form_data.get(f"listing_address_{idx}")
+                if addr is None:
+                    break
+                if addr.strip():
+                    price_str = (form_data.get(f"listing_price_{idx}") or "0").replace("$", "").replace(",", "").strip()
+                    try:
+                        price = int(float(price_str)) if price_str else 0
+                    except ValueError:
+                        price = 0
+                    beds_str = (form_data.get(f"listing_beds_{idx}") or "").strip()
+                    baths_str = (form_data.get(f"listing_baths_{idx}") or "").strip()
+                    sqft_str = (form_data.get(f"listing_sqft_{idx}") or "").replace(",", "").strip()
+
+                    conn.execute(
+                        """INSERT INTO listings (agent_id, address, price, beds, baths, sqft,
+                           showing_instructions, lockbox, status)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                        [
+                            agent_id, addr.strip(), price,
+                            int(beds_str) if beds_str else None,
+                            float(baths_str) if baths_str else None,
+                            int(sqft_str) if sqft_str else None,
+                            form_data.get(f"listing_showing_{idx}") or None,
+                            form_data.get(f"listing_lockbox_{idx}") or None,
+                            form_data.get(f"listing_status_{idx}", "active"),
+                        ],
+                    )
+                    listings_added += 1
+                idx += 1
+
+            # Insert contacts
+            contacts_added = 0
+            idx = 0
+            while True:
+                name = form_data.get(f"client_name_{idx}")
+                if name is None:
+                    break
+                if name.strip():
+                    conn.execute(
+                        """INSERT INTO contacts (agent_id, name, phone, email, role,
+                           lifecycle_stage, notes, consent_status)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending')""",
+                        [
+                            agent_id, name.strip(),
+                            form_data.get(f"client_phone_{idx}") or "",
+                            form_data.get(f"client_email_{idx}") or None,
+                            form_data.get(f"client_role_{idx}", "lead"),
+                            form_data.get(f"client_stage_{idx}", "new_lead"),
+                            form_data.get(f"client_notes_{idx}") or None,
+                        ],
+                    )
+                    contacts_added += 1
+                idx += 1
+
+            conn.commit()
+
+        # Build checklist
+        checklist = [
+            {"label": "Account created", "done": True, "hint": None},
+            {"label": "Twilio number linked", "done": True, "hint": form_data["twilio_number"]},
+            {"label": "Communication style configured", "done": True, "hint": f'{form_data.get("tone", "professional")} tone'},
+            {"label": "Scheduling preferences set", "done": True, "hint": f'{form_data.get("showing_duration", 60)} min showings'},
+            {"label": "Autonomy rules configured", "done": True, "hint": f'{form_data.get("autonomy_level", "supervised")} mode'},
+            {"label": f"Listings added ({listings_added})", "done": listings_added > 0, "hint": "Add from tenant detail page" if not listings_added else None},
+            {"label": f"Clients imported ({contacts_added})", "done": contacts_added > 0, "hint": "Import from tenant detail page" if not contacts_added else None},
+            {"label": "Connect Google Calendar", "done": False, "hint": "OAuth from tenant detail page"},
+            {"label": "Configure Vapi voice agent", "done": False, "hint": "Set up voice coverage"},
+            {"label": "Send test message", "done": False, "hint": "Verify Twilio channel works"},
+        ]
+
+        logger.info(f"Wizard onboarded agent: {form_data['name']} ({agent_id}) — {listings_added} listings, {contacts_added} contacts")
+        return {
+            "agent_id": agent_id,
+            "agent_name": form_data["name"],
+            "checklist": checklist,
+        }
+
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Failed to create agent: {e}")
+
+
 def create_agent_tenant(form_data: dict) -> str:
     """Create a new agent from console form data."""
     required = ["name", "email", "phone", "twilio_number"]
