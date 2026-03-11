@@ -171,13 +171,16 @@ def test_dispatcher_routes_email_channel(mock_sms_client, mock_sms):
 
     with patch("app.pipeline.dispatcher._log_conversation"), \
          patch("app.pipeline.dispatcher._update_usage_metrics"), \
-         patch("app.services.email_service.send_email", return_value={"status": "sent", "message_id": "test"}), \
+         patch("app.services.email_service.send_email", return_value={"status": "sent", "message_id": "test"}) as mock_send_email, \
          patch("app.services.email_service.get_db_connection"):
         dispatch(decision, event, contact, AGENT)
 
     # Should NOT call SMS
     mock_sms.assert_not_called()
     mock_sms_client.assert_not_called()
+
+    # Should have called send_email for the email channel
+    mock_send_email.assert_called_once()
 
 
 # ── Lead source tracking tests ───────────────────────────────

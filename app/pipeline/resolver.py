@@ -2,7 +2,7 @@
 import logging
 from uuid import UUID
 
-from app.db.connection import get_db_connection, set_agent_context
+from app.db.connection import get_db_connection
 from app.models.schemas import NormalizedEvent, Contact, AgentConfig
 
 logger = logging.getLogger(__name__)

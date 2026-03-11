@@ -391,8 +391,8 @@ def handle_listing_qa(
         f"Price: ${listing.price:,}\n"
         f"Beds: {listing.beds}, Baths: {listing.baths}\n"
         f"Sqft: {listing.sqft or 'N/A'}\n"
-        f"HOA: ${listing.hoa}/month\n" if listing.hoa else ""
-        f"Features: {', '.join(listing.features)}\n"
+        + (f"HOA: ${listing.hoa}/month\n" if listing.hoa else "")
+        + f"Features: {', '.join(listing.features)}\n"
         f"Status: {listing.status}\n"
         f"Showing instructions: {listing.showing_instructions or 'Contact for details'}"
     )

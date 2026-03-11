@@ -1,7 +1,7 @@
 """005 add transactions table
 
 Revision ID: 005_add_transactions
-Revises: 003_delivery_tracking
+Revises: 004_cost_tracking
 Create Date: 2026-03-11
 
 Adds the transactions table for tracking offer-to-close lifecycle,
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "005_add_transactions"
-down_revision = "003_delivery_tracking"
+down_revision = "004_cost_tracking"
 branch_labels = None
 depends_on = None
 

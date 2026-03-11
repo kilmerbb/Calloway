@@ -38,18 +38,15 @@ def create_transaction(
              str(listing_id) if listing_id else None,
              transaction_type, offer_price, offer_date, closing_date, notes],
         ).fetchone()
-        conn.commit()
 
-    logger.info("Created transaction %s for contact %s", row["id"], contact_id)
-
-    # Auto-update contact lifecycle stage
-    conn2 = get_db_connection()
-    with conn2 as c:
-        c.execute(
+        # Auto-update contact lifecycle stage (same transaction)
+        conn.execute(
             "UPDATE contacts SET lifecycle_stage = 'under_contract' WHERE id = %s",
             [str(contact_id)],
         )
-        c.commit()
+        conn.commit()
+
+    logger.info("Created transaction %s for contact %s", row["id"], contact_id)
 
     return Transaction(**row)
 

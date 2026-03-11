@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     # Vapi
     VAPI_API_KEY: str = ""
+    VAPI_WEBHOOK_SECRET: str = ""
 
     # Firebase
     FIREBASE_SERVER_KEY: str = ""

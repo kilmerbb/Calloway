@@ -98,6 +98,7 @@ def handle_trigger_command(
             from dateutil import parser as dateutil_parser
             scheduled_at = dateutil_parser.parse(time_ref, fuzzy=True)
         except Exception:
+            logger.debug("Failed to parse time reference '%s', defaulting to tomorrow", time_ref, exc_info=True)
             scheduled_at = datetime.now(timezone.utc) + timedelta(days=1)
 
     if scheduled_at is None:

@@ -49,6 +49,7 @@ def handle_client_instruction(
             agent.id,
         )
     except Exception:
+        logger.debug("Failed to compose message for %s, falling back to raw details", contact.name, exc_info=True)
         composed = details
 
     return AgentDecision(

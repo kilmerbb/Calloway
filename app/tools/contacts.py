@@ -1,4 +1,5 @@
 """Contact tools — lookup, create, update, search, gap analysis."""
+import json
 import logging
 from datetime import datetime, timezone, timedelta
 from uuid import UUID
@@ -70,7 +71,7 @@ def create_contact(
             [
                 str(agent_id), name, phone, email, role, lifecycle_stage,
                 str(linked_listing_id) if linked_listing_id else None,
-                "{}" if not preferences else str(preferences).replace("'", '"'),
+                "{}" if not preferences else json.dumps(preferences),
                 lead_source,
             ],
         ).fetchone()

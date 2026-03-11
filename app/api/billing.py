@@ -1,7 +1,7 @@
 """Billing webhooks and API — Stripe integration."""
 import logging
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from app.config import get_settings
 
@@ -20,9 +20,8 @@ async def stripe_webhook(request: Request):
     sig_header = request.headers.get("stripe-signature", "")
 
     if not settings.STRIPE_WEBHOOK_SECRET:
-        logger.warning("STRIPE_WEBHOOK_SECRET not set — skipping signature verification")
-        import json
-        event = json.loads(payload)
+        logger.error("STRIPE_WEBHOOK_SECRET not configured — rejecting webhook")
+        raise HTTPException(status_code=500, detail="Stripe webhook secret not configured")
     else:
         try:
             event = stripe.Webhook.construct_event(

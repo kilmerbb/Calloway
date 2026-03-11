@@ -69,6 +69,7 @@ def handle_status_change(
                 if status_until < now:
                     status_until += timedelta(days=1)
         except Exception:
+            logger.debug("Failed to parse status time reference '%s', leaving open-ended", time_ref, exc_info=True)
             status_until = None
 
     with get_db_connection() as conn:
@@ -148,7 +149,7 @@ def handle_handoff_return(
                 })
                 updates_made.append(f"Showing scheduled: {listing.address} at {time_ref}")
             except Exception:
-                pass
+                logger.debug("Failed to parse showing time '%s' for handoff return", time_ref, exc_info=True)
 
     # Add notes with the details
     if details:

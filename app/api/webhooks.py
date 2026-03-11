@@ -299,6 +299,15 @@ async def twilio_voice_fallback(request: Request):
 @router.post("/vapi/post-call")
 async def vapi_post_call(request: Request, background_tasks: BackgroundTasks):
     """Process Vapi post-call transcript."""
+    settings = get_settings()
+    if settings.VAPI_WEBHOOK_SECRET:
+        vapi_header = request.headers.get("x-vapi-secret", "")
+        if vapi_header != settings.VAPI_WEBHOOK_SECRET:
+            logger.warning("Vapi webhook rejected — invalid or missing x-vapi-secret header")
+            return Response(status_code=401)
+    else:
+        logger.warning("VAPI_WEBHOOK_SECRET not set — skipping Vapi webhook authentication")
+
     payload = await request.json()
     logger.info(f"Vapi post-call received: {payload.get('call_id', 'unknown')}")
 

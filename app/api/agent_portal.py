@@ -12,6 +12,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from app.config import get_settings
 from app.api.console_auth import generate_csrf_token, validate_csrf_token
+from app.services.redis_pool import get_redis_pool
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,52 @@ templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 SESSION_COOKIE = "agent_session"
 SESSION_MAX_AGE = 86400 * 7  # 7 days
 
-# In-memory login codes (in production, use Redis)
+LOGIN_CODE_TTL = 300  # 5 minutes
+
+# Fallback in-memory store for when Redis is unavailable
 _login_codes: dict[str, dict] = {}
+
+
+def _store_login_code(phone: str, code: str) -> None:
+    """Store a login code in Redis, falling back to in-memory dict."""
+    try:
+        r = get_redis_pool()
+        r.setex(f"login_code:{phone}", LOGIN_CODE_TTL, code)
+    except Exception as e:
+        logger.warning("Redis unavailable for login code storage, using in-memory fallback: %s", e)
+        _login_codes[phone] = {
+            "code": code,
+            "expires_at": datetime.now(timezone.utc) + timedelta(seconds=LOGIN_CODE_TTL),
+        }
+
+
+def _get_login_code(phone: str) -> str | None:
+    """Retrieve a login code from Redis, falling back to in-memory dict."""
+    try:
+        r = get_redis_pool()
+        value = r.get(f"login_code:{phone}")
+        if value is not None:
+            return value.decode() if isinstance(value, bytes) else value
+        return None
+    except Exception as e:
+        logger.warning("Redis unavailable for login code retrieval, using in-memory fallback: %s", e)
+        stored = _login_codes.get(phone)
+        if not stored:
+            return None
+        if datetime.now(timezone.utc) > stored["expires_at"]:
+            del _login_codes[phone]
+            return None
+        return stored["code"]
+
+
+def _delete_login_code(phone: str) -> None:
+    """Delete a login code from Redis, falling back to in-memory dict."""
+    try:
+        r = get_redis_pool()
+        r.delete(f"login_code:{phone}")
+    except Exception as e:
+        logger.warning("Redis unavailable for login code deletion, using in-memory fallback: %s", e)
+        _login_codes.pop(phone, None)
 
 
 def _get_serializer() -> URLSafeTimedSerializer:
@@ -78,10 +123,7 @@ def _get_agent(agent_id: str):
 def generate_login_code(phone: str) -> str:
     """Generate a 6-digit login code for the given phone."""
     code = f"{secrets.randbelow(1000000):06d}"
-    _login_codes[phone] = {
-        "code": code,
-        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
-    }
+    _store_login_code(phone, code)
     return code
 
 
@@ -136,22 +178,17 @@ async def login_submit(request: Request, phone: str = Form(...), code: str = For
                 error=None, message="A verification code has been sent to your phone.")
 
     # Verify code
-    stored = _login_codes.get(phone)
-    if not stored:
+    stored_code = _get_login_code(phone)
+    if not stored_code:
         return _render(request, "login.html",
-            error="No code found. Please request a new one.", message=None)
+            error="No code found or code expired. Please request a new one.", message=None)
 
-    if datetime.now(timezone.utc) > stored["expires_at"]:
-        del _login_codes[phone]
-        return _render(request, "login.html",
-            error="Code expired. Please request a new one.", message=None)
-
-    if stored["code"] != code.strip():
+    if stored_code != code.strip():
         return _render(request, "login.html",
             error="Invalid code. Please try again.", message=None)
 
     # Success — clean up and create session
-    del _login_codes[phone]
+    _delete_login_code(phone)
     response = RedirectResponse("/agent/dashboard", status_code=303)
     _create_session(response, str(agent["id"]))
     return response
