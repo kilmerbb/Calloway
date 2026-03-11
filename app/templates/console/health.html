@@ -4,10 +4,10 @@
 
 <!-- Service Connectivity -->
 <div class="section">
-    <div class="section-title">Service Connectivity</div>
+    <div class="section-title" title="Live status of external service connections — auto-refreshes every 30 seconds">Service Connectivity</div>
     <div class="card-grid">
         {% for service, color in health.services.items() %}
-        <div class="card">
+        <div class="card" title="Green = healthy, Yellow = degraded, Red = unreachable">
             <div class="card-label">{{ service|capitalize }}</div>
             <div class="card-value">
                 <span class="status-dot status-{{ color }}"></span>
@@ -20,17 +20,17 @@
 
 <!-- Pipeline Performance -->
 <div class="section">
-    <div class="section-title">Pipeline Performance (24h)</div>
+    <div class="section-title" title="Message processing pipeline latency metrics over the last 24 hours">Pipeline Performance (24h)</div>
     <div class="card-grid">
-        <div class="card">
+        <div class="card" title="Average end-to-end time from receiving a message to sending a response">
             <div class="card-label">Avg Latency</div>
             <div class="card-value">{{ health.pipeline.avg_latency_ms }}ms</div>
         </div>
-        <div class="card">
+        <div class="card" title="Median latency — 50% of requests are faster than this">
             <div class="card-label">p50</div>
             <div class="card-value">{{ health.pipeline.p50_ms }}ms</div>
         </div>
-        <div class="card">
+        <div class="card" title="95th percentile latency — 95% of requests are faster than this">
             <div class="card-label">p95</div>
             <div class="card-value">{{ health.pipeline.p95_ms }}ms</div>
         </div>
@@ -39,13 +39,13 @@
 
 <!-- Manual Actions -->
 <div class="section">
-    <div class="section-title">Manual Actions</div>
+    <div class="section-title" title="Manually trigger operations for a specific tenant">Manual Actions</div>
     <p style="color: var(--text-muted); margin-bottom: 0.5rem;">Run daily scan for a specific agent:</p>
     <form method="get" action="/console/health" style="display: flex; gap: 0.5rem; max-width: 400px;">
-        <select id="scan-agent" style="flex:1;">
+        <select id="scan-agent" style="flex:1;" title="Choose the tenant to run the daily scan for">
             <option value="">Select agent...</option>
         </select>
-        <button type="button" class="btn btn-outline btn-sm" onclick="runScan()">Run Scan</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="runScan()" title="Trigger the daily scan immediately for the selected tenant — checks contacts, triggers, and health">Run Scan</button>
     </form>
     <script>
     fetch('/console/tenants').then(r => r.text()).then(() => {});

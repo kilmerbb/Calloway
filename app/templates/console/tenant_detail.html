@@ -3,16 +3,16 @@
 {% set agent = detail.agent %}
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
     <div>
-        <span class="badge {% if agent.current_status == 'available' %}badge-green{% elif agent.current_status == 'deactivated' %}badge-red{% else %}badge-yellow{% endif %}">{{ agent.current_status }}</span>
+        <span class="badge {% if agent.current_status == 'available' %}badge-green{% elif agent.current_status == 'deactivated' %}badge-red{% else %}badge-yellow{% endif %}" title="Current availability status for this tenant">{{ agent.current_status }}</span>
     </div>
     <div style="display: flex; gap: 0.5rem;">
-        <a href="/console/tenants/{{ agent.id }}/edit" class="btn btn-outline btn-sm">Edit Config</a>
+        <a href="/console/tenants/{{ agent.id }}/edit" class="btn btn-outline btn-sm" title="Edit this tenant's profile, tone, autonomy, and settings">Edit Config</a>
         <form method="post" action="/console/tenants/{{ agent.id }}/test-sms" style="display:inline;">
-            <button type="submit" class="btn btn-outline btn-sm">Test SMS</button>
+            <button type="submit" class="btn btn-outline btn-sm" title="Send a test SMS to the tenant's phone number to verify Twilio is working">Test SMS</button>
         </form>
         {% if agent.current_status != 'deactivated' %}
         <form method="post" action="/console/tenants/{{ agent.id }}/deactivate" style="display:inline;">
-            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Deactivate this tenant?')">Deactivate</button>
+            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Deactivate this tenant?')" title="Disable this tenant — stops all AI responses and scheduled triggers">Deactivate</button>
         </form>
         {% endif %}
     </div>
@@ -30,43 +30,43 @@
                 <tr><td style="color: var(--text-muted);">Brokerage</td><td>{{ agent.brokerage or '—' }}</td></tr>
                 <tr><td style="color: var(--text-muted);">Market</td><td>{{ agent.market or '—' }}</td></tr>
                 <tr><td style="color: var(--text-muted);">Timezone</td><td>{{ agent.timezone }}</td></tr>
-                <tr><td style="color: var(--text-muted);">Twilio #</td><td>{{ agent.twilio_number }}</td></tr>
+                <tr><td style="color: var(--text-muted);" title="The Twilio number contacts text to reach this agent">Twilio #</td><td>{{ agent.twilio_number }}</td></tr>
             </table>
         </div>
 
         <!-- Configuration -->
         <div class="section">
-            <div class="section-title">Configuration</div>
+            <div class="section-title" title="Click each section to expand and view the raw configuration">Configuration</div>
             <details>
-                <summary>Style Profile</summary>
+                <summary title="Tone, emoji, and communication style settings">Style Profile</summary>
                 <pre style="font-size:12px; padding:0.5rem;">{{ agent.style_profile }}</pre>
             </details>
             <details>
-                <summary>Autonomy Rules</summary>
+                <summary title="Rules governing what the AI can do autonomously vs. requiring approval">Autonomy Rules</summary>
                 <pre style="font-size:12px; padding:0.5rem;">{{ agent.autonomy_rules }}</pre>
             </details>
             <details>
-                <summary>Scheduling Prefs</summary>
+                <summary title="Preferred showing times, buffer windows, and availability">Scheduling Prefs</summary>
                 <pre style="font-size:12px; padding:0.5rem;">{{ agent.scheduling_prefs }}</pre>
             </details>
             <details>
-                <summary>Raw Agent Record (JSON)</summary>
+                <summary title="Complete database record for debugging">Raw Agent Record (JSON)</summary>
                 <pre style="font-size:11px; padding:0.5rem; max-height:300px; overflow:auto;">{{ agent }}</pre>
             </details>
         </div>
 
         <!-- Recent Messages -->
         <div class="section">
-            <div class="section-title">Recent Messages ({{ detail.recent_messages|length }})</div>
+            <div class="section-title" title="The 20 most recent messages for this tenant">Recent Messages ({{ detail.recent_messages|length }})</div>
             {% for m in detail.recent_messages[:20] %}
             <div class="feed-item">
                 <span class="feed-time">{{ m.created_at.strftime('%b %d %H:%M') if m.created_at else '' }}</span>
                 {% if m.sender_type == 'client' %}
-                <span class="badge badge-green">{{ m.contact_name or 'client' }}</span>
+                <span class="badge badge-green" title="Inbound message from the contact">{{ m.contact_name or 'client' }}</span>
                 {% elif m.sender_type == 'ai' %}
-                <span class="badge badge-blue">ai{% if m.model_used %}/{{ m.model_used }}{% endif %}</span>
+                <span class="badge badge-blue" title="AI-generated response{% if m.model_used %} using {{ m.model_used }}{% endif %}">ai{% if m.model_used %}/{{ m.model_used }}{% endif %}</span>
                 {% else %}
-                <span class="badge badge-gray">{{ m.sender_type }}</span>
+                <span class="badge badge-gray" title="System or operator message">{{ m.sender_type }}</span>
                 {% endif %}
                 {{ (m.body or '')[:100] }}{% if m.body and m.body|length > 100 %}...{% endif %}
             </div>
@@ -77,16 +77,16 @@
     <div class="detail-sidebar">
         <!-- Stats -->
         <div class="section">
-            <div class="section-title">This Month</div>
-            <div class="card" style="margin-bottom:0.5rem;">
+            <div class="section-title" title="Usage statistics for the current calendar month">This Month</div>
+            <div class="card" style="margin-bottom:0.5rem;" title="Estimated LLM API cost for this tenant this month">
                 <div class="card-label">Cost</div>
                 <div class="card-value">${{ detail.cost_this_month_dollars }}</div>
             </div>
-            <div class="card" style="margin-bottom:0.5rem;">
+            <div class="card" style="margin-bottom:0.5rem;" title="Total messages sent and received this month">
                 <div class="card-label">Messages</div>
                 <div class="card-value">{{ detail.messages_this_month }}</div>
             </div>
-            <div class="card">
+            <div class="card" title="Errors in the last 24 hours for this tenant">
                 <div class="card-label">Errors 24h</div>
                 <div class="card-value" {% if detail.errors_24h > 0 %}style="color:var(--red)"{% endif %}>{{ detail.errors_24h }}</div>
             </div>
@@ -94,33 +94,33 @@
 
         <!-- Contacts -->
         <div class="section">
-            <div class="section-title">Contacts ({{ detail.contacts|length }})</div>
+            <div class="section-title" title="People this tenant has communicated with">Contacts ({{ detail.contacts|length }})</div>
             {% for c in detail.contacts[:15] %}
             <div class="feed-item" style="font-size:13px;">
-                {{ c.name }} <span class="badge badge-gray">{{ c.lifecycle_stage }}</span>
-                {% if c.consent_status == 'revoked' %}<span class="badge badge-red">revoked</span>{% endif %}
+                {{ c.name }} <span class="badge badge-gray" title="CRM lifecycle stage">{{ c.lifecycle_stage }}</span>
+                {% if c.consent_status == 'revoked' %}<span class="badge badge-red" title="This contact has revoked TCPA consent — no automated messages allowed">revoked</span>{% endif %}
             </div>
             {% endfor %}
         </div>
 
         <!-- Listings -->
         <div class="section">
-            <div class="section-title">Listings ({{ detail.listings|length }})</div>
+            <div class="section-title" title="Real estate listings associated with this tenant">Listings ({{ detail.listings|length }})</div>
             {% for l in detail.listings[:10] %}
             <div class="feed-item" style="font-size:13px;">
                 {{ l.address }} — ${{ "{:,}".format(l.price) }}
-                <span class="badge {% if l.status == 'active' %}badge-green{% else %}badge-gray{% endif %}">{{ l.status }}</span>
+                <span class="badge {% if l.status == 'active' %}badge-green{% else %}badge-gray{% endif %}" title="Listing status">{{ l.status }}</span>
             </div>
             {% endfor %}
         </div>
 
         <!-- Pending Triggers -->
         <div class="section">
-            <div class="section-title">Pending Triggers ({{ detail.pending_triggers|length }})</div>
+            <div class="section-title" title="Scheduled actions waiting to fire — manage on the Triggers page">Pending Triggers ({{ detail.pending_triggers|length }})</div>
             {% for t in detail.pending_triggers %}
             <div class="feed-item" style="font-size:13px;">
                 {{ t.trigger_type }} — {{ t.scheduled_at.strftime('%b %d %H:%M') if t.scheduled_at else '' }}
-                <span class="badge badge-blue">{{ t.action_type }}</span>
+                <span class="badge badge-blue" title="The action that will be taken when this trigger fires">{{ t.action_type }}</span>
             </div>
             {% endfor %}
         </div>

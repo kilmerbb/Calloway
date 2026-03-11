@@ -4,31 +4,31 @@
     <form method="get" class="filters">
         <div class="form-group">
             <label>Search</label>
-            <input type="text" name="search" value="{{ search }}" placeholder="Name or market...">
+            <input type="text" name="search" value="{{ search }}" placeholder="Name or market..." title="Filter tenants by name or market area">
         </div>
-        <button type="submit" class="btn btn-outline btn-sm">Filter</button>
+        <button type="submit" class="btn btn-outline btn-sm" title="Apply the search filter">Filter</button>
     </form>
-    <a href="/console/tenants/new" class="btn btn-primary">New Tenant</a>
+    <a href="/console/tenants/new" class="btn btn-primary" title="Register a new real estate agent tenant">New Tenant</a>
 </div>
 
 <table>
     <thead>
         <tr>
-            <th>Name</th>
-            <th>Brokerage</th>
-            <th>Market</th>
-            <th>Twilio #</th>
-            <th>Contacts</th>
-            <th>Msgs Today</th>
-            <th>Last Active</th>
-            <th>Status</th>
-            <th>Errors 24h</th>
+            <th title="Real estate agent's display name">Name</th>
+            <th title="The agent's brokerage firm">Brokerage</th>
+            <th title="Primary geographic market area">Market</th>
+            <th title="Twilio phone number assigned to this tenant">Twilio #</th>
+            <th title="Total contacts (leads, clients, etc.) in the agent's CRM">Contacts</th>
+            <th title="Messages sent and received today">Msgs Today</th>
+            <th title="Timestamp of the most recent message or activity">Last Active</th>
+            <th title="Active = recent activity, Inactive = no activity in 48h+, Deactivated = manually disabled">Status</th>
+            <th title="Number of errors in the last 24 hours">Errors 24h</th>
         </tr>
     </thead>
     <tbody>
         {% for a in agents %}
         <tr>
-            <td><a href="/console/tenants/{{ a.id }}">{{ a.name }}</a></td>
+            <td><a href="/console/tenants/{{ a.id }}" title="View full tenant profile and conversation history">{{ a.name }}</a></td>
             <td>{{ a.brokerage or '—' }}</td>
             <td>{{ a.market or '—' }}</td>
             <td style="font-size: 12px;">{{ a.twilio_number }}</td>
@@ -37,16 +37,16 @@
             <td>{{ a.last_active or 'never' }}</td>
             <td>
                 {% if a.current_status == 'deactivated' %}
-                <span class="badge badge-red">deactivated</span>
+                <span class="badge badge-red" title="This tenant has been manually deactivated">deactivated</span>
                 {% elif a.last_active and a.last_active.isoformat is defined %}
-                <span class="badge badge-green">active</span>
+                <span class="badge badge-green" title="Tenant has recent activity">active</span>
                 {% else %}
-                <span class="badge badge-yellow">inactive</span>
+                <span class="badge badge-yellow" title="No activity recorded in 48+ hours">inactive</span>
                 {% endif %}
             </td>
             <td>
                 {% if a.errors_24h > 0 %}
-                <span class="badge badge-red">{{ a.errors_24h }}</span>
+                <span class="badge badge-red" title="Click tenant name to investigate errors">{{ a.errors_24h }}</span>
                 {% else %}
                 0
                 {% endif %}

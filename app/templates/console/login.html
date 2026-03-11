@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login — Console</title>
+    <title>Login — Calloway</title>
     <link rel="stylesheet" href="/static/console/style.css">
 </head>
 <body>
 <div class="login-container">
-    <h1>Operator Console</h1>
+    <h1>Calloway</h1>
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
     {% endif %}
     <form method="post" action="/console/login">
         <div class="form-group">
             <label for="password">Password</label>
-            <input type="password" id="password" name="password" required autofocus>
+            <input type="password" id="password" name="password" required autofocus title="Enter the console password set in CONSOLE_PASSWORD">
         </div>
-        <button type="submit" class="btn btn-primary" style="width:100%">Sign In</button>
+        <button type="submit" class="btn btn-primary" style="width:100%" title="Authenticate and access the admin console">Sign In</button>
     </form>
 </div>
 </body>

@@ -3,22 +3,28 @@
 <form method="get" class="filters">
     <div class="form-group">
         <label>Agent</label>
-        <select name="agent">
+        <select name="agent" title="Filter errors by tenant">
             <option value="">All</option>
             {% for a in agents %}
             <option value="{{ a.id }}" {% if agent_filter == a.id|string %}selected{% endif %}>{{ a.name }}</option>
             {% endfor %}
         </select>
     </div>
-    <button type="submit" class="btn btn-outline btn-sm">Filter</button>
+    <button type="submit" class="btn btn-outline btn-sm" title="Apply filter">Filter</button>
 </form>
 
 {% if errors.tool_errors %}
 <div class="section">
-    <div class="section-title">Tool Execution Errors</div>
+    <div class="section-title" title="Errors from external tool calls (e.g. calendar, MLS, CRM integrations)">Tool Execution Errors</div>
     <table>
         <thead>
-            <tr><th>Time</th><th>Agent</th><th>Tool</th><th>Error</th><th>Latency</th></tr>
+            <tr>
+                <th title="When the error occurred">Time</th>
+                <th title="Which tenant triggered the error">Agent</th>
+                <th title="The tool that failed">Tool</th>
+                <th title="Click to expand full error details, input, and output">Error</th>
+                <th title="How long the tool call took before failing">Latency</th>
+            </tr>
         </thead>
         <tbody>
             {% for e in errors.tool_errors %}
@@ -27,7 +33,7 @@
                 <td>{{ e.agent_name }}</td>
                 <td><span class="badge badge-gray">{{ e.tool_name }}</span></td>
                 <td>
-                    <details>
+                    <details title="Click to see full error message, input, and output">
                         <summary>{{ (e.error_message or '')[:80] }}{% if e.error_message and e.error_message|length > 80 %}...{% endif %}</summary>
                         <pre style="font-size:11px; padding:0.5rem; white-space:pre-wrap;">{{ e.error_message }}
 
@@ -45,10 +51,16 @@ Output: {{ e.output_json }}</pre>
 
 {% if errors.app_errors %}
 <div class="section">
-    <div class="section-title">Application Errors</div>
+    <div class="section-title" title="Internal application errors and warnings logged by the system">Application Errors</div>
     <table>
         <thead>
-            <tr><th>Time</th><th>Agent</th><th>Module</th><th>Severity</th><th>Message</th></tr>
+            <tr>
+                <th title="When the error occurred">Time</th>
+                <th title="Which tenant was involved (if applicable)">Agent</th>
+                <th title="Code module that raised the error">Module</th>
+                <th title="Error severity level">Severity</th>
+                <th title="Click to expand full message and stack trace">Message</th>
+            </tr>
         </thead>
         <tbody>
             {% for e in errors.app_errors %}
@@ -57,12 +69,12 @@ Output: {{ e.output_json }}</pre>
                 <td>{{ e.agent_name or '—' }}</td>
                 <td>{{ e.module }}</td>
                 <td>
-                    {% if e.severity == 'error' %}<span class="badge badge-red">error</span>
-                    {% elif e.severity == 'warning' %}<span class="badge badge-yellow">warning</span>
+                    {% if e.severity == 'error' %}<span class="badge badge-red" title="Requires investigation">error</span>
+                    {% elif e.severity == 'warning' %}<span class="badge badge-yellow" title="Non-critical but worth monitoring">warning</span>
                     {% else %}<span class="badge badge-gray">{{ e.severity }}</span>{% endif %}
                 </td>
                 <td>
-                    <details>
+                    <details title="Click to see full error message and stack trace">
                         <summary>{{ (e.message or '')[:80] }}</summary>
                         <pre style="font-size:11px; padding:0.5rem; white-space:pre-wrap;">{{ e.message }}
 {% if e.stack_trace %}

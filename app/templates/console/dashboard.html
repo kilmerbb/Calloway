@@ -2,23 +2,23 @@
 {% block content %}
 <!-- Pulse Cards -->
 <div class="card-grid">
-    <div class="card">
+    <div class="card" title="Number of registered and active real estate agent accounts">
         <div class="card-label">Active Tenants</div>
         <div class="card-value">{{ pulse.total_agents }}</div>
     </div>
-    <div class="card">
+    <div class="card" title="Total messages sent and received since midnight (server time)">
         <div class="card-label">Messages Today</div>
         <div class="card-value">{{ pulse.messages_today }}</div>
     </div>
-    <div class="card">
+    <div class="card" title="Total messages in the last 24-hour rolling window">
         <div class="card-label">Messages 24h</div>
         <div class="card-value">{{ pulse.messages_24h }}</div>
     </div>
-    <div class="card">
+    <div class="card" title="Tool and application errors in the last 24 hours — see Errors page for details">
         <div class="card-label">Errors 24h</div>
         <div class="card-value" {% if pulse.errors_24h > 0 %}style="color: var(--red)"{% endif %}>{{ pulse.errors_24h }}</div>
     </div>
-    <div class="card">
+    <div class="card" title="Estimated LLM API spend today across all tenants">
         <div class="card-label">LLM Cost Today</div>
         <div class="card-value">${{ pulse.cost_today_dollars }}</div>
     </div>
@@ -27,7 +27,7 @@
 <div class="detail-grid">
     <!-- Activity Feed -->
     <div class="section">
-        <div class="section-title">Recent Activity</div>
+        <div class="section-title" title="Live feed of recent messages — auto-refreshes every 15 seconds">Recent Activity</div>
         <div id="activity-feed" hx-get="/console/dashboard/activity-feed" hx-trigger="load, every 15s" hx-swap="innerHTML">
             Loading...
         </div>
@@ -36,14 +36,14 @@
     <!-- Attention -->
     <div class="detail-sidebar">
         <div class="section">
-            <div class="section-title">Needs Attention</div>
+            <div class="section-title" title="Tenants that may need manual intervention">Needs Attention</div>
             {% if attention.error_agents %}
             <div style="margin-bottom: 1rem;">
                 <strong style="color: var(--red);">Errors</strong>
                 {% for a in attention.error_agents %}
                 <div class="feed-item">
-                    <a href="/console/tenants/{{ a.id }}">{{ a.name }}</a>
-                    <span class="badge badge-red">{{ a.error_count }} errors</span>
+                    <a href="/console/tenants/{{ a.id }}" title="View tenant details">{{ a.name }}</a>
+                    <span class="badge badge-red" title="Errors in the last 24 hours">{{ a.error_count }} errors</span>
                 </div>
                 {% endfor %}
             </div>
@@ -53,8 +53,8 @@
                 <strong style="color: var(--yellow);">Inactive 48h+</strong>
                 {% for a in attention.inactive_agents %}
                 <div class="feed-item">
-                    <a href="/console/tenants/{{ a.id }}">{{ a.name }}</a>
-                    <span style="color: var(--text-muted); font-size: 12px;">Last: {{ a.last_active or 'never' }}</span>
+                    <a href="/console/tenants/{{ a.id }}" title="View tenant details">{{ a.name }}</a>
+                    <span style="color: var(--text-muted); font-size: 12px;" title="Last recorded activity">Last: {{ a.last_active or 'never' }}</span>
                 </div>
                 {% endfor %}
             </div>

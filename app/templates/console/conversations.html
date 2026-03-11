@@ -3,7 +3,7 @@
 <form method="get" class="filters">
     <div class="form-group">
         <label>Agent</label>
-        <select name="agent">
+        <select name="agent" title="Filter conversations by tenant">
             <option value="">All</option>
             {% for a in agents %}
             <option value="{{ a.id }}" {% if agent_filter == a.id|string %}selected{% endif %}>{{ a.name }}</option>
@@ -12,7 +12,7 @@
     </div>
     <div class="form-group">
         <label>Channel</label>
-        <select name="channel">
+        <select name="channel" title="Filter by communication channel: SMS, RCS, Voice (Vapi), or Email">
             <option value="">All</option>
             {% for ch in ['sms', 'rcs', 'vapi', 'email'] %}
             <option value="{{ ch }}" {% if channel_filter == ch %}selected{% endif %}>{{ ch }}</option>
@@ -21,28 +21,28 @@
     </div>
     <div class="form-group">
         <label>Search</label>
-        <input type="text" name="search" value="{{ search }}" placeholder="Contact name or phone...">
+        <input type="text" name="search" value="{{ search }}" placeholder="Contact name or phone..." title="Search by contact name or phone number">
     </div>
-    <button type="submit" class="btn btn-outline btn-sm">Filter</button>
+    <button type="submit" class="btn btn-outline btn-sm" title="Apply filters">Filter</button>
 </form>
 
 <table>
     <thead>
         <tr>
-            <th>Agent</th>
-            <th>Contact</th>
-            <th>Phone</th>
-            <th>Channel</th>
-            <th>Messages</th>
-            <th>Last Message</th>
-            <th>Time</th>
+            <th title="The tenant this conversation belongs to">Agent</th>
+            <th title="The contact (lead/client) — click to view full conversation">Contact</th>
+            <th title="Contact's phone number">Phone</th>
+            <th title="Communication channel used">Channel</th>
+            <th title="Total number of messages in this conversation">Messages</th>
+            <th title="Preview of the most recent message">Last Message</th>
+            <th title="Timestamp of the most recent message">Time</th>
         </tr>
     </thead>
     <tbody>
         {% for c in conversations %}
         <tr>
             <td>{{ c.agent_name }}</td>
-            <td><a href="/console/conversations/{{ c.id }}">{{ c.contact_name or 'Unknown' }}</a></td>
+            <td><a href="/console/conversations/{{ c.id }}" title="View full conversation thread">{{ c.contact_name or 'Unknown' }}</a></td>
             <td style="font-size:12px;">{{ c.phone or '—' }}</td>
             <td><span class="badge badge-gray">{{ c.channel }}</span></td>
             <td>{{ c.msg_count }}</td>

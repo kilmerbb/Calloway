@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ page_title }} — Console</title>
+    <title>{{ page_title }} — Calloway</title>
     <link rel="stylesheet" href="/static/console/style.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
@@ -11,24 +11,24 @@
 <div class="layout">
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-logo">
-            Solo Realtor AI
-            <small>Operator Console</small>
+            Calloway
+            <small>Admin Console</small>
         </div>
-        <a href="/console/dashboard" class="nav-item {% if active_nav == 'dashboard' %}active{% endif %}">Dashboard</a>
-        <a href="/console/tenants" class="nav-item {% if active_nav == 'tenants' %}active{% endif %}">Tenants</a>
-        <a href="/console/conversations" class="nav-item {% if active_nav == 'conversations' %}active{% endif %}">Conversations</a>
-        <a href="/console/triggers" class="nav-item {% if active_nav == 'triggers' %}active{% endif %}">Triggers</a>
-        <a href="/console/errors" class="nav-item {% if active_nav == 'errors' %}active{% endif %}">Errors</a>
-        <a href="/console/costs" class="nav-item {% if active_nav == 'costs' %}active{% endif %}">Costs</a>
-        <a href="/console/health" class="nav-item {% if active_nav == 'health' %}active{% endif %}">Health</a>
-        <a href="/harness/" class="nav-item {% if active_nav == 'harness' %}active{% endif %}">Harness</a>
-        <a href="/console/logout" class="nav-item" style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 1rem;">Logout</a>
+        <a href="/console/dashboard" class="nav-item {% if active_nav == 'dashboard' %}active{% endif %}" title="System overview with key metrics and activity feed">Dashboard</a>
+        <a href="/console/tenants" class="nav-item {% if active_nav == 'tenants' %}active{% endif %}" title="Manage real estate agent accounts">Tenants</a>
+        <a href="/console/conversations" class="nav-item {% if active_nav == 'conversations' %}active{% endif %}" title="View all SMS, RCS, voice, and email conversations">Conversations</a>
+        <a href="/console/triggers" class="nav-item {% if active_nav == 'triggers' %}active{% endif %}" title="Scheduled actions like follow-ups and reminders">Triggers</a>
+        <a href="/console/errors" class="nav-item {% if active_nav == 'errors' %}active{% endif %}" title="Tool execution failures and application errors">Errors</a>
+        <a href="/console/costs" class="nav-item {% if active_nav == 'costs' %}active{% endif %}" title="LLM spend, token usage, and per-agent cost breakdown">Costs</a>
+        <a href="/console/health" class="nav-item {% if active_nav == 'health' %}active{% endif %}" title="Service connectivity, latency metrics, and manual scans">Health</a>
+        <a href="/harness/" class="nav-item {% if active_nav == 'harness' %}active{% endif %}" title="Test harness for simulating conversations">Harness</a>
+        <a href="/console/logout" class="nav-item" style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 1rem;" title="End your session and return to the login screen">Logout</a>
     </nav>
 
     <div class="main-content">
         <header class="topbar">
             <h1>{{ page_title }}</h1>
-            <div hx-get="/console/health/status-dot" hx-trigger="load, every 30s" hx-swap="innerHTML">
+            <div hx-get="/console/health/status-dot" hx-trigger="load, every 30s" hx-swap="innerHTML" title="System health indicator — auto-refreshes every 30 seconds">
                 <span class="status-dot status-yellow" title="Loading..."></span>
             </div>
         </header>
