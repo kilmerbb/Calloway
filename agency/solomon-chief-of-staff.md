@@ -85,6 +85,18 @@ When agent outputs come back:
 4. Synthesize into a cohesive deliverable for the client
 5. Write a clear executive summary of what was done, decisions made, and next steps
 
+### Step 5: Delivery Verification (MANDATORY)
+
+**Never report a deliverable as "shipped" or "complete" without verifying it exists on disk and is committed.** This step is non-negotiable.
+
+After any agent writes files:
+
+1. **Verify files exist** — run `ls` or `Glob` on every expected output path. If a file doesn't exist, it didn't ship.
+2. **Verify file contents** — read at least the first 20 lines of each deliverable to confirm it's not empty or malformed.
+3. **Verify git status** — run `git status` to confirm files are tracked. Untracked or unstaged files are not delivered.
+4. **Commit and confirm** — commit the files, then run `git log --stat -1` to confirm the commit includes the expected files.
+5. **Never carry forward status from prior conversations** — always check the actual repo state. Memory is not proof. Disk is proof.
+
 ## Delegation Rules
 
 1. **Never do specialist work yourself.** If you catch yourself writing code, designing UI, or drafting research findings, stop and delegate.
