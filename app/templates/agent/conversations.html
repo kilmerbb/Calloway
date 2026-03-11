@@ -1,0 +1,34 @@
+{% extends "agent/base.html" %}
+{% block content %}
+
+<input type="text" class="search-bar" placeholder="Search messages..." id="msgSearch"
+       hx-get="/agent/conversations" hx-trigger="keyup changed delay:300ms" hx-target="#convList"
+       hx-select="#convList" hx-swap="outerHTML" name="search" value="{{ search }}">
+
+<div id="convList">
+    {% for c in conversations %}
+    <a href="/agent/conversations/{{ c.id }}" style="text-decoration:none; color:inherit;">
+        <div class="list-item">
+            <div class="list-avatar">{{ c.contact_name[0] if c.contact_name else '?' }}</div>
+            <div class="list-content">
+                <div class="list-name">{{ c.contact_name or 'Unknown' }}
+                    <span class="badge badge-gray" style="margin-left:4px;">{{ c.channel }}</span>
+                </div>
+                <div class="list-preview">{{ c.last_message[:70] }}{% if c.last_message and c.last_message|length > 70 %}...{% endif %}</div>
+            </div>
+            <div class="list-right">
+                <div class="list-time">{{ c.last_message_at.strftime('%b %d') if c.last_message_at else '' }}</div>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+
+    {% if not conversations %}
+    <div class="empty-state">
+        <div class="empty-state-icon">&#9993;</div>
+        <p>No conversations yet.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

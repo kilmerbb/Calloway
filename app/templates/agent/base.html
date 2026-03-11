@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} — Calloway</title>
+    <link rel="stylesheet" href="/static/agent/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+    <header class="agent-header">
+        <div class="header-left">
+            <a href="/agent/dashboard" class="logo">Calloway</a>
+        </div>
+        <nav class="header-nav" id="headerNav">
+            <a href="/agent/dashboard" class="nav-link {% if active_nav == 'dashboard' %}active{% endif %}">Home</a>
+            <a href="/agent/contacts" class="nav-link {% if active_nav == 'contacts' %}active{% endif %}">Contacts</a>
+            <a href="/agent/conversations" class="nav-link {% if active_nav == 'conversations' %}active{% endif %}">Messages</a>
+            <a href="/agent/schedule" class="nav-link {% if active_nav == 'schedule' %}active{% endif %}">Schedule</a>
+            <a href="/agent/triggers" class="nav-link {% if active_nav == 'triggers' %}active{% endif %}">Reminders</a>
+        </nav>
+        <div class="header-right">
+            <span class="agent-name">{{ agent.name }}</span>
+            <a href="/agent/logout" class="nav-link logout-link">Sign out</a>
+        </div>
+    </header>
+
+    <main class="agent-main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <nav class="mobile-nav">
+        <a href="/agent/dashboard" class="mobile-nav-item {% if active_nav == 'dashboard' %}active{% endif %}">
+            <span class="mobile-nav-icon">&#8962;</span>
+            <span>Home</span>
+        </a>
+        <a href="/agent/contacts" class="mobile-nav-item {% if active_nav == 'contacts' %}active{% endif %}">
+            <span class="mobile-nav-icon">&#9787;</span>
+            <span>Contacts</span>
+        </a>
+        <a href="/agent/conversations" class="mobile-nav-item {% if active_nav == 'conversations' %}active{% endif %}">
+            <span class="mobile-nav-icon">&#9993;</span>
+            <span>Messages</span>
+        </a>
+        <a href="/agent/schedule" class="mobile-nav-item {% if active_nav == 'schedule' %}active{% endif %}">
+            <span class="mobile-nav-icon">&#128197;</span>
+            <span>Schedule</span>
+        </a>
+        <a href="/agent/triggers" class="mobile-nav-item {% if active_nav == 'triggers' %}active{% endif %}">
+            <span class="mobile-nav-icon">&#9200;</span>
+            <span>Reminders</span>
+        </a>
+    </nav>
+</body>
+</html>

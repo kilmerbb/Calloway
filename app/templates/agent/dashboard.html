@@ -1,0 +1,123 @@
+{% extends "agent/base.html" %}
+{% block content %}
+
+<!-- Today's overview -->
+<div class="section">
+    <div class="section-title">Today</div>
+    <div class="card-grid">
+        <div class="card stat-card stat-green">
+            <div class="stat-value">{{ stats.messages_today }}</div>
+            <div class="stat-label">Messages</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.showings_today }}</div>
+            <div class="stat-label">Showings</div>
+        </div>
+        <div class="card stat-card stat-yellow">
+            <div class="stat-value">{{ stats.pending_approvals }}</div>
+            <div class="stat-label">Need Approval</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.active_contacts }}</div>
+            <div class="stat-label">Active Contacts</div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending approvals (supervised mode) -->
+{% if pending_approvals %}
+<div class="section">
+    <div class="section-title">
+        Needs Your Approval
+        <span class="badge badge-yellow">{{ pending_approvals|length }}</span>
+    </div>
+    {% for item in pending_approvals %}
+    <div class="list-item">
+        <div class="list-avatar">{{ item.contact_name[0] if item.contact_name else '?' }}</div>
+        <div class="list-content">
+            <div class="list-name">{{ item.contact_name or 'Unknown' }}</div>
+            <div class="list-preview">{{ item.draft_response[:80] }}{% if item.draft_response|length > 80 %}...{% endif %}</div>
+        </div>
+        <div class="list-right">
+            <div class="list-time">{{ item.created_at.strftime('%H:%M') if item.created_at else '' }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Upcoming showings -->
+{% if upcoming_showings %}
+<div class="section">
+    <div class="section-title">
+        Upcoming Showings
+        <a href="/agent/schedule" class="badge badge-blue" style="text-decoration:none;">View all</a>
+    </div>
+    <div class="card">
+        {% for s in upcoming_showings[:5] %}
+        <div class="timeline-item">
+            <div class="timeline-time">{{ s.start_time.strftime('%I:%M%p').lstrip('0').lower() }}</div>
+            <div class="timeline-content">
+                <div class="timeline-title">{{ s.listing_address }}</div>
+                <div class="timeline-detail">{{ s.contact_name }} &middot;
+                    {% if s.status == 'confirmed' %}<span class="badge badge-green">confirmed</span>
+                    {% elif s.status == 'hold' %}<span class="badge badge-yellow">hold</span>
+                    {% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent messages -->
+<div class="section">
+    <div class="section-title">
+        Recent Messages
+        <a href="/agent/conversations" class="badge badge-blue" style="text-decoration:none;">View all</a>
+    </div>
+    {% for c in recent_conversations[:8] %}
+    <a href="/agent/conversations/{{ c.id }}" style="text-decoration:none; color:inherit;">
+        <div class="list-item">
+            <div class="list-avatar">{{ c.contact_name[0] if c.contact_name else '?' }}</div>
+            <div class="list-content">
+                <div class="list-name">{{ c.contact_name or 'Unknown' }}</div>
+                <div class="list-preview">{{ c.last_message[:60] }}{% if c.last_message and c.last_message|length > 60 %}...{% endif %}</div>
+            </div>
+            <div class="list-right">
+                <div class="list-time">{{ c.last_message_at.strftime('%b %d') if c.last_message_at else '' }}</div>
+                {% if c.unread %}<span class="badge badge-blue">{{ c.unread }}</span>{% endif %}
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+    {% if not recent_conversations %}
+    <div class="empty-state">
+        <div class="empty-state-icon">&#9993;</div>
+        <p>No conversations yet. Your AI is ready to handle incoming messages.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Active listings -->
+{% if active_listings %}
+<div class="section">
+    <div class="section-title">Your Listings</div>
+    {% for l in active_listings %}
+    <div class="list-item">
+        <div class="list-content">
+            <div class="list-name">{{ l.address }}</div>
+            <div class="list-meta">${{ "{:,}".format(l.price) }} &middot; {{ l.beds }}bd/{{ l.baths }}ba{% if l.sqft %} &middot; {{ "{:,}".format(l.sqft) }} sqft{% endif %}</div>
+        </div>
+        <div class="list-right">
+            {% if l.status == 'active' %}<span class="badge badge-green">active</span>
+            {% elif l.status == 'pending' %}<span class="badge badge-yellow">pending</span>
+            {% else %}<span class="badge badge-gray">{{ l.status }}</span>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

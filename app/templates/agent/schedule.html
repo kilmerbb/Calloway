@@ -1,0 +1,67 @@
+{% extends "agent/base.html" %}
+{% block content %}
+
+<div class="filter-row">
+    <a href="/agent/schedule" class="filter-chip {% if not status_filter %}active{% endif %}">All</a>
+    <a href="/agent/schedule?status=confirmed" class="filter-chip {% if status_filter == 'confirmed' %}active{% endif %}">Confirmed</a>
+    <a href="/agent/schedule?status=hold" class="filter-chip {% if status_filter == 'hold' %}active{% endif %}">On Hold</a>
+</div>
+
+{% if today_showings %}
+<div class="section">
+    <div class="section-title">Today</div>
+    <div class="card">
+        {% for s in today_showings %}
+        <div class="timeline-item">
+            <div class="timeline-time">{{ s.start_time.strftime('%I:%M%p').lstrip('0').lower() }}</div>
+            <div class="timeline-content">
+                <div class="timeline-title">{{ s.listing_address }}</div>
+                <div class="timeline-detail">
+                    {{ s.contact_name }}
+                    &middot; {{ s.start_time.strftime('%I:%M') }}–{{ s.end_time.strftime('%I:%M%p').lstrip('0').lower() }}
+                    &middot;
+                    {% if s.status == 'confirmed' %}<span class="badge badge-green">confirmed</span>
+                    {% elif s.status == 'hold' %}<span class="badge badge-yellow">hold — expires {{ s.hold_expires_at.strftime('%I:%M%p').lstrip('0').lower() if s.hold_expires_at else '' }}</span>
+                    {% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if upcoming_showings %}
+<div class="section">
+    <div class="section-title">Upcoming</div>
+    <div class="card">
+        {% for s in upcoming_showings %}
+        <div class="timeline-item">
+            <div class="timeline-time">
+                {{ s.start_time.strftime('%b %d') }}<br>
+                <span style="font-size:11px;">{{ s.start_time.strftime('%I:%M%p').lstrip('0').lower() }}</span>
+            </div>
+            <div class="timeline-content">
+                <div class="timeline-title">{{ s.listing_address }}</div>
+                <div class="timeline-detail">
+                    {{ s.contact_name }}
+                    &middot;
+                    {% if s.status == 'confirmed' %}<span class="badge badge-green">confirmed</span>
+                    {% elif s.status == 'hold' %}<span class="badge badge-yellow">hold</span>
+                    {% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if not today_showings and not upcoming_showings %}
+<div class="empty-state">
+    <div class="empty-state-icon">&#128197;</div>
+    <p>No showings scheduled. Your AI will book showings as clients request them.</p>
+</div>
+{% endif %}
+
+{% endblock %}

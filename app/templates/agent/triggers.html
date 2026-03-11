@@ -1,0 +1,41 @@
+{% extends "agent/base.html" %}
+{% block content %}
+
+<div class="filter-row">
+    <a href="/agent/triggers" class="filter-chip {% if not type_filter %}active{% endif %}">All</a>
+    <a href="/agent/triggers?type=follow_up" class="filter-chip {% if type_filter == 'follow_up' %}active{% endif %}">Follow-ups</a>
+    <a href="/agent/triggers?type=daily_briefing" class="filter-chip {% if type_filter == 'daily_briefing' %}active{% endif %}">Briefings</a>
+    <a href="/agent/triggers?type=review_request" class="filter-chip {% if type_filter == 'review_request' %}active{% endif %}">Review Asks</a>
+</div>
+
+{% for t in triggers %}
+<div class="list-item">
+    <div class="list-content">
+        <div class="list-name">
+            {{ t.trigger_type|replace('_', ' ')|title }}
+            {% if t.recurrence %}<span class="badge badge-blue">{{ t.recurrence }}</span>{% endif %}
+        </div>
+        <div class="list-meta">
+            {{ t.contact_name or 'System' }}
+            &middot; {{ t.action_type|replace('_', ' ') }}
+            {% if t.message_template %}<br><span style="font-size:12px; color:var(--text-muted);">{{ t.message_template[:80] }}{% if t.message_template|length > 80 %}...{% endif %}</span>{% endif %}
+        </div>
+    </div>
+    <div class="list-right">
+        <div class="list-time">{{ t.scheduled_at.strftime('%b %d %H:%M') if t.scheduled_at else '' }}</div>
+        {% if t.status == 'pending' %}<span class="badge badge-yellow">scheduled</span>
+        {% elif t.status == 'completed' %}<span class="badge badge-green">sent</span>
+        {% elif t.status == 'error' %}<span class="badge badge-red">failed</span>
+        {% else %}<span class="badge badge-gray">{{ t.status }}</span>{% endif %}
+    </div>
+</div>
+{% endfor %}
+
+{% if not triggers %}
+<div class="empty-state">
+    <div class="empty-state-icon">&#9200;</div>
+    <p>No scheduled reminders or follow-ups. Your AI creates these automatically based on conversations.</p>
+</div>
+{% endif %}
+
+{% endblock %}

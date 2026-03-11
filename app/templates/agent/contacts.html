@@ -1,0 +1,47 @@
+{% extends "agent/base.html" %}
+{% block content %}
+
+<input type="text" class="search-bar" placeholder="Search contacts..." id="contactSearch"
+       hx-get="/agent/contacts" hx-trigger="keyup changed delay:300ms" hx-target="#contactList"
+       hx-select="#contactList" hx-swap="outerHTML" name="search" value="{{ search }}">
+
+<div class="filter-row">
+    <a href="/agent/contacts" class="filter-chip {% if not role_filter %}active{% endif %}">All</a>
+    <a href="/agent/contacts?role=buyer" class="filter-chip {% if role_filter == 'buyer' %}active{% endif %}">Buyers</a>
+    <a href="/agent/contacts?role=seller" class="filter-chip {% if role_filter == 'seller' %}active{% endif %}">Sellers</a>
+    <a href="/agent/contacts?role=lead" class="filter-chip {% if role_filter == 'lead' %}active{% endif %}">Leads</a>
+    <a href="/agent/contacts?role=past_client" class="filter-chip {% if role_filter == 'past_client' %}active{% endif %}">Past Clients</a>
+</div>
+
+<div id="contactList">
+    {% for c in contacts %}
+    <div class="list-item">
+        <div class="list-avatar">{{ c.name[0] }}</div>
+        <div class="list-content">
+            <div class="list-name">{{ c.name }}</div>
+            <div class="list-meta">
+                {{ c.phone }}
+                {% if c.role %}&middot; <span class="badge badge-gray">{{ c.role }}</span>{% endif %}
+                {% if c.lifecycle_stage %}<span class="badge badge-blue">{{ c.lifecycle_stage|replace('_', ' ') }}</span>{% endif %}
+            </div>
+        </div>
+        <div class="list-right">
+            <div class="list-time">{{ c.last_contact_at.strftime('%b %d') if c.last_contact_at else 'No contact' }}</div>
+            {% if c.consent_status == 'revoked' %}<span class="badge badge-red">STOP</span>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not contacts %}
+    <div class="empty-state">
+        <div class="empty-state-icon">&#9787;</div>
+        <p>No contacts found. Your AI will create contacts automatically as people text in.</p>
+    </div>
+    {% endif %}
+</div>
+
+<div style="text-align:center; color:var(--text-muted); font-size:12px; margin-top:1rem;">
+    {{ contacts|length }} contact{% if contacts|length != 1 %}s{% endif %}
+</div>
+
+{% endblock %}

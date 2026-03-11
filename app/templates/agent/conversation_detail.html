@@ -1,0 +1,43 @@
+{% extends "agent/base.html" %}
+{% block content %}
+
+<div style="margin-bottom:1rem;">
+    <a href="/agent/conversations" style="font-size:14px;">&larr; Back to messages</a>
+</div>
+
+<div class="card" style="margin-bottom:1rem; display:flex; align-items:center; gap:0.75rem;">
+    <div class="list-avatar" style="width:48px; height:48px; font-size:20px;">{{ detail.contact_name[0] if detail.contact_name else '?' }}</div>
+    <div>
+        <div style="font-weight:600;">{{ detail.contact_name or 'Unknown' }}</div>
+        <div style="font-size:13px; color:var(--text-muted);">{{ detail.contact_phone }} &middot; {{ detail.channel }}</div>
+    </div>
+</div>
+
+<div class="card chat-thread">
+    {% for m in detail.messages %}
+    {% if m.sender_type == 'system' %}
+    <div class="chat-msg chat-system">{{ m.body }}</div>
+    {% elif m.sender_type == 'client' %}
+    <div class="chat-msg chat-inbound">
+        {{ m.body }}
+        <div class="chat-time">{{ m.created_at.strftime('%b %d %I:%M%p').lstrip('0') if m.created_at else '' }}</div>
+    </div>
+    {% else %}
+    <div class="chat-msg chat-outbound">
+        {{ m.body }}
+        <div class="chat-time" style="color:rgba(255,255,255,0.7);">
+            {{ m.created_at.strftime('%b %d %I:%M%p').lstrip('0') if m.created_at else '' }}
+            {% if m.ai_generated %} &middot; AI{% if m.model_used %}/{{ m.model_used }}{% endif %}{% endif %}
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    {% if not detail.messages %}
+    <div class="empty-state">
+        <p>No messages in this conversation.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
