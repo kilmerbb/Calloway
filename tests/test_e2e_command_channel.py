@@ -57,7 +57,7 @@ def test_e2e_new_listing(mock_get_client):
         "_tokens": 100,
     }
 
-    with patch("app.pipeline.handlers.ingest_listing") as mock_ingest:
+    with patch("app.pipeline.commands.listing.ingest_listing") as mock_ingest:
         from app.models.schemas import Listing
         mock_ingest.return_value = (
             Listing(id=UUID("c1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"),
@@ -124,7 +124,7 @@ def test_e2e_new_client(mock_get_client):
     }
 
     # Since John Doe doesn't exist, should say "I don't have a contact"
-    with patch("app.pipeline.handlers.lookup_contact", return_value=None):
+    with patch("app.pipeline.commands.contact.lookup_contact", return_value=None):
         result = handle_agent_command(event, agent)
         assert "don't have" in result.response_text.lower() or "create" in result.response_text.lower()
 
@@ -149,7 +149,7 @@ def test_e2e_price_update(mock_get_client):
         "_tokens": 60,
     }
 
-    with patch("app.pipeline.handlers.ingest_listing") as mock_ingest:
+    with patch("app.pipeline.commands.listing.ingest_listing") as mock_ingest:
         from app.models.schemas import Listing
         mock_ingest.return_value = (
             Listing(id=UUID("c1eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"),

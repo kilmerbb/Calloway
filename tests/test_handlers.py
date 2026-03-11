@@ -43,7 +43,7 @@ def test_command_listing_update(mock_get_client):
     mock_client.compose = MagicMock(return_value="Test")
 
     # Mock ingest_listing to avoid DB
-    with patch("app.pipeline.handlers.ingest_listing") as mock_ingest:
+    with patch("app.pipeline.commands.listing.ingest_listing") as mock_ingest:
         mock_listing = Listing(
             id=UUID("c4eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"),
             agent_id=AGENT_ID, address="200 Front St", price=465000,
@@ -66,7 +66,7 @@ def test_command_gap_query(mock_get_client):
         "_tokens": 50,
     }
 
-    with patch("app.pipeline.handlers.analyze_contact_gaps") as mock_gaps:
+    with patch("app.pipeline.commands.scheduling.analyze_contact_gaps") as mock_gaps:
         mock_gaps.return_value = [
             {
                 "contact": Contact(
@@ -96,7 +96,7 @@ def test_command_status_change(mock_get_client):
         "_tokens": 50,
     }
 
-    with patch("app.pipeline.handlers.get_db_connection"):
+    with patch("app.pipeline.commands.status.get_db_connection"):
         event = make_event("I'm back")
         result = handle_agent_command(event, AGENT)
         assert "available" in result.response_text.lower()
@@ -118,8 +118,8 @@ def test_command_contact_query(mock_get_client):
         last_contact_at=datetime.now(timezone.utc),
     )
 
-    with patch("app.pipeline.handlers.lookup_contact", return_value=sarah):
-        with patch("app.pipeline.handlers.get_db_connection") as mock_conn:
+    with patch("app.pipeline.commands.contact.lookup_contact", return_value=sarah):
+        with patch("app.pipeline.commands.contact.get_db_connection") as mock_conn:
             mock_ctx = MagicMock()
             mock_conn.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_conn.return_value.__exit__ = MagicMock(return_value=False)

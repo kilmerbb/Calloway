@@ -299,17 +299,16 @@ def test_valid_intents_include_feedback():
 # Step 10A: Handoff Return Commands
 # ============================================================
 
-@patch("app.pipeline.handlers.get_anthropic_client")
-@patch("app.pipeline.handlers.lookup_contact")
-@patch("app.pipeline.handlers.update_contact")
-def test_handoff_return_reactivates_contact(mock_update, mock_lookup, mock_client):
-    from app.pipeline.handlers import _handle_handoff_return
+@patch("app.pipeline.commands.status.lookup_contact")
+@patch("app.pipeline.commands.status.update_contact")
+def test_handoff_return_reactivates_contact(mock_update, mock_lookup):
+    from app.pipeline.commands.status import handle_handoff_return
 
     agent = _make_agent()
     contact = _make_contact(silent_mode=True)
     mock_lookup.return_value = contact
 
-    result = _handle_handoff_return(
+    result = handle_handoff_return(
         agent, "Sarah Test", "She's pre-approved up to 500K",
         None, None, "Back from Sarah. She's pre-approved up to 500K."
     )
@@ -320,37 +319,37 @@ def test_handoff_return_reactivates_contact(mock_update, mock_lookup, mock_clien
     mock_update.assert_any_call(contact.id, silent_mode=False)
 
 
-@patch("app.pipeline.handlers.lookup_contact")
+@patch("app.pipeline.commands.status.lookup_contact")
 def test_handoff_return_no_contact(mock_lookup):
-    from app.pipeline.handlers import _handle_handoff_return
+    from app.pipeline.commands.status import handle_handoff_return
 
     agent = _make_agent()
     mock_lookup.return_value = None
 
-    result = _handle_handoff_return(agent, "Nobody", "", None, None, "Back from Nobody")
+    result = handle_handoff_return(agent, "Nobody", "", None, None, "Back from Nobody")
     assert "don't have" in result.response_text
 
 
-@patch("app.pipeline.handlers.lookup_contact")
-@patch("app.pipeline.handlers.update_contact")
+@patch("app.pipeline.commands.contact.lookup_contact")
+@patch("app.pipeline.commands.contact.update_contact")
 def test_note_command(mock_update, mock_lookup):
-    from app.pipeline.handlers import _handle_note_command
+    from app.pipeline.commands.contact import handle_note_command
 
     agent = _make_agent()
     contact = _make_contact(notes="existing notes")
     mock_lookup.return_value = contact
 
-    result = _handle_note_command(agent, "Sarah Test", "lease ends June 30")
+    result = handle_note_command(agent, "Sarah Test", "lease ends June 30")
     assert "Noted" in result.response_text
     assert "Sarah Test" in result.response_text
     mock_update.assert_called_once()
 
 
-@patch("app.pipeline.handlers.lookup_contact")
-@patch("app.pipeline.handlers.create_contact")
+@patch("app.pipeline.commands.contact.lookup_contact")
+@patch("app.pipeline.commands.contact.create_contact")
 @patch("app.pipeline.consent.get_db_connection")
 def test_connect_command(mock_conn, mock_create, mock_lookup):
-    from app.pipeline.handlers import _handle_connect_command
+    from app.pipeline.commands.contact import handle_connect_command
 
     agent = _make_agent()
     new_contact = _make_contact(name="John Doe", phone="+15551234567")
@@ -362,7 +361,7 @@ def test_connect_command(mock_conn, mock_create, mock_lookup):
     mock_conn.return_value.__exit__ = MagicMock(return_value=False)
 
     event = _make_event(body="Connect John Doe +15551234567 buyer")
-    result = _handle_connect_command(event, agent, "John Doe", "buyer", event.body)
+    result = handle_connect_command(event, agent, "John Doe", "buyer", event.body)
 
     assert "Created" in result.response_text
     assert "opt-in" in result.response_text.lower()

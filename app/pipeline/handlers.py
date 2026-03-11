@@ -1,28 +1,48 @@
-"""All message handlers — command, listing QA, template, and full reasoning."""
+"""Message handlers — command routing, reasoning, listing QA, and templates.
+
+Command implementations live in app.pipeline.commands.*
+This module provides:
+  - handle_agent_command: classifies and routes agent SMS commands
+  - handle_full_reasoning: Sonnet with tool use for client conversations
+  - handle_escalation: escalate to agent with notification
+  - handle_listing_qa: Haiku-powered listing Q&A
+  - handle_template: zero-LLM template responses
+"""
+
 import json
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from uuid import UUID
 
 from app.models.schemas import (
     NormalizedEvent, Contact, AgentConfig, AgentDecision,
-    Listing, AssembledContext, IntentClassification,
+    Listing, AssembledContext,
 )
 from app.services.anthropic_service import get_anthropic_client
-from app.tools.contacts import (
-    lookup_contact, create_contact, update_contact,
-    search_contacts, analyze_contact_gaps,
-)
-from app.tools.listings import (
-    ingest_listing, update_listing, get_listing, search_listings,
-)
+from app.tools.contacts import lookup_contact
+from app.tools.listings import get_listing, search_listings
 from app.db.connection import get_db_connection
+
+from app.pipeline.commands import (
+    handle_listing_command,
+    handle_listing_query,
+    handle_broadcast,
+    handle_client_instruction,
+    handle_contact_query,
+    handle_note_command,
+    handle_connect_command,
+    handle_status_change,
+    handle_handoff_return,
+    handle_schedule_query,
+    handle_gap_query,
+    handle_trigger_command,
+    handle_cascade_command,
+    handle_offer_command,
+)
 
 logger = logging.getLogger(__name__)
 
-# ============================================================
-# Step 10: Agent Command Handler
-# ============================================================
+# ── Command Classification ────────────────────────────────────
 
 COMMAND_CLASSIFY_PROMPT = """You are parsing a command from a real estate agent to their AI assistant.
 Classify this command into exactly one type and extract structured data.
@@ -56,703 +76,57 @@ Return JSON:
 Return ONLY valid JSON."""
 
 
+# ── Command dispatch table ────────────────────────────────────
+
+_COMMAND_HANDLERS = {
+    "listing_update": lambda e, a, p: handle_listing_command(e, a, e.body.strip(), p),
+    "client_instruction": lambda e, a, p: handle_client_instruction(e, a, p.get("contact_name"), p.get("details", ""), p),
+    "status_change": lambda e, a, p: handle_status_change(e, a, p.get("contact_name"), p.get("time_reference"), e.body.strip()),
+    "query_gap": lambda e, a, p: handle_gap_query(a),
+    "query_contact": lambda e, a, p: handle_contact_query(a, p.get("contact_name")),
+    "query_schedule": lambda e, a, p: handle_schedule_query(a),
+    "query_listing": lambda e, a, p: handle_listing_query(a, p.get("listing_address")),
+    "broadcast": lambda e, a, p: handle_broadcast(a, p.get("listing_address")),
+    "trigger": lambda e, a, p: handle_trigger_command(a, p.get("contact_name"), p.get("time_reference"), p.get("details", "")),
+    "cascade": lambda e, a, p: handle_cascade_command(a, p.get("listing_address"), p.get("contact_name"), p.get("time_reference"), p.get("details", ""), e.body.strip()),
+    "offer": lambda e, a, p: handle_offer_command(a, p.get("contact_name"), p.get("listing_address")),
+    "handoff_return": lambda e, a, p: handle_handoff_return(a, p.get("contact_name"), p.get("details", ""), p.get("listing_address"), p.get("time_reference"), e.body.strip()),
+    "note": lambda e, a, p: handle_note_command(a, p.get("contact_name"), p.get("details", "")),
+    "connect": lambda e, a, p: handle_connect_command(e, a, p.get("contact_name"), p.get("details", ""), e.body.strip()),
+}
+
+
 def handle_agent_command(
-    event: NormalizedEvent, agent: AgentConfig
+    event: NormalizedEvent, agent: AgentConfig,
 ) -> AgentDecision:
     """Parse and execute an agent SMS command."""
     body = event.body.strip()
 
-    # Try LLM parsing
     try:
         client = get_anthropic_client()
         parsed = client.classify(COMMAND_CLASSIFY_PROMPT, body, agent.id, max_tokens=300)
     except Exception as e:
-        logger.error(f"Command parsing failed: {e}")
+        logger.error("Command parsing failed: %s", e, exc_info=True)
         return AgentDecision(
-            response_text=f"Sorry, I didn't understand that command. Try again?",
+            response_text="Sorry, I didn't understand that command. Try again?",
             model_used="template",
             tokens_used=0,
         )
 
     cmd_type = parsed.get("command_type", "unknown")
-    contact_name = parsed.get("contact_name")
-    listing_address = parsed.get("listing_address")
-    details = parsed.get("details", "")
-    time_ref = parsed.get("time_reference")
+    handler = _COMMAND_HANDLERS.get(cmd_type)
 
-    # Route to handler
-    if cmd_type == "listing_update":
-        return _handle_listing_command(event, agent, body, parsed)
-    elif cmd_type == "client_instruction":
-        return _handle_client_instruction(event, agent, contact_name, details, parsed)
-    elif cmd_type == "status_change":
-        return _handle_status_change(event, agent, contact_name, time_ref, body)
-    elif cmd_type == "query_gap":
-        return _handle_gap_query(agent)
-    elif cmd_type == "query_contact":
-        return _handle_contact_query(agent, contact_name)
-    elif cmd_type == "query_schedule":
-        return _handle_schedule_query(agent)
-    elif cmd_type == "query_listing":
-        return _handle_listing_query(agent, listing_address)
-    elif cmd_type == "broadcast":
-        return _handle_broadcast(agent, listing_address)
-    elif cmd_type == "trigger":
-        return _handle_trigger_command(agent, contact_name, time_ref, details)
-    elif cmd_type == "cascade":
-        return _handle_cascade_command(agent, listing_address, contact_name, time_ref, details, body)
-    elif cmd_type == "offer":
-        return _handle_offer_command(agent, contact_name, listing_address)
-    elif cmd_type == "handoff_return":
-        return _handle_handoff_return(agent, contact_name, details, listing_address, time_ref, body)
-    elif cmd_type == "note":
-        return _handle_note_command(agent, contact_name, details)
-    elif cmd_type == "connect":
-        return _handle_connect_command(event, agent, contact_name, details, body)
-    else:
-        return AgentDecision(
-            response_text=f"I received your message but wasn't sure what to do with it. Could you rephrase?",
-            model_used="haiku",
-            tokens_used=parsed.get("_tokens", 0),
-        )
-
-
-def _handle_listing_command(
-    event: NormalizedEvent, agent: AgentConfig, body: str, parsed: dict
-) -> AgentDecision:
-    """Handle listing creation/update commands."""
-    try:
-        listing, missing = ingest_listing(agent.id, body)
-        response = f"Got it! Listing created:\n{listing.address} — ${listing.price:,}"
-        if listing.beds:
-            response += f"\n{listing.beds}bd/{listing.baths}ba"
-        if missing:
-            response += f"\n\nMissing: {', '.join(missing)}. Send those when you can."
-        if listing.lockbox:
-            response += f"\nLockbox: {listing.lockbox}"
-
-        return AgentDecision(
-            response_text=response,
-            model_used="haiku",
-            tokens_used=parsed.get("_tokens", 0),
-        )
-    except Exception as e:
-        return AgentDecision(
-            response_text=f"Couldn't process that listing: {e}",
-            model_used="template",
-        )
-
-
-def _handle_client_instruction(
-    event: NormalizedEvent, agent: AgentConfig,
-    contact_name: str | None, details: str, parsed: dict,
-) -> AgentDecision:
-    """Handle client instruction commands like 'Text Sarah and confirm Thursday'."""
-    if not contact_name:
-        return AgentDecision(
-            response_text="Which client should I contact?",
-            model_used="template",
-        )
-
-    contact = lookup_contact(agent.id, name=contact_name)
-    if contact is None:
-        return AgentDecision(
-            response_text=f"I don't have a contact named {contact_name}. Want me to create one?",
-            model_used="template",
-        )
-    if isinstance(contact, list):
-        names = ", ".join(c.name for c in contact)
-        return AgentDecision(
-            response_text=f"I have multiple matches: {names}. Which one?",
-            model_used="template",
-        )
-
-    # Compose and queue the message
-    try:
-        client = get_anthropic_client()
-        composed = client.compose(
-            f"You are composing a text message on behalf of {agent.name}. "
-            f"Tone: {agent.style_profile.get('tone', 'professional')}. "
-            f"Keep it brief (1-2 sentences).",
-            f"Client: {contact.name}, {contact.lifecycle_stage}. "
-            f"Last contact: {contact.last_contact_at}",
-            details,
-            agent.id,
-        )
-    except Exception:
-        composed = details
+    if handler:
+        return handler(event, agent, parsed)
 
     return AgentDecision(
-        response_text=f"Sending to {contact.name}: \"{composed}\"",
-        tool_calls=[{
-            "tool_name": "send_client_message",
-            "input": {
-                "agent_id": str(agent.id),
-                "contact_id": str(contact.id),
-                "message": composed,
-            },
-        }],
-        model_used="sonnet",
+        response_text="I received your message but wasn't sure what to do with it. Could you rephrase?",
+        model_used="haiku",
         tokens_used=parsed.get("_tokens", 0),
     )
 
 
-def _handle_status_change(
-    event: NormalizedEvent, agent: AgentConfig,
-    contact_name: str | None, time_ref: str | None, body: str,
-) -> AgentDecision:
-    """Handle status change commands."""
-    lower = body.lower()
-
-    # "I've got Sarah" → silent mode for that contact
-    if contact_name and ("got" in lower or "have" in lower or "handling" in lower):
-        contact = lookup_contact(agent.id, name=contact_name)
-        if contact and not isinstance(contact, list):
-            update_contact(contact.id, silent_mode=True)
-            return AgentDecision(
-                response_text=f"Got it — stepping back on {contact.name}. I'll observe but won't message them.",
-                model_used="template",
-            )
-        elif isinstance(contact, list):
-            names = ", ".join(c.name for c in contact)
-            return AgentDecision(
-                response_text=f"Which one? I have: {names}",
-                model_used="template",
-            )
-
-    # "I'm back" → revert to available
-    if "back" in lower or "available" in lower:
-        with get_db_connection() as conn:
-            conn.execute(
-                "UPDATE agents SET current_status = 'available', status_until = NULL WHERE id = %s",
-                [str(agent.id)],
-            )
-            conn.commit()
-        return AgentDecision(
-            response_text="Welcome back! Status set to available.",
-            model_used="template",
-        )
-
-    # "I'm in showings until 3" → set status + auto-revert trigger
-    new_status = "in_showing"
-    if "vacation" in lower:
-        new_status = "vacation"
-    elif "after hours" in lower or "done for" in lower or "off" in lower:
-        new_status = "after_hours"
-
-    status_until = None
-    if time_ref:
-        # Parse simple time references
-        try:
-            from dateutil import parser as dateutil_parser
-            status_until = dateutil_parser.parse(time_ref, fuzzy=True)
-            if status_until.tzinfo is None:
-                status_until = status_until.replace(tzinfo=timezone.utc)
-            # If parsed time is in the past, assume it's today at that time
-            now = datetime.now(timezone.utc)
-            if status_until < now:
-                status_until = status_until.replace(
-                    year=now.year, month=now.month, day=now.day
-                )
-                if status_until < now:
-                    status_until += timedelta(days=1)
-        except Exception:
-            status_until = None
-
-    with get_db_connection() as conn:
-        conn.execute(
-            "UPDATE agents SET current_status = %s, status_until = %s WHERE id = %s",
-            [new_status, status_until, str(agent.id)],
-        )
-        conn.commit()
-
-    response = f"Status set to '{new_status}'."
-    if status_until:
-        response += f" Will auto-revert at {status_until.strftime('%I:%M %p')}."
-    else:
-        response += " Text 'I'm back' when you're available."
-
-    # Create triggers for auto-revert if time specified
-    triggers = []
-    if status_until:
-        triggers.append({
-            "entity_type": "agent",
-            "entity_id": str(agent.id),
-            "trigger_type": "status_revert",
-            "scheduled_at": status_until.isoformat(),
-            "action_type": "notify_agent",
-        })
-
-    return AgentDecision(
-        response_text=response,
-        triggers_to_create=triggers,
-        model_used="template",
-    )
-
-
-def _handle_gap_query(agent: AgentConfig) -> AgentDecision:
-    """Handle 'Who needs follow-up?' queries."""
-    gaps = analyze_contact_gaps(agent.id)
-
-    if not gaps:
-        return AgentDecision(
-            response_text="All caught up! No contacts need attention right now.",
-            model_used="template",
-        )
-
-    lines = [f"{len(gaps)} client(s) need attention:"]
-    for g in gaps[:5]:
-        c = g["contact"]
-        lines.append(
-            f"- {c.name} ({g['lifecycle_stage']}, {g['days_since_contact']}d, {g['suggested_action'].lower()})"
-        )
-    if len(gaps) > 5:
-        lines.append(f"...and {len(gaps) - 5} more")
-
-    return AgentDecision(
-        response_text="\n".join(lines),
-        model_used="template",
-    )
-
-
-def _handle_contact_query(agent: AgentConfig, contact_name: str | None) -> AgentDecision:
-    """Handle 'What's going on with Mike?' queries."""
-    if not contact_name:
-        return AgentDecision(
-            response_text="Which client are you asking about?",
-            model_used="template",
-        )
-
-    contact = lookup_contact(agent.id, name=contact_name)
-    if contact is None:
-        return AgentDecision(
-            response_text=f"I don't have anyone named {contact_name}.",
-            model_used="template",
-        )
-    if isinstance(contact, list):
-        names = ", ".join(c.name for c in contact)
-        return AgentDecision(
-            response_text=f"Which one? I have: {names}",
-            model_used="template",
-        )
-
-    # Build summary
-    lines = [f"{contact.name} ({contact.role}, {contact.lifecycle_stage})"]
-    if contact.last_contact_at:
-        days = (datetime.now(timezone.utc) - contact.last_contact_at.replace(tzinfo=timezone.utc)).days
-        lines.append(f"Last contact: {days} day(s) ago")
-    if contact.notes:
-        lines.append(f"Notes: {contact.notes}")
-
-    # Get recent messages
-    with get_db_connection() as conn:
-        msgs = conn.execute(
-            """SELECT body, sender_type, created_at FROM messages m
-               JOIN conversations c ON m.conversation_id = c.id
-               WHERE c.contact_id = %s AND c.agent_id = %s
-               ORDER BY m.created_at DESC LIMIT 3""",
-            [str(contact.id), str(agent.id)],
-        ).fetchall()
-
-    if msgs:
-        lines.append("Recent:")
-        for m in reversed(msgs):
-            prefix = "Client" if m["sender_type"] == "client" else "AI"
-            lines.append(f"  {prefix}: {m['body'][:80]}")
-
-    return AgentDecision(
-        response_text="\n".join(lines),
-        model_used="template",
-    )
-
-
-def _handle_schedule_query(agent: AgentConfig) -> AgentDecision:
-    """Handle 'What's my day look like?' queries."""
-    with get_db_connection() as conn:
-        showings = conn.execute(
-            """SELECT s.*, c.name as contact_name, l.address
-               FROM showings s
-               JOIN contacts c ON s.contact_id = c.id
-               JOIN listings l ON s.listing_id = l.id
-               WHERE s.agent_id = %s
-               AND DATE(s.start_time) = CURRENT_DATE
-               AND s.status IN ('confirmed', 'hold')
-               ORDER BY s.start_time""",
-            [str(agent.id)],
-        ).fetchall()
-
-    if not showings:
-        return AgentDecision(
-            response_text="No showings scheduled for today.",
-            model_used="template",
-        )
-
-    lines = [f"{len(showings)} showing(s) today:"]
-    for s in showings:
-        time_str = s["start_time"].strftime("%I:%M %p") if s["start_time"] else "TBD"
-        lines.append(f"- {time_str}: {s['contact_name']} at {s['address']} ({s['status']})")
-
-    return AgentDecision(
-        response_text="\n".join(lines),
-        model_used="template",
-    )
-
-
-def _handle_listing_query(agent: AgentConfig, listing_address: str | None) -> AgentDecision:
-    """Handle listing activity queries."""
-    if not listing_address:
-        return AgentDecision(
-            response_text="Which listing are you asking about?",
-            model_used="template",
-        )
-
-    listing = get_listing(agent.id, address=listing_address)
-    if not listing:
-        return AgentDecision(
-            response_text=f"I don't have a listing matching '{listing_address}'.",
-            model_used="template",
-        )
-
-    with get_db_connection() as conn:
-        count = conn.execute(
-            """SELECT COUNT(*) as cnt FROM showings
-               WHERE listing_id = %s AND created_at > now() - interval '7 days'""",
-            [str(listing.id)],
-        ).fetchone()
-
-    showing_count = count["cnt"] if count else 0
-    dom = (datetime.now().date() - listing.list_date).days if listing.list_date else 0
-
-    return AgentDecision(
-        response_text=f"{listing.address}: {showing_count} showing(s) this week. "
-                      f"DOM: {dom}. Status: {listing.status}. Price: ${listing.price:,}.",
-        model_used="template",
-    )
-
-
-def _handle_broadcast(agent: AgentConfig, listing_address: str | None) -> AgentDecision:
-    """Handle broadcast commands — send listing to matching buyers."""
-    if not listing_address:
-        return AgentDecision(
-            response_text="Which listing should I broadcast?",
-            model_used="template",
-        )
-
-    listing = get_listing(agent.id, address=listing_address)
-    if not listing:
-        return AgentDecision(
-            response_text=f"Listing '{listing_address}' not found.",
-            model_used="template",
-        )
-
-    # Find matching buyers
-    matching = search_contacts(
-        agent.id,
-        lifecycle_stage="active_buyer",
-    )
-
-    if not matching:
-        return AgentDecision(
-            response_text="No active buyers in the system to notify.",
-            model_used="template",
-        )
-
-    # Queue messages for each matching buyer
-    tool_calls = []
-    for contact in matching:
-        tool_calls.append({
-            "tool_name": "send_personalized_listing_alert",
-            "input": {
-                "agent_id": str(agent.id),
-                "contact_id": str(contact.id),
-                "listing_id": str(listing.id),
-            },
-        })
-
-    return AgentDecision(
-        response_text=f"Sending {listing.address} (${listing.price:,}) to {len(matching)} active buyer(s).",
-        tool_calls=tool_calls,
-        model_used="template",
-    )
-
-
-def _handle_trigger_command(
-    agent: AgentConfig, contact_name: str | None,
-    time_ref: str | None, details: str,
-) -> AgentDecision:
-    """Handle trigger creation commands."""
-    if not contact_name:
-        return AgentDecision(
-            response_text="Who should I follow up with?",
-            model_used="template",
-        )
-
-    contact = lookup_contact(agent.id, name=contact_name)
-    if contact is None:
-        return AgentDecision(
-            response_text=f"I don't have a contact named {contact_name}.",
-            model_used="template",
-        )
-    if isinstance(contact, list):
-        names = ", ".join(c.name for c in contact)
-        return AgentDecision(
-            response_text=f"Which one? {names}",
-            model_used="template",
-        )
-
-    # Parse time reference
-    scheduled_at = None
-    if time_ref:
-        try:
-            from dateutil import parser as dateutil_parser
-            scheduled_at = dateutil_parser.parse(time_ref, fuzzy=True)
-        except Exception:
-            scheduled_at = datetime.now(timezone.utc) + timedelta(days=1)
-
-    if scheduled_at is None:
-        scheduled_at = datetime.now(timezone.utc) + timedelta(days=1)
-
-    return AgentDecision(
-        response_text=f"Reminder set: follow up with {contact.name} on {scheduled_at.strftime('%A %B %d')}.",
-        triggers_to_create=[{
-            "entity_type": "contact",
-            "entity_id": str(contact.id),
-            "trigger_type": "follow_up",
-            "scheduled_at": scheduled_at.isoformat(),
-            "action_type": "notify_agent",
-            "message_template": details or f"Follow up with {contact.name}",
-            "autonomy_level": "ask_agent",
-        }],
-        model_used="template",
-    )
-
-
-def _handle_cascade_command(
-    agent: AgentConfig, listing_address: str | None,
-    contact_name: str | None, time_ref: str | None,
-    details: str, body: str,
-) -> AgentDecision:
-    """Handle cascade commands (open house, transaction deadlines)."""
-    lower = body.lower()
-
-    if "open house" in lower:
-        return AgentDecision(
-            response_text=f"Open house cascade will be created. (Full implementation in Step 41)",
-            triggers_to_create=[{
-                "entity_type": "listing",
-                "entity_id": listing_address or "unknown",
-                "trigger_type": "open_house",
-                "cascade_type": "open_house",
-                "time_reference": time_ref,
-                "details": details,
-            }],
-            model_used="template",
-        )
-
-    if "deal" in lower or "inspection" in lower or "closing" in lower:
-        return AgentDecision(
-            response_text=f"Transaction deadline cascade created. I'll track all milestones.",
-            triggers_to_create=[{
-                "entity_type": "contact",
-                "entity_id": contact_name or "unknown",
-                "trigger_type": "transaction_deadlines",
-                "cascade_type": "transaction_deadlines",
-                "time_reference": time_ref,
-                "details": details,
-            }],
-            model_used="template",
-        )
-
-    return AgentDecision(
-        response_text="I'm not sure what cascade to create. Could you clarify?",
-        model_used="template",
-    )
-
-
-def _handle_offer_command(
-    agent: AgentConfig, contact_name: str | None, listing_address: str | None,
-) -> AgentDecision:
-    """Handle offer preparation commands."""
-    if not contact_name:
-        return AgentDecision(response_text="Which client wants to make an offer?", model_used="template")
-
-    contact = lookup_contact(agent.id, name=contact_name)
-    if contact is None or isinstance(contact, list):
-        return AgentDecision(response_text=f"Could you clarify the client name?", model_used="template")
-
-    return AgentDecision(
-        response_text=f"Offer prep started for {contact.name}. I'll request docs from them and notify you when ready.",
-        tool_calls=[{
-            "tool_name": "send_client_message",
-            "input": {
-                "agent_id": str(agent.id),
-                "contact_id": str(contact.id),
-                "message": f"Exciting! {agent.name} mentioned you're interested in making an offer. "
-                           f"To get started, I'll need: (1) Current pre-approval letter (2) Proof of funds for earnest money. "
-                           f"Can you send those over? {agent.name} will call you today to discuss strategy.",
-            },
-        }],
-        notifications=[{
-            "tier": "action_needed",
-            "title": f"Offer prep: {contact.name}",
-            "body": f"{contact.name} wants to offer{' on ' + listing_address if listing_address else ''}. Docs requested. Call them to discuss strategy.",
-        }],
-        model_used="template",
-    )
-
-
-# ============================================================
-# Step 10A: Handoff Return, Note, and Connect commands
-# ============================================================
-
-def _handle_handoff_return(
-    agent: AgentConfig, contact_name: str | None, details: str,
-    listing_address: str | None, time_ref: str | None, body: str,
-) -> AgentDecision:
-    """Handle 'Back from [Name]' command — reactivate contact, extract commitments."""
-    if not contact_name:
-        return AgentDecision(response_text="Which client are you back from?", model_used="template")
-
-    contact = lookup_contact(agent.id, name=contact_name)
-    if contact is None:
-        return AgentDecision(
-            response_text=f"I don't have a contact named {contact_name}.",
-            model_used="template",
-        )
-    if isinstance(contact, list):
-        names = ", ".join(c.name for c in contact)
-        return AgentDecision(response_text=f"Which one? {names}", model_used="template")
-
-    # Reactivate contact (silent_mode = false)
-    update_contact(contact.id, silent_mode=False)
-
-    updates_made = [f"Reactivated AI messaging for {contact.name}"]
-    triggers_to_create = []
-
-    # Parse for showing commitments
-    if listing_address and time_ref:
-        listing = get_listing(agent.id, address=listing_address)
-        if listing:
-            try:
-                from dateutil import parser as dateutil_parser
-                showing_time = dateutil_parser.parse(time_ref, fuzzy=True)
-                triggers_to_create.append({
-                    "entity_type": "contact",
-                    "entity_id": str(contact.id),
-                    "trigger_type": "showing_reminder",
-                    "scheduled_at": showing_time.isoformat(),
-                    "action_type": "both",
-                    "message_template": f"Reminder: showing at {listing.address} today",
-                })
-                updates_made.append(f"Showing scheduled: {listing.address} at {time_ref}")
-            except Exception:
-                pass
-
-    # Add notes with the details
-    if details:
-        existing_notes = contact.notes or ""
-        from datetime import datetime, timezone
-        timestamp = datetime.now(timezone.utc).strftime("%m/%d")
-        new_notes = f"{existing_notes}\n[{timestamp}] Agent handoff: {details}".strip()
-        update_contact(contact.id, notes=new_notes)
-        updates_made.append(f"Notes updated")
-
-    response = f"Got it. I've updated {contact.name}'s profile:\n" + "\n".join(f"- {u}" for u in updates_made)
-    response += f"\nI'm back on with {contact.name}."
-
-    return AgentDecision(
-        response_text=response,
-        triggers_to_create=triggers_to_create,
-        model_used="template",
-    )
-
-
-def _handle_note_command(
-    agent: AgentConfig, contact_name: str | None, details: str,
-) -> AgentDecision:
-    """Handle 'Note on [Name]' — add timestamped note without changing status."""
-    if not contact_name:
-        return AgentDecision(response_text="Which client should I note this on?", model_used="template")
-
-    contact = lookup_contact(agent.id, name=contact_name)
-    if contact is None:
-        return AgentDecision(
-            response_text=f"I don't have a contact named {contact_name}.",
-            model_used="template",
-        )
-    if isinstance(contact, list):
-        names = ", ".join(c.name for c in contact)
-        return AgentDecision(response_text=f"Which one? {names}", model_used="template")
-
-    existing_notes = contact.notes or ""
-    from datetime import datetime, timezone
-    timestamp = datetime.now(timezone.utc).strftime("%m/%d %I:%M%p")
-    new_notes = f"{existing_notes}\n[{timestamp}] {details}".strip()
-    update_contact(contact.id, notes=new_notes)
-
-    return AgentDecision(
-        response_text=f"Noted on {contact.name}: {details}",
-        model_used="template",
-    )
-
-
-def _handle_connect_command(
-    event, agent: AgentConfig, contact_name: str | None,
-    details: str, body: str,
-) -> AgentDecision:
-    """Handle 'Connect [Name] [Phone]' — create contact + send consent request."""
-    if not contact_name:
-        return AgentDecision(response_text="Who should I connect?", model_used="template")
-
-    # Extract phone from body
-    import re
-    phone_match = re.search(r'\+?\d[\d\s-]{9,}', body)
-    phone = phone_match.group().strip().replace(" ", "").replace("-", "") if phone_match else None
-
-    if not phone:
-        return AgentDecision(
-            response_text=f"I need a phone number for {contact_name}.",
-            model_used="template",
-        )
-
-    # Check if contact already exists
-    existing = lookup_contact(agent.id, phone=phone)
-    if existing:
-        return AgentDecision(
-            response_text=f"I already have {existing.name} at {phone}.",
-            model_used="template",
-        )
-
-    # Create contact with consent_status = pending
-    contact = create_contact(
-        agent_id=agent.id,
-        name=contact_name,
-        phone=phone,
-        role="lead",
-        lifecycle_stage="new_lead",
-    )
-
-    # Send consent request (Step 13A)
-    from app.pipeline.consent import send_consent_request
-    consent_msg = send_consent_request(agent, contact)
-
-    return AgentDecision(
-        response_text=f"Created {contact_name} ({phone}). Sent intro message — waiting for their opt-in reply.",
-        tool_calls=[{
-            "tool_name": "send_client_message",
-            "input": {
-                "agent_id": str(agent.id),
-                "contact_id": str(contact.id),
-                "message": consent_msg,
-            },
-        }],
-        model_used="template",
-    )
-
-
-# ============================================================
-# Step 20: Full Agent Reasoner (Sonnet with tools)
-# ============================================================
+# ── Full Reasoning (Sonnet with tools) ────────────────────────
 
 SYSTEM_PROMPT_TEMPLATE = """You are the digital assistant for {agent_name}, a real estate agent at {brokerage} in {market}.
 
@@ -931,7 +305,7 @@ def _execute_tool(tool_name: str, tool_input: dict, agent_id: UUID) -> dict:
             return {"error": f"Unknown tool: {tool_name}"}
 
     except Exception as e:
-        logger.error(f"Tool execution error ({tool_name}): {e}")
+        logger.error("Tool execution error (%s): %s", tool_name, e, exc_info=True)
         return {"error": str(e)}
 
 
@@ -944,7 +318,6 @@ def handle_full_reasoning(
     """Full reasoning with Claude Sonnet and tools."""
     client = get_anthropic_client()
 
-    # Build system prompt
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
         agent_name=agent.name,
         brokerage=agent.brokerage or "their brokerage",
@@ -952,7 +325,6 @@ def handle_full_reasoning(
         tone=agent.style_profile.get("tone", "professional"),
     )
 
-    # Add dynamic context
     if contact:
         system_prompt += f"\n\nCURRENT CLIENT: {contact.name} ({contact.role}, {contact.lifecycle_stage})"
         if contact.preferences:
@@ -966,24 +338,22 @@ def handle_full_reasoning(
     if context.calendar_slots:
         system_prompt += f"\n\nCALENDAR: {json.dumps(context.calendar_slots[:5])}"
 
-    # Build messages
     messages = []
     for msg in context.conversation_history:
         role = "user" if msg.sender_type == "client" else "assistant"
         messages.append({"role": role, "content": msg.body})
     messages.append({"role": "user", "content": event.body})
 
-    # Tool executor
     def executor(name, inp):
         return _execute_tool(name, inp, agent.id)
 
-    decision = client.reason(
+    return client.reason(
         system_prompt, messages, TOOL_DEFINITIONS, agent.id,
         tool_executor=executor,
     )
 
-    return decision
 
+# ── Escalation ────────────────────────────────────────────────
 
 def handle_escalation(
     event: NormalizedEvent,
@@ -1007,9 +377,7 @@ def handle_escalation(
     return ack
 
 
-# ============================================================
-# Step 15: Listing Q&A Handler (Lightweight, Haiku)
-# ============================================================
+# ── Listing Q&A (Haiku) ──────────────────────────────────────
 
 def handle_listing_qa(
     event: NormalizedEvent, contact: Contact | None,
@@ -1043,13 +411,11 @@ def handle_listing_qa(
     return AgentDecision(
         response_text=response,
         model_used="haiku",
-        tokens_used=0,  # tracked by the compose call internally
+        tokens_used=0,
     )
 
 
-# ============================================================
-# Step 21: Template Responder (Zero LLM)
-# ============================================================
+# ── Template Responder (Zero LLM) ────────────────────────────
 
 def handle_template(
     event: NormalizedEvent, contact: Contact | None,

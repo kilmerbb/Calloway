@@ -2,9 +2,10 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import get_settings
 from app.api.webhooks import router as webhooks_router
@@ -17,17 +18,31 @@ from app.api.billing import router as billing_router
 from app.api.agent_portal import router as agent_portal_router
 from app.db.connection import init_pool, close_pool
 from app.services.redis_pool import get_redis_pool
+from app.pipeline.structured_logging import configure_logging, set_correlation_id
+
+# Configure structured JSON logging before anything else logs
+configure_logging()
 
 logger = logging.getLogger(__name__)
 
 
+class CorrelationMiddleware(BaseHTTPMiddleware):
+    """Attach a correlation ID to every inbound request."""
+
+    async def dispatch(self, request: Request, call_next):
+        # Use incoming header if present; otherwise generate one
+        cid = request.headers.get("x-correlation-id")
+        cid = set_correlation_id(cid)
+        response = await call_next(request)
+        response.headers["x-correlation-id"] = cid
+        return response
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup — initialize connection pools
     init_pool()
     logger.info("Database connection pool initialized")
     yield
-    # Shutdown — clean up connection pools
     close_pool()
     pool = get_redis_pool()
     pool.close()
@@ -59,6 +74,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(CorrelationMiddleware)
 
 app.include_router(webhooks_router)
 app.include_router(health_router)
