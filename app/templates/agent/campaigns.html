@@ -1,0 +1,54 @@
+{% extends "agent/base.html" %}
+{% block content %}
+
+<h2 class="section-title">Active Campaigns</h2>
+{% if campaigns %}
+<div class="card-list">
+    {% for c in campaigns %}
+    <div class="list-item">
+        <div class="list-content">
+            <div class="list-name">
+                {{ c.name }}
+                <span class="badge badge-blue">{{ c.steps | length }} steps</span>
+            </div>
+            <div class="list-meta">
+                {% if c.description %}{{ c.description }}{% endif %}
+                <br>Type: {{ c.trigger_type | replace('_', ' ') | title }}
+                &middot; Duration: {{ c.steps[-1].day if c.steps else 0 }} days
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-state-icon">&#128231;</div>
+    <p>No campaigns yet. Campaigns let you set up reusable drip sequences for your contacts.</p>
+</div>
+{% endif %}
+
+<h2 class="section-title" style="margin-top: 2rem;">Active Enrollments</h2>
+{% if enrollments %}
+<div class="card-list">
+    {% for e in enrollments %}
+    <div class="list-item">
+        <div class="list-content">
+            <div class="list-name">
+                {{ e.contact_name }}
+                <span class="badge badge-green">{{ e.campaign_name }}</span>
+            </div>
+            <div class="list-meta">
+                Enrolled: {{ e.enrolled_at.strftime('%b %d, %Y') if e.enrolled_at else 'Unknown' }}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-state-icon">&#9787;</div>
+    <p>No active enrollments. Enroll contacts into campaigns to start automated outreach sequences.</p>
+</div>
+{% endif %}
+
+{% endblock %}

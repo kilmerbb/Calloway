@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="filter-row">
+    <a href="/agent/transactions" class="chip {% if not status_filter %}active{% endif %}">All</a>
+    <a href="/agent/transactions?status=pending_offer" class="chip {% if status_filter == 'pending_offer' %}active{% endif %}">Pending</a>
+    <a href="/agent/transactions?status=under_contract" class="chip {% if status_filter == 'under_contract' %}active{% endif %}">Under Contract</a>
+    <a href="/agent/transactions?status=contingency" class="chip {% if status_filter == 'contingency' %}active{% endif %}">Contingency</a>
+    <a href="/agent/transactions?status=clear_to_close" class="chip {% if status_filter == 'clear_to_close' %}active{% endif %}">Clear to Close</a>
+    <a href="/agent/transactions?status=closed" class="chip {% if status_filter == 'closed' %}active{% endif %}">Closed</a>
+</div>
+
+{% if transactions %}
+<div class="card-list">
+    {% for tx in transactions %}
+    <div class="card">
+        <div class="card-header">
+            <strong>{{ tx.contact_name }}</strong>
+            <span class="badge badge-{{ 'green' if tx.status == 'closed' else 'yellow' if tx.status == 'clear_to_close' else 'blue' if tx.status in ('under_contract', 'contingency') else 'gray' }}">
+                {{ tx.status | replace('_', ' ') | title }}
+            </span>
+        </div>
+        <div class="card-body">
+            {% if tx.listing_address %}<div>{{ tx.listing_address }}</div>{% endif %}
+            {% if tx.offer_price %}<div>Offer: ${{ "{:,}".format(tx.offer_price) }}</div>{% endif %}
+            {% if tx.closing_date %}<div>Closing: {{ tx.closing_date }}</div>{% endif %}
+            <div class="card-meta">
+                {{ tx.transaction_type | title }}
+                {% if tx.commission_pct %} · {{ tx.commission_pct }}% commission{% endif %}
+            </div>
+        </div>
+        {% if tx.status not in ('closed', 'fell_through') %}
+        <div class="card-footer">
+            {% if tx.inspection_date %}<span class="tag">Inspection: {{ tx.inspection_date }}</span>{% endif %}
+            {% if tx.appraisal_date %}<span class="tag">Appraisal: {{ tx.appraisal_date }}</span>{% endif %}
+            {% if tx.financing_deadline %}<span class="tag">Financing: {{ tx.financing_deadline }}</span>{% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">No transactions found.</div>
+{% endif %}
+{% endblock %}

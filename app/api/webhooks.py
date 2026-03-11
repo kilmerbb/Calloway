@@ -94,10 +94,30 @@ async def process_inbound_message(agent_id: str, payload: dict):
         # 5. Dispatch (consent check is inside dispatcher)
         dispatch(decision, event, contact, agent, is_agent_command)
 
+        # Track inbound SMS segment
+        _increment_inbound_sms(agent_id)
+
         logger.info(f"Processed message: intent={intent.intent}, model={decision.model_used}")
 
     except Exception as e:
         logger.error(f"Pipeline error: {e}", exc_info=True)
+
+
+def _increment_inbound_sms(agent_id: str) -> None:
+    """Increment inbound SMS segment count in usage_metrics."""
+    from app.db.connection import get_db_connection
+    try:
+        with get_db_connection() as conn:
+            conn.execute(
+                """INSERT INTO usage_metrics (agent_id, date, sms_segments_received)
+                   VALUES (%s, CURRENT_DATE, 1)
+                   ON CONFLICT (agent_id, date)
+                   DO UPDATE SET sms_segments_received = usage_metrics.sms_segments_received + 1""",
+                [agent_id],
+            )
+            conn.commit()
+    except Exception as e:
+        logger.error("Failed to track inbound SMS: %s", e)
 
 
 def _log_feedback(event, contact, agent):
@@ -337,17 +357,38 @@ async def process_vapi_transcript(payload: dict):
             "contact_id": str(contact.id) if contact else None,
         })
 
-        # Update voice minutes in usage metrics
+        # Update voice minutes and voice cost in usage metrics
         voice_mins = Decimal(str(call_duration / 60)) if call_duration else Decimal("0")
+        voice_cost = int(float(voice_mins) * 5)  # ~$0.05/min
         with get_db_connection() as conn:
             conn.execute(
-                """INSERT INTO usage_metrics (agent_id, date, voice_minutes)
-                   VALUES (%s, CURRENT_DATE, %s)
+                """INSERT INTO usage_metrics (agent_id, date, voice_minutes, voice_cost_cents)
+                   VALUES (%s, CURRENT_DATE, %s, %s)
                    ON CONFLICT (agent_id, date)
-                   DO UPDATE SET voice_minutes = usage_metrics.voice_minutes + %s""",
-                [str(agent.id), voice_mins, voice_mins],
+                   DO UPDATE SET voice_minutes = usage_metrics.voice_minutes + %s,
+                                 voice_cost_cents = usage_metrics.voice_cost_cents + %s""",
+                [str(agent.id), voice_mins, voice_cost, voice_mins, voice_cost],
             )
             conn.commit()
+
+            # Check voice cost cap
+            if agent.voice_daily_cap_minutes:
+                total_mins = conn.execute(
+                    "SELECT voice_minutes FROM usage_metrics WHERE agent_id = %s AND date = CURRENT_DATE",
+                    [str(agent.id)],
+                ).fetchone()
+                if total_mins and float(total_mins["voice_minutes"]) >= agent.voice_daily_cap_minutes:
+                    logger.warning("Agent %s hit voice daily cap: %.1f / %d minutes",
+                                  agent.name, float(total_mins["voice_minutes"]), agent.voice_daily_cap_minutes)
+                    try:
+                        from app.services.firebase_service import send_push_notification
+                        send_push_notification(
+                            agent_id=agent.id, tier="urgent",
+                            title="Voice Minute Limit Reached",
+                            body=f"You've used {float(total_mins['voice_minutes']):.0f} of your {agent.voice_daily_cap_minutes} daily voice minutes.",
+                        )
+                    except Exception:
+                        pass
 
         dispatch(decision, event, contact, agent)
 

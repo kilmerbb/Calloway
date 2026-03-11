@@ -12,12 +12,15 @@
         <div class="header-left">
             <a href="/agent/dashboard" class="logo">Calloway</a>
         </div>
-        <nav class="header-nav" id="headerNav">
+        <nav class="header-nav" id="headerNav" role="navigation" aria-label="Main navigation">
             <a href="/agent/dashboard" class="nav-link {% if active_nav == 'dashboard' %}active{% endif %}">Home</a>
             <a href="/agent/contacts" class="nav-link {% if active_nav == 'contacts' %}active{% endif %}">Contacts</a>
             <a href="/agent/conversations" class="nav-link {% if active_nav == 'conversations' %}active{% endif %}">Messages</a>
             <a href="/agent/schedule" class="nav-link {% if active_nav == 'schedule' %}active{% endif %}">Schedule</a>
+            <a href="/agent/transactions" class="nav-link {% if active_nav == 'transactions' %}active{% endif %}">Transactions</a>
             <a href="/agent/triggers" class="nav-link {% if active_nav == 'triggers' %}active{% endif %}">Reminders</a>
+            <a href="/agent/scores" class="nav-link {% if active_nav == 'scores' %}active{% endif %}">Scores</a>
+            <a href="/agent/campaigns" class="nav-link {% if active_nav == 'campaigns' %}active{% endif %}">Campaigns</a>
         </nav>
         <div class="header-right">
             <span class="agent-name">{{ agent.name }}</span>
@@ -25,30 +28,42 @@
         </div>
     </header>
 
-    <main class="agent-main">
+    <main class="agent-main" role="main">
         {% block content %}{% endblock %}
     </main>
 
-    <nav class="mobile-nav">
-        <a href="/agent/dashboard" class="mobile-nav-item {% if active_nav == 'dashboard' %}active{% endif %}">
-            <span class="mobile-nav-icon">&#8962;</span>
+    <nav class="mobile-nav" role="navigation" aria-label="Main navigation">
+        <a href="/agent/dashboard" class="mobile-nav-item {% if active_nav == 'dashboard' %}active{% endif %}" {% if active_nav == 'dashboard' %}aria-current="page"{% endif %}>
+            <span class="mobile-nav-icon" aria-hidden="true">&#8962;</span>
             <span>Home</span>
         </a>
-        <a href="/agent/contacts" class="mobile-nav-item {% if active_nav == 'contacts' %}active{% endif %}">
-            <span class="mobile-nav-icon">&#9787;</span>
+        <a href="/agent/contacts" class="mobile-nav-item {% if active_nav == 'contacts' %}active{% endif %}" {% if active_nav == 'contacts' %}aria-current="page"{% endif %}>
+            <span class="mobile-nav-icon" aria-hidden="true">&#9787;</span>
             <span>Contacts</span>
         </a>
-        <a href="/agent/conversations" class="mobile-nav-item {% if active_nav == 'conversations' %}active{% endif %}">
-            <span class="mobile-nav-icon">&#9993;</span>
+        <a href="/agent/conversations" class="mobile-nav-item {% if active_nav == 'conversations' %}active{% endif %}" {% if active_nav == 'conversations' %}aria-current="page"{% endif %}>
+            <span class="mobile-nav-icon" aria-hidden="true">&#9993;</span>
             <span>Messages</span>
         </a>
-        <a href="/agent/schedule" class="mobile-nav-item {% if active_nav == 'schedule' %}active{% endif %}">
-            <span class="mobile-nav-icon">&#128197;</span>
+        <a href="/agent/schedule" class="mobile-nav-item {% if active_nav == 'schedule' %}active{% endif %}" {% if active_nav == 'schedule' %}aria-current="page"{% endif %}>
+            <span class="mobile-nav-icon" aria-hidden="true">&#128197;</span>
             <span>Schedule</span>
         </a>
-        <a href="/agent/triggers" class="mobile-nav-item {% if active_nav == 'triggers' %}active{% endif %}">
-            <span class="mobile-nav-icon">&#9200;</span>
+        <a href="/agent/transactions" class="mobile-nav-item {% if active_nav == 'transactions' %}active{% endif %}" {% if active_nav == 'transactions' %}aria-current="page"{% endif %}>
+            <span class="mobile-nav-icon" aria-hidden="true">&#128176;</span>
+            <span>Deals</span>
+        </a>
+        <a href="/agent/triggers" class="mobile-nav-item {% if active_nav == 'triggers' %}active{% endif %}" {% if active_nav == 'triggers' %}aria-current="page"{% endif %}>
+            <span class="mobile-nav-icon" aria-hidden="true">&#9200;</span>
             <span>Reminders</span>
+        </a>
+        <a href="/agent/scores" class="mobile-nav-item {% if active_nav == 'scores' %}active{% endif %}" {% if active_nav == 'scores' %}aria-current="page"{% endif %}>
+            <span class="mobile-nav-icon" aria-hidden="true">&#9733;</span>
+            <span>Scores</span>
+        </a>
+        <a href="/agent/campaigns" class="mobile-nav-item {% if active_nav == 'campaigns' %}active{% endif %}" {% if active_nav == 'campaigns' %}aria-current="page"{% endif %}>
+            <span class="mobile-nav-icon" aria-hidden="true">&#128232;</span>
+            <span>Campaigns</span>
         </a>
     </nav>
 </body>

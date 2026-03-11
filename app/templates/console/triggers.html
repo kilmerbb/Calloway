@@ -41,11 +41,11 @@
             <td>{{ t.trigger_type }}</td>
             <td style="font-size:12px;">{{ t.scheduled_at.strftime('%b %d %H:%M') if t.scheduled_at else '—' }}</td>
             <td>
-                {% if t.status == 'pending' %}<span class="badge badge-blue" title="Waiting to fire at the scheduled time">pending</span>
-                {% elif t.status == 'completed' %}<span class="badge badge-green" title="Successfully executed">completed</span>
-                {% elif t.status == 'error' %}<span class="badge badge-red" title="Failed to execute — can be retried">error</span>
-                {% elif t.status == 'cancelled' %}<span class="badge badge-gray" title="Manually cancelled by operator">cancelled</span>
-                {% else %}<span class="badge badge-gray">{{ t.status }}</span>{% endif %}
+                {% if t.status == 'pending' %}<span class="badge badge-blue" title="Waiting to fire at the scheduled time" aria-label="Status: pending">pending</span>
+                {% elif t.status == 'completed' %}<span class="badge badge-green" title="Successfully executed" aria-label="Status: completed">completed</span>
+                {% elif t.status == 'error' %}<span class="badge badge-red" title="Failed to execute — can be retried" aria-label="Status: error">error</span>
+                {% elif t.status == 'cancelled' %}<span class="badge badge-gray" title="Manually cancelled by operator" aria-label="Status: cancelled">cancelled</span>
+                {% else %}<span class="badge badge-gray" aria-label="Status: {{ t.status }}">{{ t.status }}</span>{% endif %}
             </td>
             <td>{{ t.action_type }}</td>
             <td>{{ t.autonomy_level }}</td>

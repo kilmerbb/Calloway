@@ -236,11 +236,18 @@ async def dashboard(request: Request):
             [agent_id],
         ).fetchall()
 
+        # Active transactions
+        active_transactions = conn.execute(
+            "SELECT COUNT(*) as cnt FROM transactions WHERE agent_id = %s AND status NOT IN ('closed', 'withdrawn', 'expired')",
+            [agent_id],
+        ).fetchone()["cnt"]
+
     stats = {
         "messages_today": messages_today,
         "showings_today": showings_today,
         "pending_approvals": len(pending_triggers),
         "active_contacts": active_contacts,
+        "active_transactions": active_transactions,
     }
 
     return _render(request, "dashboard.html",
@@ -461,4 +468,86 @@ async def triggers_list(request: Request):
     return _render(request, "triggers.html",
         page_title="Reminders", active_nav="triggers", agent=agent,
         triggers=triggers, type_filter=type_filter,
+    )
+
+
+# ── Transactions ─────────────────────────────────────────────
+
+@router.get("/transactions", response_class=HTMLResponse)
+async def transactions_list(request: Request):
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return redirect
+
+    agent = _get_agent(agent_id)
+    if not agent:
+        return RedirectResponse("/agent/login", status_code=303)
+
+    status_filter = request.query_params.get("status", "")
+
+    from app.db.connection import get_db_connection
+
+    query = """SELECT t.*, c.name as contact_name, l.address as listing_address
+               FROM transactions t
+               JOIN contacts c ON c.id = t.contact_id
+               LEFT JOIN listings l ON l.id = t.listing_id
+               WHERE t.agent_id = %s"""
+    params = [agent_id]
+
+    if status_filter:
+        query += " AND t.status = %s"
+        params.append(status_filter)
+
+    query += " ORDER BY t.closing_date ASC NULLS LAST, t.created_at DESC LIMIT 50"
+
+    with get_db_connection() as conn:
+        transactions = conn.execute(query, params).fetchall()
+
+    return _render(request, "transactions.html",
+        page_title="Transactions", active_nav="transactions", agent=agent,
+        transactions=transactions, status_filter=status_filter,
+    )
+
+
+# ── Lead Scores ─────────────────────────────────────────────
+
+@router.get("/scores", response_class=HTMLResponse)
+async def lead_scores(request: Request):
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return redirect
+
+    agent = _get_agent(agent_id)
+    if not agent:
+        return RedirectResponse("/agent/login", status_code=303)
+
+    from app.tools.lead_scoring import score_all_contacts
+    scored_contacts = score_all_contacts(UUID(agent_id))
+
+    return _render(request, "scores.html",
+        page_title="Lead Scores", active_nav="scores", agent=agent,
+        contacts=scored_contacts,
+    )
+
+
+# ── Drip Campaigns ──────────────────────────────────────────
+
+@router.get("/campaigns", response_class=HTMLResponse)
+async def campaigns_list(request: Request):
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return redirect
+
+    agent = _get_agent(agent_id)
+    if not agent:
+        return RedirectResponse("/agent/login", status_code=303)
+
+    from app.tools.drip_campaigns import get_campaigns, get_enrollments
+
+    campaigns = get_campaigns(UUID(agent_id))
+    enrollments = get_enrollments(UUID(agent_id))
+
+    return _render(request, "campaigns.html",
+        page_title="Campaigns", active_nav="campaigns", agent=agent,
+        campaigns=campaigns, enrollments=enrollments,
     )

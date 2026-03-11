@@ -7,10 +7,10 @@
     <div class="section-title" title="Live status of external service connections — auto-refreshes every 30 seconds">Service Connectivity</div>
     <div class="card-grid">
         {% for service, color in health.services.items() %}
-        <div class="card" title="Green = healthy, Yellow = degraded, Red = unreachable">
+        <div class="card" title="Green = healthy, Yellow = degraded, Red = unreachable" role="status" aria-label="{{ service|capitalize }}: {{ color }}">
             <div class="card-label">{{ service|capitalize }}</div>
             <div class="card-value">
-                <span class="status-dot status-{{ color }}"></span>
+                <span class="status-dot status-{{ color }}" data-label="{{ color }}" aria-hidden="true"></span>
                 <span class="status-label">{{ color }}</span>
             </div>
         </div>

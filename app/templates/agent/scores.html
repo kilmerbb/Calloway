@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ contacts | selectattr('tier', 'equalto', 'hot') | list | length }}</div>
+        <div class="stat-label">Hot Leads</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ contacts | selectattr('tier', 'equalto', 'warm') | list | length }}</div>
+        <div class="stat-label">Warm</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ contacts | selectattr('tier', 'equalto', 'cool') | list | length }}</div>
+        <div class="stat-label">Cool</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ contacts | selectattr('tier', 'equalto', 'cold') | list | length }}</div>
+        <div class="stat-label">Cold</div>
+    </div>
+</div>
+
+{% if contacts %}
+<div class="card-list">
+    {% for c in contacts %}
+    <div class="card">
+        <div class="card-header">
+            <strong>{{ c.name }}</strong>
+            <span class="score-badge score-{{ c.tier }}">{{ c.score }}</span>
+        </div>
+        <div class="card-body">
+            <div>{{ c.phone }}</div>
+            <div class="card-meta">
+                {{ c.lifecycle_stage | replace('_', ' ') | title }}
+                <span class="badge badge-{{ 'red' if c.tier == 'hot' else 'yellow' if c.tier == 'warm' else 'blue' if c.tier == 'cool' else 'gray' }}">{{ c.tier | upper }}</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">No contacts to score.</div>
+{% endif %}
+{% endblock %}

@@ -30,6 +30,10 @@ def send_sms(to: str, from_: str, body: str, agent_id: UUID | None = None) -> di
         client = get_twilio_client()
         message = client.messages.create(to=to, from_=from_, body=body)
 
+        # Track SMS cost
+        segments = int(getattr(message, 'num_segments', 1) or 1)
+        _increment_sms_metrics(agent_id, segments)
+
         result = {"sid": message.sid, "status": message.status}
         logger.info(f"Sent SMS to {to}: {body[:50]}...")
         return result
@@ -37,6 +41,26 @@ def send_sms(to: str, from_: str, body: str, agent_id: UUID | None = None) -> di
     except Exception as e:
         logger.error(f"Failed to send SMS to {to}: {e}")
         return {"sid": None, "status": "failed", "error": str(e)}
+
+
+def _increment_sms_metrics(agent_id: UUID | None, segments: int) -> None:
+    """Increment outbound SMS segment count and estimated cost in usage_metrics."""
+    if not agent_id:
+        return
+    cost_cents = segments  # ~$0.0079/segment, round to 1 cent per segment
+    try:
+        with get_db_connection() as conn:
+            conn.execute(
+                """INSERT INTO usage_metrics (agent_id, date, sms_segments_sent, sms_cost_cents)
+                   VALUES (%s, CURRENT_DATE, %s, %s)
+                   ON CONFLICT (agent_id, date)
+                   DO UPDATE SET sms_segments_sent = usage_metrics.sms_segments_sent + %s,
+                                 sms_cost_cents = usage_metrics.sms_cost_cents + %s""",
+                [str(agent_id), segments, cost_cents, segments, cost_cents],
+            )
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Failed to track SMS cost: {e}")
 
 
 def send_client_message(

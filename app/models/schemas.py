@@ -31,6 +31,7 @@ class AgentConfig(BaseModel):
     briefing_time: time = time(7, 30)
     current_status: str = "available"
     status_until: datetime | None = None
+    voice_daily_cap_minutes: int = 30
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -155,6 +156,51 @@ class Trigger(BaseModel):
     created_at: datetime | None = None
 
 
+class Transaction(BaseModel):
+    id: UUID | None = None
+    agent_id: UUID
+    contact_id: UUID
+    listing_id: UUID | None = None
+    transaction_type: str = "purchase"
+    status: str = "pending_offer"
+    offer_price: int | None = None
+    final_price: int | None = None
+    offer_date: date | None = None
+    contract_date: date | None = None
+    closing_date: date | None = None
+    inspection_date: date | None = None
+    appraisal_date: date | None = None
+    financing_deadline: date | None = None
+    earnest_money: int | None = None
+    commission_pct: Decimal | None = None
+    notes: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class DripCampaign(BaseModel):
+    id: UUID | None = None
+    agent_id: UUID
+    name: str
+    description: str | None = None
+    trigger_type: str = "nurture"
+    steps: list[dict] = Field(default_factory=list)
+    is_active: bool = True
+    created_at: datetime | None = None
+
+
+class DripEnrollment(BaseModel):
+    id: UUID | None = None
+    agent_id: UUID
+    campaign_id: UUID
+    contact_id: UUID
+    current_step: int = 0
+    status: str = "active"
+    enrolled_at: datetime | None = None
+    completed_at: datetime | None = None
+    paused_at: datetime | None = None
+
+
 class Email(BaseModel):
     id: UUID | None = None
     agent_id: UUID
@@ -193,6 +239,10 @@ class UsageMetrics(BaseModel):
     llm_tokens_used: int = 0
     llm_cost_cents: int = 0
     voice_minutes: Decimal = Decimal("0")
+    sms_segments_sent: int = 0
+    sms_segments_received: int = 0
+    sms_cost_cents: int = 0
+    voice_cost_cents: int = 0
     showings_booked: int = 0
     triggers_fired: int = 0
 

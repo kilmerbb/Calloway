@@ -416,6 +416,27 @@ details summary:hover { color: var(--accent); }
 }
 .sidebar-overlay.active { display: block; }
 
+/* Screen reader only utility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Status dots with text labels for accessibility */
+.status-dot::after {
+    content: attr(data-label);
+    font-size: 0.75rem;
+    margin-left: 0.25rem;
+    vertical-align: middle;
+}
+
 /* Status text labels (accessibility — not just color) */
 .status-label { font-size: 11px; text-transform: uppercase; font-weight: 600; }
 

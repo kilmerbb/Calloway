@@ -27,6 +27,7 @@ CREATE TABLE agents (
     briefing_time   TIME DEFAULT '07:30',
     current_status  TEXT DEFAULT 'available',
     status_until    TIMESTAMPTZ,
+    voice_daily_cap_minutes INT DEFAULT 30,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
@@ -210,6 +211,70 @@ CREATE INDEX idx_triggers_status_scheduled ON triggers(status, scheduled_at);
 CREATE INDEX idx_triggers_agent_entity ON triggers(agent_id, entity_type, entity_id);
 
 -- ============================================================
+-- 8A. transactions
+-- ============================================================
+CREATE TABLE transactions (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id        UUID NOT NULL REFERENCES agents(id),
+    contact_id      UUID NOT NULL REFERENCES contacts(id),
+    listing_id      UUID REFERENCES listings(id),
+    transaction_type TEXT NOT NULL DEFAULT 'purchase',
+    status          TEXT NOT NULL DEFAULT 'pending_offer',
+    offer_price     INT,
+    final_price     INT,
+    offer_date      DATE,
+    contract_date   DATE,
+    closing_date    DATE,
+    inspection_date DATE,
+    appraisal_date  DATE,
+    financing_deadline DATE,
+    earnest_money   INT,
+    commission_pct  NUMERIC(4,2),
+    notes           TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_transactions_agent_status ON transactions(agent_id, status);
+CREATE INDEX idx_transactions_contact ON transactions(contact_id);
+CREATE INDEX idx_transactions_closing ON transactions(closing_date) WHERE status NOT IN ('closed', 'fell_through');
+
+-- ============================================================
+-- 8B. drip_campaigns
+-- ============================================================
+CREATE TABLE drip_campaigns (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id        UUID NOT NULL REFERENCES agents(id),
+    name            TEXT NOT NULL,
+    description     TEXT,
+    trigger_type    TEXT NOT NULL DEFAULT 'nurture',
+    steps           JSONB NOT NULL DEFAULT '[]',
+    is_active       BOOLEAN DEFAULT true,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_drip_campaigns_agent ON drip_campaigns(agent_id, is_active);
+
+-- ============================================================
+-- 8C. drip_enrollments
+-- ============================================================
+CREATE TABLE drip_enrollments (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id        UUID NOT NULL REFERENCES agents(id),
+    campaign_id     UUID NOT NULL REFERENCES drip_campaigns(id),
+    contact_id      UUID NOT NULL REFERENCES contacts(id),
+    current_step    INT DEFAULT 0,
+    status          TEXT DEFAULT 'active',
+    enrolled_at     TIMESTAMPTZ DEFAULT now(),
+    completed_at    TIMESTAMPTZ,
+    paused_at       TIMESTAMPTZ
+);
+
+CREATE INDEX idx_drip_enrollments_campaign ON drip_enrollments(campaign_id, status);
+CREATE INDEX idx_drip_enrollments_contact ON drip_enrollments(contact_id, status);
+CREATE UNIQUE INDEX idx_drip_enrollment_unique ON drip_enrollments(campaign_id, contact_id) WHERE status = 'active';
+
+-- ============================================================
 -- 9. emails
 -- ============================================================
 CREATE TABLE emails (
@@ -276,6 +341,10 @@ CREATE TABLE usage_metrics (
     llm_tokens_used INT DEFAULT 0,
     llm_cost_cents  INT DEFAULT 0,
     voice_minutes   DECIMAL(8,2) DEFAULT 0,
+    sms_segments_sent INT DEFAULT 0,
+    sms_segments_received INT DEFAULT 0,
+    sms_cost_cents  INT DEFAULT 0,
+    voice_cost_cents INT DEFAULT 0,
     showings_booked INT DEFAULT 0,
     triggers_fired  INT DEFAULT 0
 );
@@ -326,6 +395,21 @@ ALTER TABLE triggers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY agent_isolation ON triggers
     FOR ALL USING (agent_id = current_setting('app.current_agent_id')::uuid);
 
+-- transactions
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY agent_isolation ON transactions
+    FOR ALL USING (agent_id = current_setting('app.current_agent_id')::uuid);
+
+-- drip_campaigns
+ALTER TABLE drip_campaigns ENABLE ROW LEVEL SECURITY;
+CREATE POLICY agent_isolation ON drip_campaigns
+    FOR ALL USING (agent_id = current_setting('app.current_agent_id')::uuid);
+
+-- drip_enrollments
+ALTER TABLE drip_enrollments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY agent_isolation ON drip_enrollments
+    FOR ALL USING (agent_id = current_setting('app.current_agent_id')::uuid);
+
 -- emails
 ALTER TABLE emails ENABLE ROW LEVEL SECURITY;
 CREATE POLICY agent_isolation ON emails
@@ -345,6 +429,43 @@ CREATE POLICY agent_isolation ON embeddings
 ALTER TABLE usage_metrics ENABLE ROW LEVEL SECURITY;
 CREATE POLICY agent_isolation ON usage_metrics
     FOR ALL USING (agent_id = current_setting('app.current_agent_id')::uuid);
+
+-- transactions
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY agent_isolation ON transactions
+    FOR ALL USING (agent_id = current_setting('app.current_agent_id')::uuid);
+
+-- ============================================================
+-- 13. transactions
+-- ============================================================
+CREATE TABLE transactions (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id        UUID NOT NULL REFERENCES agents(id),
+    listing_id      UUID REFERENCES listings(id),
+    buyer_contact_id UUID REFERENCES contacts(id),
+    seller_contact_id UUID REFERENCES contacts(id),
+    transaction_type TEXT NOT NULL DEFAULT 'purchase',
+    status          TEXT NOT NULL DEFAULT 'offer_submitted',
+    offer_price     INT,
+    final_price     INT,
+    offer_date      DATE,
+    acceptance_date DATE,
+    inspection_date DATE,
+    appraisal_date  DATE,
+    financing_deadline DATE,
+    closing_date    DATE,
+    actual_close_date DATE,
+    commission_rate NUMERIC(4,2),
+    commission_amount INT,
+    notes           TEXT,
+    milestones      JSONB DEFAULT '[]',
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_transactions_agent_status ON transactions(agent_id, status);
+CREATE INDEX idx_transactions_listing ON transactions(listing_id);
+CREATE INDEX idx_transactions_buyer ON transactions(buyer_contact_id);
 
 -- ============================================================
 -- 14. error_log (Operator Console)
