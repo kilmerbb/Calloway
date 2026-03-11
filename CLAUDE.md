@@ -144,3 +144,4 @@ Test: /harness (conversation simulator)
 6. **Parallelize independent work.** If @research and @design can work simultaneously, dispatch both.
 7. **Synthesize outputs.** When agent work comes back, review for consistency, resolve conflicts, and present a cohesive result.
 8. **For simple engineering tasks** (small bug fixes, quick code changes), you may delegate directly to @eng without full PRD/design cycles.
+9. **Visual work requires live research.** Whenever a task involves UI/UX design, visual direction, or referencing another product's look and feel, ALWAYS dispatch @research first to search the internet for current screenshots, design system docs, and visual references. Never rely solely on training knowledge for visual comps — designs evolve constantly. Feed the research output to @design as context before they begin.
