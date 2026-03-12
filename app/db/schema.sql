@@ -435,6 +435,27 @@ CREATE POLICY agent_isolation ON usage_metrics
     FOR ALL USING (agent_id = current_setting('app.current_agent_id')::uuid);
 
 -- ============================================================
+-- 13. device_tokens (FCM push notifications)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS device_tokens (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id        UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+    fcm_token       TEXT NOT NULL,
+    device_name     TEXT,
+    platform        TEXT,
+    is_active       BOOLEAN DEFAULT true,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_device_tokens_fcm ON device_tokens(fcm_token);
+CREATE INDEX idx_device_tokens_agent_active ON device_tokens(agent_id) WHERE is_active = true;
+
+ALTER TABLE device_tokens ENABLE ROW LEVEL SECURITY;
+CREATE POLICY agent_isolation ON device_tokens
+    FOR ALL USING (agent_id = current_setting('app.current_agent_id')::uuid);
+
+-- ============================================================
 -- 14. error_log (Operator Console)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS error_log (

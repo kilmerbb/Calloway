@@ -201,6 +201,19 @@ class DripEnrollment(BaseModel):
     paused_at: datetime | None = None
 
 
+class ConversationSummary(BaseModel):
+    id: UUID | None = None
+    tenant_id: UUID
+    contact_id: UUID
+    conversation_id: UUID
+    summary_text: str
+    messages_summarized_count: int = 0
+    last_message_id: UUID | None = None
+    token_estimate: int = 0
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
 class Email(BaseModel):
     id: UUID | None = None
     agent_id: UUID
@@ -284,6 +297,7 @@ class AssembledContext(BaseModel):
     calendar_slots: list[dict] | None = None
     triggers: list[Trigger] = Field(default_factory=list)
     conversation_history: list[Message] = Field(default_factory=list)
+    conversation_summary: str | None = None
     intent: IntentClassification
 
 
