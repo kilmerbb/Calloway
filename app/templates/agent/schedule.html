@@ -29,15 +29,16 @@
                 {% if s.status in ('hold', 'pending', 'confirmed') %}
                 <div class="action-buttons" style="margin-top:0.25rem">
                     {% if s.status != 'confirmed' %}
-                    <form hx-post="/agent/showings/{{ s.id }}/confirm" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" style="display:inline">
+                    <form hx-post="/agent/showings/{{ s.id }}/confirm" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" hx-indicator="#showing-status-{{ s.id }}" style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-sm btn-green">Confirm</button>
                     </form>
                     {% endif %}
-                    <form hx-post="/agent/showings/{{ s.id }}/cancel" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" hx-confirm="Cancel this showing with {{ s.contact_name }}? They will be notified." style="display:inline">
+                    <form hx-post="/agent/showings/{{ s.id }}/cancel" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" hx-confirm="Cancel this showing with {{ s.contact_name }}? They will be notified." hx-indicator="#showing-status-{{ s.id }}" style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-sm btn-red">Cancel</button>
                     </form>
+                    <span class="htmx-indicator">&#9203;</span>
                 </div>
                 {% endif %}
             </div>
@@ -71,15 +72,16 @@
                 {% if s.status in ('hold', 'pending', 'confirmed') %}
                 <div class="action-buttons" style="margin-top:0.25rem">
                     {% if s.status != 'confirmed' %}
-                    <form hx-post="/agent/showings/{{ s.id }}/confirm" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" style="display:inline">
+                    <form hx-post="/agent/showings/{{ s.id }}/confirm" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" hx-indicator="#showing-status-{{ s.id }}" style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-sm btn-green">Confirm</button>
                     </form>
                     {% endif %}
-                    <form hx-post="/agent/showings/{{ s.id }}/cancel" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" hx-confirm="Cancel this showing with {{ s.contact_name }}? They will be notified." style="display:inline">
+                    <form hx-post="/agent/showings/{{ s.id }}/cancel" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" hx-confirm="Cancel this showing with {{ s.contact_name }}? They will be notified." hx-indicator="#showing-status-{{ s.id }}" style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-sm btn-red">Cancel</button>
                     </form>
+                    <span class="htmx-indicator">&#9203;</span>
                 </div>
                 {% endif %}
             </div>

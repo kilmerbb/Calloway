@@ -26,14 +26,15 @@
         <div id="trigger-status-{{ t.id }}">
         {% if t.status == 'pending' and t.autonomy_level == 'ask_agent' %}
             <div class="action-buttons">
-                <form hx-post="/agent/triggers/{{ t.id }}/approve" hx-target="#trigger-status-{{ t.id }}" hx-swap="innerHTML" style="display:inline">
+                <form hx-post="/agent/triggers/{{ t.id }}/approve" hx-target="#trigger-status-{{ t.id }}" hx-swap="innerHTML" hx-indicator="#trigger-status-{{ t.id }}" style="display:inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="btn btn-sm btn-green" aria-label="Approve trigger">Approve</button>
                 </form>
-                <form hx-post="/agent/triggers/{{ t.id }}/reject" hx-target="#trigger-status-{{ t.id }}" hx-swap="innerHTML" style="display:inline">
+                <form hx-post="/agent/triggers/{{ t.id }}/reject" hx-target="#trigger-status-{{ t.id }}" hx-swap="innerHTML" hx-indicator="#trigger-status-{{ t.id }}" style="display:inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="btn btn-sm btn-red" aria-label="Reject trigger">Reject</button>
                 </form>
+                <span class="htmx-indicator">&#9203;</span>
             </div>
         {% elif t.status == 'pending' %}<span class="badge badge-yellow">scheduled</span>
         {% elif t.status == 'completed' %}<span class="badge badge-green">sent</span>

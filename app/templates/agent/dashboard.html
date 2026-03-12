@@ -46,14 +46,15 @@
             <div class="list-time">{{ item.scheduled_at.strftime('%I:%M%p').lstrip('0').lower() if item.scheduled_at else '' }}</div>
             <div id="trigger-status-{{ item.id }}">
                 <div class="action-buttons">
-                    <form hx-post="/agent/triggers/{{ item.id }}/approve" hx-target="#trigger-status-{{ item.id }}" hx-swap="innerHTML" style="display:inline">
+                    <form hx-post="/agent/triggers/{{ item.id }}/approve" hx-target="#trigger-status-{{ item.id }}" hx-swap="innerHTML" hx-indicator="#trigger-status-{{ item.id }}" style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-sm btn-green">Approve</button>
                     </form>
-                    <form hx-post="/agent/triggers/{{ item.id }}/reject" hx-target="#trigger-status-{{ item.id }}" hx-swap="innerHTML" style="display:inline">
+                    <form hx-post="/agent/triggers/{{ item.id }}/reject" hx-target="#trigger-status-{{ item.id }}" hx-swap="innerHTML" hx-indicator="#trigger-status-{{ item.id }}" style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-sm btn-red">Reject</button>
                     </form>
+                    <span class="htmx-indicator">&#9203;</span>
                 </div>
             </div>
         </div>
