@@ -1,18 +1,23 @@
-{% extends "base.html" %}
+{% extends "agent/base.html" %}
 {% block content %}
 
+<label for="msgSearch" class="sr-only">Search messages</label>
 <input type="text" class="search-bar" placeholder="Search messages..." id="msgSearch"
+       aria-label="Search messages"
        hx-get="/agent/conversations" hx-trigger="keyup changed delay:300ms" hx-target="#convList"
-       hx-select="#convList" hx-swap="outerHTML" name="search" value="{{ search }}">
+       hx-select="#convList" hx-swap="outerHTML" hx-indicator="#searchSpinner" name="search" value="{{ search }}">
 
-<div id="convList">
+<div id="searchSpinner" class="htmx-indicator search-spinner">Searching...</div>
+
+<div id="convList" aria-live="polite">
     {% for c in conversations %}
-    <a href="/agent/conversations/{{ c.id }}" style="text-decoration:none; color:inherit;">
+    <a href="/agent/conversations/{{ c.id }}" class="list-link">
         <div class="list-item">
             <div class="list-avatar">{{ c.contact_name[0] if c.contact_name else '?' }}</div>
             <div class="list-content">
-                <div class="list-name">{{ c.contact_name or 'Unknown' }}
-                    <span class="badge badge-gray" style="margin-left:4px;">{{ c.channel }}</span>
+                <div class="list-name">
+                    {{ c.contact_name or 'Unknown' }}
+                    <span class="badge badge-gray">{{ c.channel }}</span>
                 </div>
                 <div class="list-preview">{{ c.last_message[:70] }}{% if c.last_message and c.last_message|length > 70 %}...{% endif %}</div>
             </div>
@@ -26,7 +31,7 @@
     {% if not conversations %}
     <div class="empty-state">
         <div class="empty-state-icon">&#9993;</div>
-        <p>No conversations yet.</p>
+        <p>No conversations yet. When clients text your Calloway number, they'll appear here.</p>
     </div>
     {% endif %}
 </div>

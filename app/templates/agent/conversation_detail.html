@@ -1,15 +1,13 @@
-{% extends "base.html" %}
+{% extends "agent/base.html" %}
 {% block content %}
 
-<div style="margin-bottom:1rem;">
-    <a href="/agent/conversations" style="font-size:14px;">&larr; Back to messages</a>
-</div>
+<a href="/agent/conversations" class="back-link">&larr; Back to messages</a>
 
-<div class="card" style="margin-bottom:1rem; display:flex; align-items:center; gap:0.75rem;">
-    <div class="list-avatar" style="width:48px; height:48px; font-size:20px;">{{ detail.contact_name[0] if detail.contact_name else '?' }}</div>
+<div class="card contact-header">
+    <div class="list-avatar">{{ detail.contact_name[0] if detail.contact_name else '?' }}</div>
     <div>
-        <div style="font-weight:600;">{{ detail.contact_name or 'Unknown' }}</div>
-        <div style="font-size:13px; color:var(--text-muted);">{{ detail.contact_phone }} &middot; {{ detail.channel }}</div>
+        <div class="contact-header-name">{{ detail.contact_name or 'Unknown' }}</div>
+        <div class="contact-header-meta">{{ detail.contact_phone }} &middot; {{ detail.channel }}</div>
     </div>
 </div>
 
@@ -25,12 +23,12 @@
     {% else %}
     <div class="chat-msg chat-outbound">
         {{ m.body }}
-        <div class="chat-time" style="color:rgba(255,255,255,0.7);">
+        <div class="chat-time">
             {{ m.created_at.strftime('%b %d %I:%M%p').lstrip('0') if m.created_at else '' }}
             {% if m.ai_generated %} &middot; AI{% if m.model_used %}/{{ m.model_used }}{% endif %}{% endif %}
-            {% if m.delivery_status == 'delivered' %} &middot; &#10003;{% endif %}
-            {% if m.delivery_status == 'read' %} &middot; &#10003;&#10003;{% endif %}
-            {% if m.delivery_status == 'failed' or m.delivery_status == 'undelivered' %} &middot; <span style="color:#ff6b6b;">&#9888; {{ m.delivery_status }}</span>{% endif %}
+            {% if m.delivery_status == 'delivered' %} &middot; <span aria-label="Delivered">&#10003;</span>{% endif %}
+            {% if m.delivery_status == 'read' %} &middot; <span aria-label="Read">&#10003;&#10003;</span>{% endif %}
+            {% if m.delivery_status == 'failed' or m.delivery_status == 'undelivered' %} &middot; <span class="chat-status-failed" aria-label="Delivery failed">&#9888; {{ m.delivery_status }}</span>{% endif %}
         </div>
     </div>
     {% endif %}
@@ -38,7 +36,8 @@
 
     {% if not detail.messages %}
     <div class="empty-state">
-        <p>No messages in this conversation.</p>
+        <div class="empty-state-icon">&#128172;</div>
+        <p>No messages in this conversation yet.</p>
     </div>
     {% endif %}
 </div>

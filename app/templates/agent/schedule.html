@@ -1,15 +1,15 @@
-{% extends "base.html" %}
+{% extends "agent/base.html" %}
 {% block content %}
 
 <div class="filter-row">
     <a href="/agent/schedule" class="filter-chip {% if not status_filter %}active{% endif %}">All</a>
     <a href="/agent/schedule?status=confirmed" class="filter-chip {% if status_filter == 'confirmed' %}active{% endif %}">Confirmed</a>
-    <a href="/agent/schedule?status=hold" class="filter-chip {% if status_filter == 'hold' %}active{% endif %}">On Hold</a>
+    <a href="/agent/schedule?status=hold" class="filter-chip {% if status_filter == 'hold' %}active{% endif %}">On hold</a>
 </div>
 
 {% if today_showings %}
 <div class="section">
-    <div class="section-title">Today</div>
+    <h2 class="section-title">Today</h2>
     <div class="card">
         {% for s in today_showings %}
         <div class="timeline-item">
@@ -33,13 +33,13 @@
 
 {% if upcoming_showings %}
 <div class="section">
-    <div class="section-title">Upcoming</div>
+    <h2 class="section-title">Upcoming</h2>
     <div class="card">
         {% for s in upcoming_showings %}
         <div class="timeline-item">
             <div class="timeline-time">
                 {{ s.start_time.strftime('%b %d') }}<br>
-                <span style="font-size:11px;">{{ s.start_time.strftime('%I:%M%p').lstrip('0').lower() }}</span>
+                <span class="timeline-detail">{{ s.start_time.strftime('%I:%M%p').lstrip('0').lower() }}</span>
             </div>
             <div class="timeline-content">
                 <div class="timeline-title">{{ s.listing_address }}</div>

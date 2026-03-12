@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "agent/base.html" %}
 {% block content %}
 
 <!-- Today's overview -->
 <div class="section">
-    <div class="section-title">Today</div>
+    <h2 class="section-title">Today</h2>
     <div class="card-grid">
         <div class="card stat-card stat-green">
             <div class="stat-value">{{ stats.messages_today }}</div>
@@ -15,15 +15,15 @@
         </div>
         <div class="card stat-card stat-yellow">
             <div class="stat-value">{{ stats.pending_approvals }}</div>
-            <div class="stat-label">Need Approval</div>
+            <div class="stat-label">Need approval</div>
         </div>
         <div class="card stat-card">
             <div class="stat-value">{{ stats.active_contacts }}</div>
-            <div class="stat-label">Active Contacts</div>
+            <div class="stat-label">Active contacts</div>
         </div>
         <div class="card stat-card stat-blue">
             <div class="stat-value">{{ stats.active_transactions }}</div>
-            <div class="stat-label">Active Deals</div>
+            <div class="stat-label">Active deals</div>
         </div>
     </div>
 </div>
@@ -31,10 +31,10 @@
 <!-- Pending approvals (supervised mode) -->
 {% if pending_approvals %}
 <div class="section">
-    <div class="section-title">
-        Needs Your Approval
+    <h2 class="section-title">
+        Needs your approval
         <span class="badge badge-yellow">{{ pending_approvals|length }}</span>
-    </div>
+    </h2>
     {% for item in pending_approvals %}
     <div class="list-item">
         <div class="list-avatar">{{ item.contact_name[0] if item.contact_name else '?' }}</div>
@@ -43,7 +43,7 @@
             <div class="list-preview">{{ item.draft_response[:80] }}{% if item.draft_response|length > 80 %}...{% endif %}</div>
         </div>
         <div class="list-right">
-            <div class="list-time">{{ item.created_at.strftime('%H:%M') if item.created_at else '' }}</div>
+            <div class="list-time">{{ item.created_at.strftime('%I:%M%p').lstrip('0').lower() if item.created_at else '' }}</div>
         </div>
     </div>
     {% endfor %}
@@ -51,12 +51,12 @@
 {% endif %}
 
 <!-- Upcoming showings -->
-{% if upcoming_showings %}
 <div class="section">
-    <div class="section-title">
-        Upcoming Showings
-        <a href="/agent/schedule" class="badge badge-blue" style="text-decoration:none;">View all</a>
-    </div>
+    <h2 class="section-title">
+        Upcoming showings
+        {% if upcoming_showings %}<a href="/agent/schedule" class="view-all">View all</a>{% endif %}
+    </h2>
+    {% if upcoming_showings %}
     <div class="card">
         {% for s in upcoming_showings[:5] %}
         <div class="timeline-item">
@@ -72,17 +72,22 @@
         </div>
         {% endfor %}
     </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">&#128197;</div>
+        <p>No showings scheduled. Your AI will book showings as clients request them.</p>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
 
 <!-- Recent messages -->
 <div class="section">
-    <div class="section-title">
-        Recent Messages
-        <a href="/agent/conversations" class="badge badge-blue" style="text-decoration:none;">View all</a>
-    </div>
+    <h2 class="section-title">
+        Recent messages
+        {% if recent_conversations %}<a href="/agent/conversations" class="view-all">View all</a>{% endif %}
+    </h2>
     {% for c in recent_conversations[:8] %}
-    <a href="/agent/conversations/{{ c.id }}" style="text-decoration:none; color:inherit;">
+    <a href="/agent/conversations/{{ c.id }}" class="list-link">
         <div class="list-item">
             <div class="list-avatar">{{ c.contact_name[0] if c.contact_name else '?' }}</div>
             <div class="list-content">
@@ -105,9 +110,9 @@
 </div>
 
 <!-- Active listings -->
-{% if active_listings %}
 <div class="section">
-    <div class="section-title">Your Listings</div>
+    <h2 class="section-title">Your listings</h2>
+    {% if active_listings %}
     {% for l in active_listings %}
     <div class="list-item">
         <div class="list-content">
@@ -121,7 +126,12 @@
         </div>
     </div>
     {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">&#127968;</div>
+        <p>No active listings. Listings will appear here when added to your account.</p>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
 
 {% endblock %}

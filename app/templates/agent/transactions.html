@@ -1,12 +1,13 @@
-{% extends "base.html" %}
+{% extends "agent/base.html" %}
 {% block content %}
+
 <div class="filter-row">
-    <a href="/agent/transactions" class="chip {% if not status_filter %}active{% endif %}">All</a>
-    <a href="/agent/transactions?status=pending_offer" class="chip {% if status_filter == 'pending_offer' %}active{% endif %}">Pending</a>
-    <a href="/agent/transactions?status=under_contract" class="chip {% if status_filter == 'under_contract' %}active{% endif %}">Under Contract</a>
-    <a href="/agent/transactions?status=contingency" class="chip {% if status_filter == 'contingency' %}active{% endif %}">Contingency</a>
-    <a href="/agent/transactions?status=clear_to_close" class="chip {% if status_filter == 'clear_to_close' %}active{% endif %}">Clear to Close</a>
-    <a href="/agent/transactions?status=closed" class="chip {% if status_filter == 'closed' %}active{% endif %}">Closed</a>
+    <a href="/agent/transactions" class="filter-chip {% if not status_filter %}active{% endif %}">All</a>
+    <a href="/agent/transactions?status=pending_offer" class="filter-chip {% if status_filter == 'pending_offer' %}active{% endif %}">Pending</a>
+    <a href="/agent/transactions?status=under_contract" class="filter-chip {% if status_filter == 'under_contract' %}active{% endif %}">Under contract</a>
+    <a href="/agent/transactions?status=contingency" class="filter-chip {% if status_filter == 'contingency' %}active{% endif %}">Contingency</a>
+    <a href="/agent/transactions?status=clear_to_close" class="filter-chip {% if status_filter == 'clear_to_close' %}active{% endif %}">Clear to close</a>
+    <a href="/agent/transactions?status=closed" class="filter-chip {% if status_filter == 'closed' %}active{% endif %}">Closed</a>
 </div>
 
 {% if transactions %}
@@ -39,6 +40,10 @@
     {% endfor %}
 </div>
 {% else %}
-<div class="empty-state">No transactions found.</div>
+<div class="empty-state">
+    <div class="empty-state-icon">&#128176;</div>
+    <p>No transactions found. Deals will appear here as they progress through your pipeline.</p>
+</div>
 {% endif %}
+
 {% endblock %}

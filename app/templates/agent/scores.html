@@ -1,19 +1,20 @@
-{% extends "base.html" %}
+{% extends "agent/base.html" %}
 {% block content %}
+
 <div class="stats-grid">
-    <div class="stat-card">
+    <div class="card stat-card stat-red">
         <div class="stat-value">{{ contacts | selectattr('tier', 'equalto', 'hot') | list | length }}</div>
-        <div class="stat-label">Hot Leads</div>
+        <div class="stat-label">Hot leads</div>
     </div>
-    <div class="stat-card">
+    <div class="card stat-card stat-yellow">
         <div class="stat-value">{{ contacts | selectattr('tier', 'equalto', 'warm') | list | length }}</div>
         <div class="stat-label">Warm</div>
     </div>
-    <div class="stat-card">
+    <div class="card stat-card stat-blue">
         <div class="stat-value">{{ contacts | selectattr('tier', 'equalto', 'cool') | list | length }}</div>
         <div class="stat-label">Cool</div>
     </div>
-    <div class="stat-card">
+    <div class="card stat-card">
         <div class="stat-value">{{ contacts | selectattr('tier', 'equalto', 'cold') | list | length }}</div>
         <div class="stat-label">Cold</div>
     </div>
@@ -31,13 +32,17 @@
             <div>{{ c.phone }}</div>
             <div class="card-meta">
                 {{ c.lifecycle_stage | replace('_', ' ') | title }}
-                <span class="badge badge-{{ 'red' if c.tier == 'hot' else 'yellow' if c.tier == 'warm' else 'blue' if c.tier == 'cool' else 'gray' }}">{{ c.tier | upper }}</span>
+                <span class="badge badge-{{ 'red' if c.tier == 'hot' else 'yellow' if c.tier == 'warm' else 'blue' if c.tier == 'cool' else 'gray' }}">{{ c.tier }}</span>
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
 {% else %}
-<div class="empty-state">No contacts to score.</div>
+<div class="empty-state">
+    <div class="empty-state-icon">&#9733;</div>
+    <p>No contacts to score. Scores are calculated based on conversation engagement and activity.</p>
+</div>
 {% endif %}
+
 {% endblock %}

@@ -8,16 +8,18 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
 <body>
+    <a href="#main-content" class="sr-only">Skip to content</a>
+
     <header class="agent-header">
         <div class="header-left">
             <a href="/agent/dashboard" class="logo">Calloway</a>
         </div>
-        <nav class="header-nav" id="headerNav" role="navigation" aria-label="Main navigation">
+        <nav class="header-nav" role="navigation" aria-label="Desktop navigation">
             <a href="/agent/dashboard" class="nav-link {% if active_nav == 'dashboard' %}active{% endif %}">Home</a>
             <a href="/agent/contacts" class="nav-link {% if active_nav == 'contacts' %}active{% endif %}">Contacts</a>
             <a href="/agent/conversations" class="nav-link {% if active_nav == 'conversations' %}active{% endif %}">Messages</a>
             <a href="/agent/schedule" class="nav-link {% if active_nav == 'schedule' %}active{% endif %}">Schedule</a>
-            <a href="/agent/transactions" class="nav-link {% if active_nav == 'transactions' %}active{% endif %}">Transactions</a>
+            <a href="/agent/transactions" class="nav-link {% if active_nav == 'transactions' %}active{% endif %}">Deals</a>
             <a href="/agent/triggers" class="nav-link {% if active_nav == 'triggers' %}active{% endif %}">Reminders</a>
             <a href="/agent/scores" class="nav-link {% if active_nav == 'scores' %}active{% endif %}">Scores</a>
             <a href="/agent/campaigns" class="nav-link {% if active_nav == 'campaigns' %}active{% endif %}">Campaigns</a>
@@ -28,11 +30,11 @@
         </div>
     </header>
 
-    <main class="agent-main" role="main">
+    <main class="agent-main" id="main-content" role="main">
         {% block content %}{% endblock %}
     </main>
 
-    <nav class="mobile-nav" role="navigation" aria-label="Main navigation">
+    <nav class="mobile-nav" role="navigation" aria-label="Mobile navigation">
         <a href="/agent/dashboard" class="mobile-nav-item {% if active_nav == 'dashboard' %}active{% endif %}" {% if active_nav == 'dashboard' %}aria-current="page"{% endif %}>
             <span class="mobile-nav-icon" aria-hidden="true">&#8962;</span>
             <span>Home</span>
@@ -49,22 +51,38 @@
             <span class="mobile-nav-icon" aria-hidden="true">&#128197;</span>
             <span>Schedule</span>
         </a>
-        <a href="/agent/transactions" class="mobile-nav-item {% if active_nav == 'transactions' %}active{% endif %}" {% if active_nav == 'transactions' %}aria-current="page"{% endif %}>
-            <span class="mobile-nav-icon" aria-hidden="true">&#128176;</span>
-            <span>Deals</span>
-        </a>
-        <a href="/agent/triggers" class="mobile-nav-item {% if active_nav == 'triggers' %}active{% endif %}" {% if active_nav == 'triggers' %}aria-current="page"{% endif %}>
-            <span class="mobile-nav-icon" aria-hidden="true">&#9200;</span>
-            <span>Reminders</span>
-        </a>
-        <a href="/agent/scores" class="mobile-nav-item {% if active_nav == 'scores' %}active{% endif %}" {% if active_nav == 'scores' %}aria-current="page"{% endif %}>
-            <span class="mobile-nav-icon" aria-hidden="true">&#9733;</span>
-            <span>Scores</span>
-        </a>
-        <a href="/agent/campaigns" class="mobile-nav-item {% if active_nav == 'campaigns' %}active{% endif %}" {% if active_nav == 'campaigns' %}aria-current="page"{% endif %}>
-            <span class="mobile-nav-icon" aria-hidden="true">&#128232;</span>
-            <span>Campaigns</span>
+        <a href="javascript:void(0)" class="mobile-nav-item {% if active_nav in ('transactions', 'triggers', 'scores', 'campaigns') %}active{% endif %}" onclick="toggleMoreMenu()" aria-expanded="false" aria-controls="moreMenu">
+            <span class="mobile-nav-icon" aria-hidden="true">&#8943;</span>
+            <span>More</span>
         </a>
     </nav>
+
+    <div class="more-menu-backdrop" id="moreBackdrop" onclick="toggleMoreMenu()"></div>
+    <div class="more-menu" id="moreMenu" role="menu" aria-label="More navigation">
+        <a href="/agent/transactions" class="more-menu-item {% if active_nav == 'transactions' %}active{% endif %}" role="menuitem">
+            <span aria-hidden="true">&#128176;</span> Deals
+        </a>
+        <a href="/agent/triggers" class="more-menu-item {% if active_nav == 'triggers' %}active{% endif %}" role="menuitem">
+            <span aria-hidden="true">&#9200;</span> Reminders
+        </a>
+        <a href="/agent/scores" class="more-menu-item {% if active_nav == 'scores' %}active{% endif %}" role="menuitem">
+            <span aria-hidden="true">&#9733;</span> Scores
+        </a>
+        <a href="/agent/campaigns" class="more-menu-item {% if active_nav == 'campaigns' %}active{% endif %}" role="menuitem">
+            <span aria-hidden="true">&#128232;</span> Campaigns
+        </a>
+    </div>
+
+    <script>
+    function toggleMoreMenu() {
+        var menu = document.getElementById('moreMenu');
+        var backdrop = document.getElementById('moreBackdrop');
+        var isOpen = menu.classList.contains('open');
+        menu.classList.toggle('open');
+        backdrop.classList.toggle('open');
+        var btn = document.querySelector('[aria-controls="moreMenu"]');
+        if (btn) btn.setAttribute('aria-expanded', !isOpen);
+    }
+    </script>
 </body>
 </html>
