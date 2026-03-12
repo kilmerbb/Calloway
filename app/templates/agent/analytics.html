@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- KPI Cards — Top Row -->
+<div class="section">
+    <h2 class="section-title">Performance Overview</h2>
+    <div class="card-grid">
+        <div class="card stat-card">
+            <div class="stat-value">{{ response_times["7d"] }}</div>
+            <div class="stat-label">Avg Response (7d)</div>
+            <div class="stat-detail">
+                <span>Today {{ response_times["today"] }}</span>
+                <span class="stat-sep">&middot;</span>
+                <span>30d {{ response_times["30d"] }}</span>
+            </div>
+        </div>
+        <div class="card stat-card stat-blue">
+            <div class="stat-value">{{ active_convos["7d"] }}</div>
+            <div class="stat-label">Active Contacts (7d)</div>
+            <div class="stat-detail">{{ active_convos["30d"] }} in last 30d</div>
+        </div>
+        <div class="card stat-card stat-green">
+            <div class="stat-value">{{ showings.this_week }}</div>
+            <div class="stat-label">Showings This Week</div>
+            <div class="stat-detail">
+                {% if showings.last_week > 0 %}
+                    {% set diff = showings.this_week - showings.last_week %}
+                    {% if diff > 0 %}
+                        <span class="trend-up">+{{ diff }}</span> vs last week
+                    {% elif diff < 0 %}
+                        <span class="trend-down">{{ diff }}</span> vs last week
+                    {% else %}
+                        Same as last week
+                    {% endif %}
+                {% else %}
+                    {{ showings.last_week }} last week
+                {% endif %}
+            </div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-value">{{ pipeline_total }}</div>
+            <div class="stat-label">Pipeline Size</div>
+            <div class="stat-detail">
+                {{ pipeline.get("new_lead", 0) }} new
+                <span class="stat-sep">&middot;</span>
+                {{ pipeline.get("active", 0) }} active
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Conversation Volume Chart — Middle -->
+<div class="section">
+    <h2 class="section-title">Conversation Volume <span class="section-subtitle">Last 30 days</span></h2>
+    <div class="card analytics-chart-card">
+        <div class="volume-chart" role="img" aria-label="Message volume bar chart for the last 30 days">
+            {% for day in volume %}
+            <div class="volume-bar-group" title="{{ day.day.strftime('%b %d') }}: {{ day.sent }} sent, {{ day.received }} received">
+                <div class="volume-bar-stack" style="height: {{ day.pct }}%;">
+                    <div class="volume-bar-sent" style="height: {{ (day.sent_pct / day.pct * 100) if day.pct > 0 else 0 }}%;"></div>
+                    <div class="volume-bar-received" style="height: {{ (day.received_pct / day.pct * 100) if day.pct > 0 else 0 }}%;"></div>
+                </div>
+                {% if loop.index % 5 == 1 or loop.last %}
+                <span class="volume-bar-label">{{ day.day.strftime('%b %d') }}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot legend-sent"></span> Sent</span>
+            <span class="legend-item"><span class="legend-dot legend-received"></span> Received</span>
+        </div>
+    </div>
+</div>
+
+<!-- Bottom Row: Pipeline + Triggers + AI Cost -->
+<div class="analytics-bottom-grid">
+    <!-- Lead Pipeline -->
+    <div class="section">
+        <h2 class="section-title">Lead Pipeline</h2>
+        <div class="card">
+            {% set stages = [
+                ("new_lead", "New Lead", "blue"),
+                ("active", "Active", "green"),
+                ("under_contract", "Under Contract", "yellow"),
+                ("closed", "Closed", "gray"),
+                ("past_client", "Past Client", "gray")
+            ] %}
+            {% for key, label, color in stages %}
+            {% set count = pipeline.get(key, 0) %}
+            <div class="pipeline-row">
+                <div class="pipeline-label">
+                    <span class="badge badge-{{ color }}">{{ label }}</span>
+                </div>
+                <div class="pipeline-bar-track">
+                    <div class="pipeline-bar pipeline-bar-{{ color }}"
+                         style="width: {{ (count / pipeline_total * 100) if pipeline_total > 0 else 0 }}%;">
+                    </div>
+                </div>
+                <div class="pipeline-count">{{ count }}</div>
+            </div>
+            {% endfor %}
+            <div class="pipeline-total">Total: {{ pipeline_total }}</div>
+        </div>
+    </div>
+
+    <!-- Trigger Performance + Showing Breakdown -->
+    <div class="section">
+        <h2 class="section-title">Activity (Last 7 Days)</h2>
+        <div class="card">
+            <table class="analytics-table" role="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Triggers</th>
+                        <th scope="col" class="text-right">Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Fired</td>
+                        <td class="text-right">{{ triggers.total }}</td>
+                    </tr>
+                    <tr>
+                        <td>Delivered</td>
+                        <td class="text-right"><span class="badge badge-green">{{ triggers.delivered }}</span></td>
+                    </tr>
+                    <tr>
+                        <td>Pending</td>
+                        <td class="text-right"><span class="badge badge-yellow">{{ triggers.pending }}</span></td>
+                    </tr>
+                    <tr>
+                        <td>Failed</td>
+                        <td class="text-right">
+                            {% if triggers.failed > 0 %}
+                            <span class="badge badge-red">{{ triggers.failed }}</span>
+                            {% else %}
+                            <span class="badge badge-gray">0</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <table class="analytics-table analytics-table-spaced" role="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Showings (This Week)</th>
+                        <th scope="col" class="text-right">Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Confirmed</td>
+                        <td class="text-right"><span class="badge badge-green">{{ showings.confirmed }}</span></td>
+                    </tr>
+                    <tr>
+                        <td>Completed</td>
+                        <td class="text-right"><span class="badge badge-blue">{{ showings.completed }}</span></td>
+                    </tr>
+                    <tr>
+                        <td>Cancelled</td>
+                        <td class="text-right">
+                            {% if showings.cancelled > 0 %}
+                            <span class="badge badge-red">{{ showings.cancelled }}</span>
+                            {% else %}
+                            <span class="badge badge-gray">0</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- AI Cost -->
+<div class="section">
+    <h2 class="section-title">AI Usage</h2>
+    <div class="card">
+        <div class="ai-cost-grid">
+            <div class="ai-cost-period">
+                <div class="ai-cost-label">Today</div>
+                <div class="ai-cost-value">${{ "%.2f" | format(ai_cost.cost_today / 100) }}</div>
+                <div class="ai-cost-tokens">{{ "{:,}".format(ai_cost.tokens_today) }} tokens</div>
+            </div>
+            <div class="ai-cost-period">
+                <div class="ai-cost-label">Last 7 Days</div>
+                <div class="ai-cost-value">${{ "%.2f" | format(ai_cost.cost_7d / 100) }}</div>
+                <div class="ai-cost-tokens">{{ "{:,}".format(ai_cost.tokens_7d) }} tokens</div>
+            </div>
+            <div class="ai-cost-period">
+                <div class="ai-cost-label">Last 30 Days</div>
+                <div class="ai-cost-value">${{ "%.2f" | format(ai_cost.cost_30d / 100) }}</div>
+                <div class="ai-cost-tokens">{{ "{:,}".format(ai_cost.tokens_30d) }} tokens</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
