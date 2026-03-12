@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
-from app.db.connection import get_db_connection
+from app.db.connection import get_db_connection, get_async_db_connection
 
 logger = logging.getLogger(__name__)
 
