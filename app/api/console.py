@@ -387,8 +387,8 @@ async def trigger_retry(request: Request, trigger_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.services.console_queries import retry_trigger
-    retry_trigger(trigger_id)
+    from app.services.console_queries import async_retry_trigger
+    await async_retry_trigger(trigger_id)
     return RedirectResponse("/console/triggers", status_code=303)
 
 
@@ -403,8 +403,8 @@ async def trigger_cancel(request: Request, trigger_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.services.console_queries import cancel_trigger
-    cancel_trigger(trigger_id)
+    from app.services.console_queries import async_cancel_trigger
+    await async_cancel_trigger(trigger_id)
     return RedirectResponse("/console/triggers", status_code=303)
 
 
@@ -419,8 +419,8 @@ async def trigger_fire_now(request: Request, trigger_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.services.console_queries import fire_trigger_now
-    fire_trigger_now(trigger_id)
+    from app.services.console_queries import async_fire_trigger_now
+    await async_fire_trigger_now(trigger_id)
     return RedirectResponse("/console/triggers", status_code=303)
 
 
@@ -434,14 +434,14 @@ async def error_list(request: Request):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_recent_errors, get_all_agents
+    from app.services.console_queries import async_get_recent_errors, async_get_all_agents
 
     agent_filter = request.query_params.get("agent", "")
 
     return _render(request, "errors.html",
         page_title="Errors", active_nav="errors",
-        errors=get_recent_errors(limit=100, agent_id=agent_filter or None),
-        agents=get_all_agents(), agent_filter=agent_filter,
+        errors=await async_get_recent_errors(limit=100, agent_id=agent_filter or None),
+        agents=await async_get_all_agents(), agent_filter=agent_filter,
     )
 
 
@@ -455,13 +455,13 @@ async def cost_dashboard(request: Request):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_cost_summary, get_cost_by_agent, get_model_tier_breakdown
+    from app.services.console_queries import async_get_cost_summary, async_get_cost_by_agent, async_get_model_tier_breakdown
 
     return _render(request, "costs.html",
         page_title="Costs", active_nav="costs",
-        summary=get_cost_summary(days=30),
-        per_agent=get_cost_by_agent(days=30),
-        model_tiers=get_model_tier_breakdown(days=30),
+        summary=await async_get_cost_summary(days=30),
+        per_agent=await async_get_cost_by_agent(days=30),
+        model_tiers=await async_get_model_tier_breakdown(days=30),
     )
 
 
@@ -475,20 +475,20 @@ async def health_overview(request: Request):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_health_overview, get_all_agents
+    from app.services.console_queries import async_get_health_overview, async_get_all_agents
 
     return _render(request, "health.html",
         page_title="Health", active_nav="health",
-        health=get_health_overview(),
-        agents=get_all_agents(),
+        health=await async_get_health_overview(),
+        agents=await async_get_all_agents(),
     )
 
 
 @router.get("/health/status-dot", response_class=HTMLResponse)
 async def health_status_dot(request: Request):
     """HTMX partial: health status indicator."""
-    from app.services.console_queries import get_health_status_color
-    color = get_health_status_color()
+    from app.services.console_queries import async_get_health_status_color
+    color = await async_get_health_status_color()
     return HTMLResponse(
         f'<span class="status-dot status-{color}" title="System {color}"></span>'
     )
