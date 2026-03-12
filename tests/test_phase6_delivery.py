@@ -6,7 +6,7 @@ the Docker configuration.
 import pytest
 from datetime import datetime, timezone
 from uuid import UUID
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from pathlib import Path
 
 from app.models.schemas import Message
@@ -64,10 +64,13 @@ def test_message_failure_fields():
 
 def test_twilio_status_delivered(client):
     """Twilio status callback with 'delivered' updates message."""
-    with patch("app.db.connection.get_db_connection") as mock_conn:
-        mock_ctx = MagicMock()
-        mock_conn.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-        mock_conn.return_value.__exit__ = MagicMock(return_value=False)
+    mock_conn = AsyncMock()
+    mock_conn.execute = AsyncMock()
+    mock_conn.commit = AsyncMock()
+
+    with patch("app.db.connection.get_async_db_connection") as mock_get_conn:
+        mock_get_conn.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_get_conn.return_value.__aexit__ = AsyncMock(return_value=False)
 
         response = client.post("/webhooks/twilio/status", data={
             "MessageSid": "SM1234567890",
@@ -78,7 +81,7 @@ def test_twilio_status_delivered(client):
         assert "Response" in response.text
 
         # Verify UPDATE was called with delivered status
-        update_call = mock_ctx.execute.call_args_list[0]
+        update_call = mock_conn.execute.call_args_list[0]
         sql = update_call[0][0]
         assert "delivery_status" in sql
         assert "delivered_at" in sql
@@ -86,12 +89,29 @@ def test_twilio_status_delivered(client):
 
 def test_twilio_status_failed(client):
     """Twilio status callback with 'failed' records error details."""
-    with patch("app.db.connection.get_db_connection") as mock_conn:
-        mock_ctx = MagicMock()
-        mock_conn.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-        mock_conn.return_value.__exit__ = MagicMock(return_value=False)
-        # Return None for the agent lookup query
-        mock_ctx.execute.return_value.fetchone.return_value = None
+    mock_conn = AsyncMock()
+    mock_conn.execute = AsyncMock()
+    mock_conn.commit = AsyncMock()
+    # fetchone returns None for the agent lookup query
+    mock_cur = AsyncMock()
+    mock_cur.fetchone = AsyncMock(return_value=None)
+    # Second execute (the SELECT for agent lookup) returns a cursor
+    call_count = 0
+    original_execute = mock_conn.execute
+
+    async def side_effect_execute(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            # This is the SELECT query for agent lookup after failure
+            return mock_cur
+        return AsyncMock()
+
+    mock_conn.execute = AsyncMock(side_effect=side_effect_execute)
+
+    with patch("app.db.connection.get_async_db_connection") as mock_get_conn:
+        mock_get_conn.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_get_conn.return_value.__aexit__ = AsyncMock(return_value=False)
 
         response = client.post("/webhooks/twilio/status", data={
             "MessageSid": "SM1234567890",
@@ -103,7 +123,7 @@ def test_twilio_status_failed(client):
         assert response.status_code == 200
 
         # Verify UPDATE was called with failure info
-        first_call = mock_ctx.execute.call_args_list[0]
+        first_call = mock_conn.execute.call_args_list[0]
         sql = first_call[0][0]
         assert "failure_reason" in sql
 

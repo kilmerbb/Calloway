@@ -1,6 +1,6 @@
 """Tests for conversation summarization system."""
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from uuid import UUID, uuid4
 from unittest.mock import patch, MagicMock
 
@@ -11,10 +11,14 @@ from app.models.schemas import (
 from app.services.summarization_service import (
     SUMMARIZATION_THRESHOLD,
     INCREMENTAL_BATCH,
+    FULL_RESUMMARIZE_EVERY,
+    TIME_BASED_MESSAGE_MIN,
+    TIME_BASED_SPAN_DAYS,
     should_summarize,
     generate_or_update_summary,
     get_conversation_summary,
     _format_messages_for_prompt,
+    _needs_full_resummarization,
 )
 from app.pipeline.assembler import (
     assemble_context,
@@ -50,16 +54,17 @@ def _make_message(i: int, sender: str = "client") -> Message:
     )
 
 
-def _make_summary(count: int = 50) -> ConversationSummary:
+def _make_summary(count: int = 50, incremental_count: int = 0) -> ConversationSummary:
     return ConversationSummary(
         id=uuid4(),
         tenant_id=AGENT_ID,
         contact_id=CONTACT_ID,
         conversation_id=CONV_ID,
-        summary_text="**Client Profile**: Mike Buyer, active buyer in Fishtown area.",
+        summary_text="CLIENT: Mike Buyer | ROLE: buyer\nBUDGET: $400000-$500000 | PRE-APPROVED: yes\nREQUIREMENTS: 3BR/2BA, Fishtown\nMUST-HAVES: garage, yard\nDEALBREAKERS: no HOA over $300\nTIMELINE: within 3 months",
         messages_summarized_count=count,
         last_message_id=uuid4(),
         token_estimate=80,
+        incremental_count=incremental_count,
         created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
@@ -98,7 +103,8 @@ class TestShouldSummarize:
     @patch("app.services.summarization_service.get_conversation_summary")
     def test_below_threshold_returns_false(self, mock_summary, mock_count):
         mock_count.return_value = SUMMARIZATION_THRESHOLD - 1
-        assert should_summarize(AGENT_ID, CONTACT_ID) is False
+        with patch("app.services.summarization_service.get_conversation_span_days", return_value=0):
+            assert should_summarize(AGENT_ID, CONTACT_ID) is False
         mock_summary.assert_not_called()
 
     @patch("app.services.summarization_service.get_message_count")
@@ -122,6 +128,125 @@ class TestShouldSummarize:
         mock_count.return_value = 100
         mock_summary.return_value = _make_summary(count=100 - INCREMENTAL_BATCH)
         assert should_summarize(AGENT_ID, CONTACT_ID) is True
+
+    @patch("app.services.summarization_service.get_conversation_span_days")
+    @patch("app.services.summarization_service.get_message_count")
+    @patch("app.services.summarization_service.get_conversation_summary")
+    def test_time_based_trigger_slow_burn(self, mock_summary, mock_count, mock_span):
+        """25+ messages spanning 30+ days triggers summarization even under 50-msg threshold."""
+        mock_count.return_value = TIME_BASED_MESSAGE_MIN  # exactly at minimum
+        mock_span.return_value = TIME_BASED_SPAN_DAYS  # exactly at minimum span
+        mock_summary.return_value = None  # no existing summary
+        assert should_summarize(AGENT_ID, CONTACT_ID) is True
+
+    @patch("app.services.summarization_service.get_conversation_span_days")
+    @patch("app.services.summarization_service.get_message_count")
+    @patch("app.services.summarization_service.get_conversation_summary")
+    def test_time_based_trigger_not_enough_messages(self, mock_summary, mock_count, mock_span):
+        """Under 25 messages even with long span does not trigger."""
+        mock_count.return_value = TIME_BASED_MESSAGE_MIN - 1
+        mock_span.return_value = TIME_BASED_SPAN_DAYS + 10
+        assert should_summarize(AGENT_ID, CONTACT_ID) is False
+        mock_summary.assert_not_called()
+
+    @patch("app.services.summarization_service.get_conversation_span_days")
+    @patch("app.services.summarization_service.get_message_count")
+    @patch("app.services.summarization_service.get_conversation_summary")
+    def test_time_based_trigger_not_enough_days(self, mock_summary, mock_count, mock_span):
+        """25+ messages but short span does not trigger (under threshold too)."""
+        mock_count.return_value = TIME_BASED_MESSAGE_MIN + 5
+        mock_span.return_value = TIME_BASED_SPAN_DAYS - 1
+        assert should_summarize(AGENT_ID, CONTACT_ID) is False
+        mock_summary.assert_not_called()
+
+
+# ── Drift mitigation: full re-summarization ────────────────────
+
+class TestFullResummarization:
+    def test_needs_full_resummarization_at_threshold(self):
+        summary = _make_summary(incremental_count=FULL_RESUMMARIZE_EVERY)
+        assert _needs_full_resummarization(summary) is True
+
+    def test_needs_full_resummarization_above_threshold(self):
+        summary = _make_summary(incremental_count=FULL_RESUMMARIZE_EVERY + 2)
+        assert _needs_full_resummarization(summary) is True
+
+    def test_no_full_resummarization_below_threshold(self):
+        summary = _make_summary(incremental_count=FULL_RESUMMARIZE_EVERY - 1)
+        assert _needs_full_resummarization(summary) is False
+
+    def test_no_full_resummarization_at_zero(self):
+        summary = _make_summary(incremental_count=0)
+        assert _needs_full_resummarization(summary) is False
+
+    @patch("app.services.summarization_service._save_summary")
+    @patch("app.services.summarization_service.get_anthropic_client")
+    @patch("app.services.summarization_service._load_messages_for_summary")
+    @patch("app.services.summarization_service.get_db_connection")
+    @patch("app.services.summarization_service.get_conversation_summary")
+    def test_full_resummarize_triggered_after_5_cycles(
+        self, mock_get_summary, mock_db, mock_load_msgs, mock_client, mock_save
+    ):
+        """After 5 incremental updates, a full re-summarization from all messages is triggered."""
+        existing = _make_summary(count=200, incremental_count=FULL_RESUMMARIZE_EVERY)
+        mock_get_summary.return_value = existing
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.fetchone.return_value = {"id": CONV_ID}
+        mock_db.return_value = mock_conn
+
+        all_messages = [_make_message(i) for i in range(200)]
+        mock_load_msgs.return_value = all_messages
+
+        mock_ai = MagicMock()
+        mock_ai.compose.return_value = "Full re-summarized content."
+        mock_client.return_value = mock_ai
+
+        refreshed = _make_summary(count=200, incremental_count=0)
+        mock_save.return_value = refreshed
+
+        result = generate_or_update_summary(AGENT_ID, CONTACT_ID)
+
+        # Verify _save_summary was called with incremental_count=0 (reset)
+        save_call = mock_save.call_args
+        assert save_call.kwargs.get("incremental_count", save_call[1].get("incremental_count")) == 0
+        assert result == refreshed
+
+    @patch("app.services.summarization_service._save_summary")
+    @patch("app.services.summarization_service.get_anthropic_client")
+    @patch("app.services.summarization_service._load_messages_for_summary")
+    @patch("app.services.summarization_service.get_db_connection")
+    @patch("app.services.summarization_service.get_conversation_summary")
+    def test_incremental_update_increments_count(
+        self, mock_get_summary, mock_db, mock_load_msgs, mock_client, mock_save
+    ):
+        """Each incremental update should increment the incremental_count."""
+        existing = _make_summary(count=50, incremental_count=2)
+        mock_get_summary.return_value = existing
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.fetchone.return_value = {"id": CONV_ID}
+        mock_db.return_value = mock_conn
+
+        new_messages = [_make_message(i) for i in range(30)]
+        mock_load_msgs.return_value = new_messages
+
+        mock_ai = MagicMock()
+        mock_ai.compose.return_value = "Updated summary."
+        mock_client.return_value = mock_ai
+
+        updated = _make_summary(count=80, incremental_count=3)
+        mock_save.return_value = updated
+
+        result = generate_or_update_summary(AGENT_ID, CONTACT_ID)
+
+        # Verify incremental_count was incremented
+        save_call = mock_save.call_args
+        assert save_call.kwargs.get("incremental_count", save_call[1].get("incremental_count")) == 3
 
 
 # ── generate_or_update_summary ──────────────────────────────────
@@ -208,6 +333,23 @@ class TestGenerateOrUpdateSummary:
         assert result is None
 
 
+# ── ConversationSummary model ──────────────────────────────────
+
+class TestConversationSummaryModel:
+    def test_incremental_count_defaults_to_zero(self):
+        summary = ConversationSummary(
+            tenant_id=AGENT_ID,
+            contact_id=CONTACT_ID,
+            conversation_id=CONV_ID,
+            summary_text="test",
+        )
+        assert summary.incremental_count == 0
+
+    def test_incremental_count_can_be_set(self):
+        summary = _make_summary(incremental_count=3)
+        assert summary.incremental_count == 3
+
+
 # ── Assembler integration ───────────────────────────────────────
 
 class TestAssemblerWithSummary:
@@ -261,7 +403,7 @@ class TestAssemblerWithSummary:
     def test_assemble_context_includes_summary(self, mock_listings, mock_history):
         """AssembledContext should carry the summary text."""
         mock_listings.return_value = []
-        summary_text = "**Client Profile**: Mike is looking for 3BR in Fishtown."
+        summary_text = "CLIENT: Mike Buyer | ROLE: buyer\nBUDGET: $400000-$500000"
         mock_history.return_value = (summary_text, [_make_message(0)])
 
         event = NormalizedEvent(

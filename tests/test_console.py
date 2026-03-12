@@ -222,7 +222,7 @@ def test_get_all_agents(mock_conn):
 # Step 5: Tenant List + Detail
 # ============================================================
 
-@patch("app.services.console_queries.get_all_agents")
+@patch("app.services.console_queries.async_get_all_agents", new_callable=AsyncMock)
 def test_tenant_list_renders(mock_agents):
     """Tenant list page renders agent table."""
     mock_agents.return_value = [
@@ -239,7 +239,7 @@ def test_tenant_list_renders(mock_agents):
     assert "RE/MAX" in response.text
 
 
-@patch("app.services.console_queries.get_all_agents")
+@patch("app.services.console_queries.async_get_all_agents", new_callable=AsyncMock)
 def test_tenant_search(mock_agents):
     """Tenant search filters by name."""
     mock_agents.return_value = [
@@ -261,8 +261,8 @@ def test_tenant_search(mock_agents):
 # Step 6: Conversation Viewer
 # ============================================================
 
-@patch("app.services.console_queries.get_all_agents")
-@patch("app.services.console_queries.get_recent_conversations")
+@patch("app.services.console_queries.async_get_all_agents", new_callable=AsyncMock)
+@patch("app.services.console_queries.async_get_recent_conversations", new_callable=AsyncMock)
 def test_conversation_list_renders(mock_convos, mock_agents):
     """Conversation list renders."""
     mock_agents.return_value = []
@@ -282,8 +282,8 @@ def test_conversation_list_renders(mock_convos, mock_agents):
 # Step 7: Trigger Queue
 # ============================================================
 
-@patch("app.services.console_queries.get_all_agents")
-@patch("app.services.console_queries.get_trigger_queue")
+@patch("app.services.console_queries.async_get_all_agents", new_callable=AsyncMock)
+@patch("app.services.console_queries.async_get_trigger_queue", new_callable=AsyncMock)
 def test_trigger_list_renders(mock_triggers, mock_agents):
     """Trigger queue renders with status badges."""
     mock_agents.return_value = []
@@ -309,8 +309,8 @@ def test_trigger_list_renders(mock_triggers, mock_agents):
 # Step 8: Error Log
 # ============================================================
 
-@patch("app.services.console_queries.get_all_agents")
-@patch("app.services.console_queries.get_recent_errors")
+@patch("app.services.console_queries.async_get_all_agents", new_callable=AsyncMock)
+@patch("app.services.console_queries.async_get_recent_errors", new_callable=AsyncMock)
 def test_error_log_renders(mock_errors, mock_agents):
     """Error log renders tool execution errors."""
     mock_agents.return_value = []
@@ -341,9 +341,9 @@ def test_log_error_function():
 # Step 9: Cost Dashboard
 # ============================================================
 
-@patch("app.services.console_queries.get_model_tier_breakdown")
-@patch("app.services.console_queries.get_cost_by_agent")
-@patch("app.services.console_queries.get_cost_summary")
+@patch("app.services.console_queries.async_get_model_tier_breakdown", new_callable=AsyncMock)
+@patch("app.services.console_queries.async_get_cost_by_agent", new_callable=AsyncMock)
+@patch("app.services.console_queries.async_get_cost_summary", new_callable=AsyncMock)
 def test_cost_dashboard_renders(mock_summary, mock_agent_costs, mock_tiers):
     """Cost dashboard renders with data."""
     mock_summary.return_value = {
@@ -375,9 +375,11 @@ def test_cost_dashboard_renders(mock_summary, mock_agent_costs, mock_tiers):
 # Step 10: Health Overview
 # ============================================================
 
-@patch("app.services.console_queries.get_health_overview")
-def test_health_page_renders(mock_health):
+@patch("app.services.console_queries.async_get_all_agents", new_callable=AsyncMock)
+@patch("app.services.console_queries.async_get_health_overview", new_callable=AsyncMock)
+def test_health_page_renders(mock_health, mock_agents):
     """Health page renders service indicators."""
+    mock_agents.return_value = []
     mock_health.return_value = {
         "services": {
             "database": "green",
@@ -395,7 +397,7 @@ def test_health_page_renders(mock_health):
     assert "green" in response.text
 
 
-@patch("app.services.console_queries.get_health_status_color")
+@patch("app.services.console_queries.async_get_health_status_color", new_callable=AsyncMock)
 def test_health_status_dot(mock_color):
     """Health status dot HTMX partial works."""
     mock_color.return_value = "green"
