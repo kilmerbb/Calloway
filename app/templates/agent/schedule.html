@@ -34,7 +34,7 @@
                         <button type="submit" class="btn btn-sm btn-green">Confirm</button>
                     </form>
                     {% endif %}
-                    <form hx-post="/agent/showings/{{ s.id }}/cancel" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" style="display:inline">
+                    <form hx-post="/agent/showings/{{ s.id }}/cancel" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" hx-confirm="Cancel this showing with {{ s.contact_name }}? They will be notified." style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-sm btn-red">Cancel</button>
                     </form>
@@ -76,7 +76,7 @@
                         <button type="submit" class="btn btn-sm btn-green">Confirm</button>
                     </form>
                     {% endif %}
-                    <form hx-post="/agent/showings/{{ s.id }}/cancel" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" style="display:inline">
+                    <form hx-post="/agent/showings/{{ s.id }}/cancel" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" hx-confirm="Cancel this showing with {{ s.contact_name }}? They will be notified." style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-sm btn-red">Cancel</button>
                     </form>
