@@ -1,6 +1,6 @@
 """Tests for the Operator Console — Steps 1-14."""
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from datetime import datetime, timezone, date
 from uuid import uuid4
 from decimal import Decimal
@@ -101,9 +101,9 @@ def test_console_logout():
 # Step 2: Navigation
 # ============================================================
 
-@patch("app.services.console_queries.get_system_pulse")
-@patch("app.services.console_queries.get_recent_activity")
-@patch("app.services.console_queries.get_agents_needing_attention")
+@patch("app.services.console_queries.async_get_system_pulse", new_callable=AsyncMock)
+@patch("app.services.console_queries.async_get_recent_activity", new_callable=AsyncMock)
+@patch("app.services.console_queries.async_get_agents_needing_attention", new_callable=AsyncMock)
 def test_dashboard_has_navigation(mock_attn, mock_act, mock_pulse):
     """Dashboard page has sidebar navigation links."""
     mock_pulse.return_value = {
@@ -128,9 +128,9 @@ def test_dashboard_has_navigation(mock_attn, mock_act, mock_pulse):
 # Step 3: Dashboard
 # ============================================================
 
-@patch("app.services.console_queries.get_system_pulse")
-@patch("app.services.console_queries.get_recent_activity")
-@patch("app.services.console_queries.get_agents_needing_attention")
+@patch("app.services.console_queries.async_get_system_pulse", new_callable=AsyncMock)
+@patch("app.services.console_queries.async_get_recent_activity", new_callable=AsyncMock)
+@patch("app.services.console_queries.async_get_agents_needing_attention", new_callable=AsyncMock)
 def test_dashboard_shows_pulse(mock_attn, mock_act, mock_pulse):
     """Dashboard shows system pulse cards."""
     mock_pulse.return_value = {
@@ -148,7 +148,7 @@ def test_dashboard_shows_pulse(mock_attn, mock_act, mock_pulse):
     assert "$12.5" in response.text  # cost
 
 
-@patch("app.services.console_queries.get_recent_activity")
+@patch("app.services.console_queries.async_get_recent_activity", new_callable=AsyncMock)
 def test_activity_feed_partial(mock_act):
     """HTMX activity feed partial returns events."""
     mock_act.return_value = [
