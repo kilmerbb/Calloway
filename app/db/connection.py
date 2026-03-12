@@ -16,9 +16,11 @@ _pool: ConnectionPool | None = None
 
 def get_connection_string() -> str:
     settings = get_settings()
+    if settings.DATABASE_URL:
+        return settings.DATABASE_URL
     if settings.ENVIRONMENT == "development":
         return "postgresql://postgres:postgres@localhost:5432/realtor_ai"
-    # Extract just the project ref (e.g. "ptgdqauzzlkbtqyaddim" from "https://ptgdqauzzlkbtqyaddim.supabase.co")
+    # Fallback: build from Supabase env vars
     host = settings.SUPABASE_URL.replace("https://", "").replace("http://", "")
     project_ref = host.split(".")[0]
     password = quote_plus(settings.SUPABASE_SERVICE_KEY)

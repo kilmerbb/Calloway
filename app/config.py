@@ -8,6 +8,9 @@ logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
+    # Database
+    DATABASE_URL: str = ""
+
     # Supabase
     SUPABASE_URL: str = ""
     SUPABASE_SERVICE_KEY: str = ""
