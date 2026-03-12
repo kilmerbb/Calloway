@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS conversation_summaries (
     messages_summarized_count INT NOT NULL DEFAULT 0,
     last_message_id         UUID REFERENCES messages(id),
     token_estimate          INT NOT NULL DEFAULT 0,
+    incremental_count       INTEGER DEFAULT 0,
     created_at              TIMESTAMPTZ DEFAULT now(),
     updated_at              TIMESTAMPTZ DEFAULT now()
 );
