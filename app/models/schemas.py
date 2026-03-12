@@ -210,6 +210,7 @@ class ConversationSummary(BaseModel):
     messages_summarized_count: int = 0
     last_message_id: UUID | None = None
     token_estimate: int = 0
+    incremental_count: int = 0
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

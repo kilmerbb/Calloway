@@ -356,6 +356,32 @@ CREATE TABLE usage_metrics (
 CREATE UNIQUE INDEX idx_usage_metrics_agent_date ON usage_metrics(agent_id, date);
 
 -- ============================================================
+-- 12A. conversation_summaries
+-- ============================================================
+CREATE TABLE IF NOT EXISTS conversation_summaries (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID NOT NULL REFERENCES agents(id),
+    contact_id              UUID NOT NULL REFERENCES contacts(id),
+    conversation_id         UUID NOT NULL REFERENCES conversations(id),
+    summary_text            TEXT NOT NULL,
+    messages_summarized_count INT NOT NULL DEFAULT 0,
+    last_message_id         UUID REFERENCES messages(id),
+    token_estimate          INT NOT NULL DEFAULT 0,
+    incremental_count       INTEGER DEFAULT 0,
+    created_at              TIMESTAMPTZ DEFAULT now(),
+    updated_at              TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_convsummary_conversation
+    ON conversation_summaries(conversation_id);
+CREATE INDEX idx_convsummary_tenant_contact
+    ON conversation_summaries(tenant_id, contact_id);
+
+ALTER TABLE conversation_summaries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY agent_isolation ON conversation_summaries
+    FOR ALL USING (tenant_id = current_setting('app.current_agent_id')::uuid);
+
+-- ============================================================
 -- Row Level Security Policies
 -- ============================================================
 

@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from urllib.parse import quote_plus
 from uuid import UUID
 from typing import Any
@@ -107,7 +108,19 @@ async def close_async_pool() -> None:
         logger.info("Async DB pool closed")
 
 
-async def get_async_db_connection() -> psycopg.AsyncConnection:
+@asynccontextmanager
+async def _fallback_async_connection():
+    """Fallback async context manager when the pool is not initialized."""
+    conn = await psycopg.AsyncConnection.connect(
+        get_connection_string(), row_factory=dict_row
+    )
+    try:
+        yield conn
+    finally:
+        await conn.close()
+
+
+def get_async_db_connection():
     """Get an async connection from the pool (async context-managed).
 
     Usage:
@@ -117,10 +130,8 @@ async def get_async_db_connection() -> psycopg.AsyncConnection:
     """
     if _async_pool is not None:
         return _async_pool.connection()
-    # Fallback for tests / scripts
-    return await psycopg.AsyncConnection.connect(
-        get_connection_string(), row_factory=dict_row
-    )
+    # Fallback for tests / scripts that haven't called init_async_pool()
+    return _fallback_async_connection()
 
 
 # Legacy alias — kept for any existing callers
