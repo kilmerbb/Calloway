@@ -84,14 +84,14 @@ async def dashboard(request: Request):
         return redirect
 
     from app.services.console_queries import (
-        get_system_pulse, get_recent_activity, get_agents_needing_attention,
+        async_get_system_pulse, async_get_recent_activity, async_get_agents_needing_attention,
     )
 
     return _render(request, "dashboard.html",
         page_title="Dashboard", active_nav="dashboard",
-        pulse=get_system_pulse(),
-        activity=get_recent_activity(limit=20),
-        attention=get_agents_needing_attention(),
+        pulse=await async_get_system_pulse(),
+        activity=await async_get_recent_activity(limit=20),
+        attention=await async_get_agents_needing_attention(),
     )
 
 
@@ -102,9 +102,9 @@ async def dashboard_activity_feed(request: Request):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_recent_activity
+    from app.services.console_queries import async_get_recent_activity
     return _render(request, "partials/activity_feed.html",
-        activity=get_recent_activity(limit=20),
+        activity=await async_get_recent_activity(limit=20),
     )
 
 
@@ -159,8 +159,8 @@ async def tenant_list(request: Request):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_all_agents
-    agents = get_all_agents()
+    from app.services.console_queries import async_get_all_agents
+    agents = await async_get_all_agents()
 
     search = request.query_params.get("search", "")
     sort_by = request.query_params.get("sort", "name")
@@ -218,8 +218,8 @@ async def tenant_detail(request: Request, agent_id: str):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_agent_detail
-    detail = get_agent_detail(agent_id)
+    from app.services.console_queries import async_get_agent_detail
+    detail = await async_get_agent_detail(agent_id)
     if not detail:
         return RedirectResponse("/console/tenants", status_code=303)
 
@@ -235,8 +235,8 @@ async def tenant_edit_form(request: Request, agent_id: str):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_agent_detail
-    detail = get_agent_detail(agent_id)
+    from app.services.console_queries import async_get_agent_detail
+    detail = await async_get_agent_detail(agent_id)
     if not detail:
         return RedirectResponse("/console/tenants", status_code=303)
 
@@ -263,8 +263,8 @@ async def tenant_update(request: Request, agent_id: str):
         update_agent_tenant(agent_id, dict(form))
         return RedirectResponse(f"/console/tenants/{agent_id}", status_code=303)
     except ValueError as e:
-        from app.services.console_queries import get_agent_detail
-        detail = get_agent_detail(agent_id)
+        from app.services.console_queries import async_get_agent_detail
+        detail = await async_get_agent_detail(agent_id)
         return _render(request, "tenant_edit.html",
             page_title=f"Edit: {detail['agent']['name']}",
             active_nav="tenants", agent=detail["agent"], error=str(e),
@@ -282,8 +282,8 @@ async def tenant_deactivate(request: Request, agent_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.services.console_queries import deactivate_agent
-    deactivate_agent(agent_id)
+    from app.services.console_queries import async_deactivate_agent
+    await async_deactivate_agent(agent_id)
     return RedirectResponse(f"/console/tenants/{agent_id}", status_code=303)
 
 
@@ -316,7 +316,7 @@ async def conversation_list(request: Request):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_recent_conversations, get_all_agents
+    from app.services.console_queries import async_get_recent_conversations, async_get_all_agents
 
     agent_filter = request.query_params.get("agent", "")
     channel_filter = request.query_params.get("channel", "")
@@ -324,12 +324,12 @@ async def conversation_list(request: Request):
 
     return _render(request, "conversations.html",
         page_title="Conversations", active_nav="conversations",
-        conversations=get_recent_conversations(
+        conversations=await async_get_recent_conversations(
             agent_id=agent_filter or None,
             channel=channel_filter or None,
             search=search or None, limit=100,
         ),
-        agents=get_all_agents(),
+        agents=await async_get_all_agents(),
         agent_filter=agent_filter, channel_filter=channel_filter, search=search,
     )
 
@@ -340,8 +340,8 @@ async def conversation_detail(request: Request, conversation_id: str):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_conversation_detail
-    detail = get_conversation_detail(conversation_id)
+    from app.services.console_queries import async_get_conversation_detail
+    detail = await async_get_conversation_detail(conversation_id)
     if not detail:
         return RedirectResponse("/console/conversations", status_code=303)
 
@@ -360,18 +360,18 @@ async def trigger_list(request: Request):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_trigger_queue, get_all_agents
+    from app.services.console_queries import async_get_trigger_queue, async_get_all_agents
 
     status_filter = request.query_params.get("status", "pending")
     agent_filter = request.query_params.get("agent", "")
 
     return _render(request, "triggers.html",
         page_title="Triggers", active_nav="triggers",
-        triggers=get_trigger_queue(
+        triggers=await async_get_trigger_queue(
             status=status_filter if status_filter != "all" else None,
             agent_id=agent_filter or None,
         ),
-        agents=get_all_agents(),
+        agents=await async_get_all_agents(),
         status_filter=status_filter, agent_filter=agent_filter,
     )
 
