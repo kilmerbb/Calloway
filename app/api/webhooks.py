@@ -194,12 +194,12 @@ async def twilio_status(request: Request):
                 extra={"tool_name": "twilio_status"})
 
     if message_sid:
-        from app.db.connection import get_db_connection
+        from app.db.connection import get_async_db_connection
 
         try:
-            with get_db_connection() as conn:
+            async with get_async_db_connection() as conn:
                 if status in ("delivered", "read"):
-                    conn.execute(
+                    await conn.execute(
                         """UPDATE messages
                            SET delivery_status = %s, delivered_at = now()
                            WHERE provider_message_id = %s""",
@@ -207,7 +207,7 @@ async def twilio_status(request: Request):
                     )
                 elif status in ("failed", "undelivered"):
                     failure = f"{error_code}: {error_message}" if error_code else error_message
-                    conn.execute(
+                    await conn.execute(
                         """UPDATE messages
                            SET delivery_status = %s, failure_reason = %s
                            WHERE provider_message_id = %s""",
@@ -215,14 +215,15 @@ async def twilio_status(request: Request):
                     )
 
                     # Notify agent of delivery failure
-                    msg = conn.execute(
+                    cur = await conn.execute(
                         """SELECT m.agent_id, c.name as contact_name
                            FROM messages m
                            JOIN conversations cv ON cv.id = m.conversation_id
                            LEFT JOIN contacts c ON c.id = cv.contact_id
                            WHERE m.provider_message_id = %s""",
                         [message_sid],
-                    ).fetchone()
+                    )
+                    msg = await cur.fetchone()
                     if msg:
                         logger.warning(
                             "Message delivery failed to %s: %s",
@@ -231,13 +232,13 @@ async def twilio_status(request: Request):
                         )
                 else:
                     # queued, sent, sending — intermediate statuses
-                    conn.execute(
+                    await conn.execute(
                         """UPDATE messages
                            SET delivery_status = %s
                            WHERE provider_message_id = %s""",
                         [status, message_sid],
                     )
-                conn.commit()
+                await conn.commit()
         except Exception as e:
             logger.error("Failed to update delivery status: %s", e, exc_info=True)
 
@@ -425,7 +426,7 @@ async def email_inbound(request: Request, background_tasks: BackgroundTasks):
     payload = dict(form_data)
 
     to_address = payload.get("to", "")
-    agent = _resolve_agent_from_email(to_address)
+    agent = await _resolve_agent_from_email(to_address)
     if agent is None:
         logger.warning("No agent found for email address: %s", to_address)
         return {"status": "no_agent"}
@@ -434,9 +435,9 @@ async def email_inbound(request: Request, background_tasks: BackgroundTasks):
     return {"status": "ok"}
 
 
-def _resolve_agent_from_email(to_address: str):
+async def _resolve_agent_from_email(to_address: str):
     """Find the agent whose email matches the To address."""
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
     from app.services.agent_config import get_agent_by_id
     from uuid import UUID
 
@@ -445,11 +446,12 @@ def _resolve_agent_from_email(to_address: str):
         email = to_address.split("<")[1].rstrip(">").strip()
 
     try:
-        with get_db_connection() as conn:
-            row = conn.execute(
+        async with get_async_db_connection() as conn:
+            cur = await conn.execute(
                 "SELECT id FROM agents WHERE email = %s",
                 [email],
-            ).fetchone()
+            )
+            row = await cur.fetchone()
         if row:
             return get_agent_by_id(UUID(str(row["id"])))
     except Exception as e:
