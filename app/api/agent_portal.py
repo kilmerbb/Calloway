@@ -113,6 +113,13 @@ def _render(request: Request, template: str, **ctx):
     return templates.TemplateResponse(request, template, ctx)
 
 
+def _check_csrf(request: Request, csrf_token: str | None) -> Response | None:
+    """Return 403 if CSRF token is invalid, else None."""
+    if not validate_csrf_token(request, csrf_token):
+        return Response("CSRF validation failed", status_code=403)
+    return None
+
+
 def _get_agent(agent_id: str):
     from app.services.agent_config import get_agent_by_id
     return get_agent_by_id(UUID(agent_id))
