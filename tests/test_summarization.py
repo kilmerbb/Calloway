@@ -212,7 +212,7 @@ class TestGenerateOrUpdateSummary:
 
 class TestAssemblerWithSummary:
     @patch("app.pipeline.assembler._load_conversation_history")
-    @patch("app.pipeline.assembler.get_conversation_summary")
+    @patch("app.services.summarization_service.get_conversation_summary")
     def test_loads_summary_and_fewer_messages(self, mock_summary, mock_history):
         """When a summary exists, load fewer recent messages."""
         summary = _make_summary()
@@ -225,7 +225,7 @@ class TestAssemblerWithSummary:
         mock_history.assert_called_once_with(AGENT_ID, CONTACT_ID, limit=RECENT_MESSAGES_WITH_SUMMARY)
 
     @patch("app.pipeline.assembler._load_conversation_history")
-    @patch("app.pipeline.assembler.get_conversation_summary")
+    @patch("app.services.summarization_service.get_conversation_summary")
     def test_no_summary_loads_default_messages(self, mock_summary, mock_history):
         """When no summary, load the default 20 messages."""
         mock_summary.return_value = None
@@ -237,7 +237,7 @@ class TestAssemblerWithSummary:
         mock_history.assert_called_once_with(AGENT_ID, CONTACT_ID, limit=20)
 
     @patch("app.pipeline.assembler._load_conversation_history")
-    @patch("app.pipeline.assembler.get_conversation_summary")
+    @patch("app.services.summarization_service.get_conversation_summary")
     def test_summary_lookup_failure_falls_back(self, mock_summary, mock_history):
         """If summary lookup fails, fall back to standard behavior."""
         mock_summary.side_effect = Exception("DB error")
@@ -283,8 +283,8 @@ class TestAssemblerWithSummary:
 # ── Dispatcher hook ─────────────────────────────────────────────
 
 class TestDispatcherSummarizationHook:
-    @patch("app.pipeline.dispatcher.generate_or_update_summary")
-    @patch("app.pipeline.dispatcher.should_summarize")
+    @patch("app.services.summarization_service.generate_or_update_summary")
+    @patch("app.services.summarization_service.should_summarize")
     def test_summarize_called_when_needed(self, mock_should, mock_generate):
         from app.pipeline.dispatcher import _maybe_summarize_conversation
 
@@ -296,7 +296,7 @@ class TestDispatcherSummarizationHook:
         mock_should.assert_called_once_with(AGENT_ID, CONTACT_ID)
         mock_generate.assert_called_once_with(AGENT_ID, CONTACT_ID)
 
-    @patch("app.pipeline.dispatcher.should_summarize")
+    @patch("app.services.summarization_service.should_summarize")
     def test_summarize_skipped_when_not_needed(self, mock_should):
         from app.pipeline.dispatcher import _maybe_summarize_conversation
 
@@ -306,7 +306,7 @@ class TestDispatcherSummarizationHook:
 
         mock_should.assert_called_once()
 
-    @patch("app.pipeline.dispatcher.should_summarize")
+    @patch("app.services.summarization_service.should_summarize")
     def test_summarize_failure_is_non_fatal(self, mock_should):
         from app.pipeline.dispatcher import _maybe_summarize_conversation
 
