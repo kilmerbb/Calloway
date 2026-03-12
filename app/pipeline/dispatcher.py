@@ -103,6 +103,10 @@ def dispatch(
     # 6. Update usage metrics
     _update_usage_metrics(agent.id, event, decision, is_agent_command)
 
+    # 7. Trigger conversation summarization (non-blocking)
+    if contact and not is_agent_command:
+        _maybe_summarize_conversation(agent.id, contact.id)
+
 
 def _send_notification(agent: AgentConfig, notif: dict, contact: Contact | None):
     """Send a push notification to the agent."""
@@ -291,3 +295,28 @@ def _maybe_append_feedback_prompt(
         logger.debug(f"Feedback pulse check skipped: {e}")
 
     return response_text
+
+
+def _maybe_summarize_conversation(agent_id: UUID, contact_id: UUID) -> None:
+    """Check if conversation needs summarization and generate/update if so.
+
+    This runs synchronously after dispatch. The summarization call uses Haiku
+    which is fast (~200-400ms), so it adds minimal latency. If it fails,
+    the error is logged and the next request falls back to recent-messages-only.
+    """
+    try:
+        from app.services.summarization_service import (
+            should_summarize,
+            generate_or_update_summary,
+        )
+
+        if should_summarize(agent_id, contact_id):
+            summary = generate_or_update_summary(agent_id, contact_id)
+            if summary:
+                logger.info(
+                    f"Conversation summary updated for contact {contact_id}: "
+                    f"{summary.messages_summarized_count} msgs summarized"
+                )
+    except Exception as e:
+        # Non-fatal — assembler will fall back to recent messages only
+        logger.warning(f"Conversation summarization skipped: {e}")
