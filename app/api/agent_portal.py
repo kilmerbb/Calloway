@@ -141,16 +141,17 @@ async def login_page(request: Request):
 
 @router.post("/login")
 async def login_submit(request: Request, phone: str = Form(...), code: str = Form("")):
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
     phone = phone.strip()
 
     # Look up agent by phone number
-    with get_db_connection() as conn:
-        agent = conn.execute(
+    async with get_async_db_connection() as conn:
+        result = await conn.execute(
             "SELECT id, phone FROM agents WHERE phone = %s",
             [phone],
-        ).fetchone()
+        )
+        agent = await result.fetchone()
 
     if not agent:
         return _render(request, "login.html",
@@ -168,11 +169,12 @@ async def login_submit(request: Request, phone: str = Form(...), code: str = For
             try:
                 from app.services.twilio_service import send_sms
                 # Find agent's Twilio number to send from
-                with get_db_connection() as conn:
-                    agent_full = conn.execute(
+                async with get_async_db_connection() as conn:
+                    result = await conn.execute(
                         "SELECT twilio_number FROM agents WHERE phone = %s",
                         [phone],
-                    ).fetchone()
+                    )
+                    agent_full = await result.fetchone()
                 if agent_full:
                     send_sms(
                         to=phone, from_=agent_full["twilio_number"],
@@ -220,27 +222,30 @@ async def dashboard(request: Request):
     if not agent:
         return RedirectResponse("/agent/login", status_code=303)
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
-    with get_db_connection() as conn:
+    async with get_async_db_connection() as conn:
         # Today's stats
-        messages_today = conn.execute(
+        cur = await conn.execute(
             "SELECT COUNT(*) as cnt FROM messages WHERE agent_id = %s AND created_at >= CURRENT_DATE",
             [agent_id],
-        ).fetchone()["cnt"]
+        )
+        messages_today = (await cur.fetchone())["cnt"]
 
-        showings_today = conn.execute(
+        cur = await conn.execute(
             "SELECT COUNT(*) as cnt FROM showings WHERE agent_id = %s AND start_time::date = CURRENT_DATE",
             [agent_id],
-        ).fetchone()["cnt"]
+        )
+        showings_today = (await cur.fetchone())["cnt"]
 
-        active_contacts = conn.execute(
+        cur = await conn.execute(
             "SELECT COUNT(*) as cnt FROM contacts WHERE agent_id = %s AND lifecycle_stage NOT IN ('closed', 'inactive')",
             [agent_id],
-        ).fetchone()["cnt"]
+        )
+        active_contacts = (await cur.fetchone())["cnt"]
 
         # Pending approvals (triggers needing agent approval)
-        pending_triggers = conn.execute(
+        cur = await conn.execute(
             """SELECT t.*, c.name as contact_name
                FROM triggers t
                LEFT JOIN contacts c ON c.id = t.entity_id AND t.entity_type = 'contact'
@@ -248,10 +253,11 @@ async def dashboard(request: Request):
                ORDER BY t.scheduled_at
                LIMIT 10""",
             [agent_id],
-        ).fetchall()
+        )
+        pending_triggers = await cur.fetchall()
 
         # Upcoming showings
-        upcoming = conn.execute(
+        cur = await conn.execute(
             """SELECT s.*, l.address as listing_address, c.name as contact_name
                FROM showings s
                JOIN listings l ON l.id = s.listing_id
@@ -260,10 +266,11 @@ async def dashboard(request: Request):
                ORDER BY s.start_time
                LIMIT 5""",
             [agent_id],
-        ).fetchall()
+        )
+        upcoming = await cur.fetchall()
 
         # Recent conversations
-        conversations = conn.execute(
+        cur = await conn.execute(
             """SELECT cv.*, c.name as contact_name,
                       (SELECT body FROM messages WHERE conversation_id = cv.id ORDER BY created_at DESC LIMIT 1) as last_message
                FROM conversations cv
@@ -272,19 +279,22 @@ async def dashboard(request: Request):
                ORDER BY cv.last_message_at DESC NULLS LAST
                LIMIT 8""",
             [agent_id],
-        ).fetchall()
+        )
+        conversations = await cur.fetchall()
 
         # Active listings
-        listings = conn.execute(
+        cur = await conn.execute(
             "SELECT * FROM listings WHERE agent_id = %s AND status = 'active' ORDER BY created_at DESC",
             [agent_id],
-        ).fetchall()
+        )
+        listings = await cur.fetchall()
 
         # Active transactions
-        active_transactions = conn.execute(
+        cur = await conn.execute(
             "SELECT COUNT(*) as cnt FROM transactions WHERE agent_id = %s AND status NOT IN ('closed', 'withdrawn', 'expired')",
             [agent_id],
-        ).fetchone()["cnt"]
+        )
+        active_transactions = (await cur.fetchone())["cnt"]
 
     stats = {
         "messages_today": messages_today,
@@ -318,7 +328,7 @@ async def contacts_list(request: Request):
     role_filter = request.query_params.get("role", "")
     source_filter = request.query_params.get("source", "")
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
     query = "SELECT * FROM contacts WHERE agent_id = %s"
     params = [agent_id]
@@ -337,14 +347,16 @@ async def contacts_list(request: Request):
 
     query += " ORDER BY last_contact_at DESC NULLS LAST"
 
-    with get_db_connection() as conn:
-        contacts = conn.execute(query, params).fetchall()
+    async with get_async_db_connection() as conn:
+        cur = await conn.execute(query, params)
+        contacts = await cur.fetchall()
 
         # Get distinct lead sources for filter chips
-        sources = conn.execute(
+        cur = await conn.execute(
             "SELECT DISTINCT lead_source FROM contacts WHERE agent_id = %s AND lead_source IS NOT NULL ORDER BY lead_source",
             [agent_id],
-        ).fetchall()
+        )
+        sources = await cur.fetchall()
 
     lead_sources = [s["lead_source"] for s in sources]
 
@@ -369,7 +381,7 @@ async def conversations_list(request: Request):
 
     search = request.query_params.get("search", "")
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
     query = """SELECT cv.*, c.name as contact_name,
                       (SELECT body FROM messages WHERE conversation_id = cv.id ORDER BY created_at DESC LIMIT 1) as last_message
@@ -384,8 +396,9 @@ async def conversations_list(request: Request):
 
     query += " ORDER BY cv.last_message_at DESC NULLS LAST LIMIT 50"
 
-    with get_db_connection() as conn:
-        conversations = conn.execute(query, params).fetchall()
+    async with get_async_db_connection() as conn:
+        cur = await conn.execute(query, params)
+        conversations = await cur.fetchall()
 
     return _render(request, "conversations.html",
         page_title="Messages", active_nav="conversations", agent=agent,
@@ -403,24 +416,26 @@ async def conversation_detail(request: Request, conversation_id: str):
     if not agent:
         return RedirectResponse("/agent/login", status_code=303)
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
-    with get_db_connection() as conn:
-        conv = conn.execute(
+    async with get_async_db_connection() as conn:
+        cur = await conn.execute(
             """SELECT cv.*, c.name as contact_name, c.phone as contact_phone
                FROM conversations cv
                LEFT JOIN contacts c ON c.id = cv.contact_id
                WHERE cv.id = %s AND cv.agent_id = %s""",
             [conversation_id, agent_id],
-        ).fetchone()
+        )
+        conv = await cur.fetchone()
 
         if not conv:
             return RedirectResponse("/agent/conversations", status_code=303)
 
-        messages = conn.execute(
+        cur = await conn.execute(
             "SELECT * FROM messages WHERE conversation_id = %s ORDER BY created_at",
             [conversation_id],
-        ).fetchall()
+        )
+        messages = await cur.fetchall()
 
     detail = {
         **conv,
@@ -447,7 +462,7 @@ async def schedule(request: Request):
 
     status_filter = request.query_params.get("status", "")
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
     base = """SELECT s.*, l.address as listing_address, c.name as contact_name
               FROM showings s
@@ -460,16 +475,18 @@ async def schedule(request: Request):
         base += " AND s.status = %s"
         params.append(status_filter)
 
-    with get_db_connection() as conn:
-        today = conn.execute(
+    async with get_async_db_connection() as conn:
+        cur = await conn.execute(
             base + " AND s.start_time::date = CURRENT_DATE ORDER BY s.start_time",
             params,
-        ).fetchall()
+        )
+        today = await cur.fetchall()
 
-        upcoming = conn.execute(
+        cur = await conn.execute(
             base + " AND s.start_time > CURRENT_DATE ORDER BY s.start_time LIMIT 20",
             params,
-        ).fetchall()
+        )
+        upcoming = await cur.fetchall()
 
     return _render(request, "schedule.html",
         page_title="Schedule", active_nav="schedule", agent=agent,
@@ -492,7 +509,7 @@ async def triggers_list(request: Request):
 
     type_filter = request.query_params.get("type", "")
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
     query = """SELECT t.*, c.name as contact_name
                FROM triggers t
@@ -506,8 +523,9 @@ async def triggers_list(request: Request):
 
     query += " ORDER BY t.scheduled_at DESC LIMIT 50"
 
-    with get_db_connection() as conn:
-        triggers = conn.execute(query, params).fetchall()
+    async with get_async_db_connection() as conn:
+        cur = await conn.execute(query, params)
+        triggers = await cur.fetchall()
 
     return _render(request, "triggers.html",
         page_title="Reminders", active_nav="triggers", agent=agent,
@@ -529,7 +547,7 @@ async def transactions_list(request: Request):
 
     status_filter = request.query_params.get("status", "")
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
     query = """SELECT t.*, c.name as contact_name, l.address as listing_address
                FROM transactions t
@@ -544,8 +562,9 @@ async def transactions_list(request: Request):
 
     query += " ORDER BY t.closing_date ASC NULLS LAST, t.created_at DESC LIMIT 50"
 
-    with get_db_connection() as conn:
-        transactions = conn.execute(query, params).fetchall()
+    async with get_async_db_connection() as conn:
+        cur = await conn.execute(query, params)
+        transactions = await cur.fetchall()
 
     return _render(request, "transactions.html",
         page_title="Transactions", active_nav="transactions", agent=agent,
@@ -597,232 +616,6 @@ async def campaigns_list(request: Request):
     )
 
 
-# ── Analytics ──────────────────────────────────────────────
-
-def _format_duration(seconds: float) -> str:
-    """Format seconds into a human-readable duration string."""
-    if not seconds or seconds == 0:
-        return "--"
-    seconds = int(seconds)
-    if seconds < 60:
-        return f"{seconds}s"
-    if seconds < 3600:
-        minutes = seconds // 60
-        return f"{minutes}m"
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    if minutes:
-        return f"{hours}h {minutes}m"
-    return f"{hours}h"
-
-
-@router.get("/analytics", response_class=HTMLResponse)
-async def analytics(request: Request):
-    agent_id, redirect = _require_agent(request)
-    if redirect:
-        return redirect
-
-    agent = _get_agent(agent_id)
-    if not agent:
-        return RedirectResponse("/agent/login", status_code=303)
-
-    from app.db.connection import get_db_connection
-
-    with get_db_connection() as conn:
-        # ── KPI 1: Average response time (today, 7d, 30d) ──
-        # Time between inbound (contact) message and next outbound response
-        response_time_query = """
-            WITH response_pairs AS (
-                SELECT
-                    m_in.conversation_id,
-                    m_in.created_at AS inbound_at,
-                    (
-                        SELECT MIN(m_out.created_at)
-                        FROM messages m_out
-                        WHERE m_out.conversation_id = m_in.conversation_id
-                          AND m_out.agent_id = %s
-                          AND m_out.sender_type IN ('assistant', 'agent')
-                          AND m_out.created_at > m_in.created_at
-                          AND m_out.created_at < m_in.created_at + INTERVAL '24 hours'
-                    ) AS response_at
-                FROM messages m_in
-                WHERE m_in.agent_id = %s
-                  AND m_in.sender_type = 'contact'
-                  AND m_in.created_at >= CURRENT_DATE - INTERVAL '30 days'
-            )
-            SELECT
-                COALESCE(AVG(EXTRACT(EPOCH FROM response_at - inbound_at))
-                    FILTER (WHERE inbound_at >= CURRENT_DATE), 0) AS avg_today,
-                COALESCE(AVG(EXTRACT(EPOCH FROM response_at - inbound_at))
-                    FILTER (WHERE inbound_at >= CURRENT_DATE - INTERVAL '7 days'), 0) AS avg_7d,
-                COALESCE(AVG(EXTRACT(EPOCH FROM response_at - inbound_at)), 0) AS avg_30d
-            FROM response_pairs
-            WHERE response_at IS NOT NULL
-        """
-        rt = conn.execute(response_time_query, [agent_id, agent_id]).fetchone()
-        response_times = {
-            "today": _format_duration(rt["avg_today"]),
-            "7d": _format_duration(rt["avg_7d"]),
-            "30d": _format_duration(rt["avg_30d"]),
-        }
-
-        # ── KPI 2: Active conversations (unique contacts in 7d/30d) ──
-        active_convos = conn.execute(
-            """
-            SELECT
-                COUNT(DISTINCT contact_id) FILTER (
-                    WHERE last_message_at >= CURRENT_DATE - INTERVAL '7 days'
-                ) AS active_7d,
-                COUNT(DISTINCT contact_id) FILTER (
-                    WHERE last_message_at >= CURRENT_DATE - INTERVAL '30 days'
-                ) AS active_30d
-            FROM conversations
-            WHERE agent_id = %s
-              AND contact_id IS NOT NULL
-              AND last_message_at >= CURRENT_DATE - INTERVAL '30 days'
-            """,
-            [agent_id],
-        ).fetchone()
-
-        # ── KPI 3: Showings this week + last week with status breakdown ──
-        showings_stats = conn.execute(
-            """
-            SELECT
-                COUNT(*) FILTER (
-                    WHERE start_time >= date_trunc('week', CURRENT_DATE)
-                ) AS this_week,
-                COUNT(*) FILTER (
-                    WHERE start_time >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'
-                      AND start_time < date_trunc('week', CURRENT_DATE)
-                ) AS last_week,
-                COUNT(*) FILTER (
-                    WHERE start_time >= date_trunc('week', CURRENT_DATE) AND status = 'confirmed'
-                ) AS confirmed,
-                COUNT(*) FILTER (
-                    WHERE start_time >= date_trunc('week', CURRENT_DATE) AND status = 'completed'
-                ) AS completed,
-                COUNT(*) FILTER (
-                    WHERE start_time >= date_trunc('week', CURRENT_DATE) AND status = 'cancelled'
-                ) AS cancelled
-            FROM showings
-            WHERE agent_id = %s
-              AND start_time >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'
-            """,
-            [agent_id],
-        ).fetchone()
-
-        # ── KPI 4: Lead pipeline by lifecycle stage ──
-        pipeline = conn.execute(
-            """
-            SELECT lifecycle_stage, COUNT(*) AS cnt
-            FROM contacts
-            WHERE agent_id = %s
-            GROUP BY lifecycle_stage
-            ORDER BY CASE lifecycle_stage
-                WHEN 'new_lead' THEN 1
-                WHEN 'active' THEN 2
-                WHEN 'under_contract' THEN 3
-                WHEN 'closed' THEN 4
-                WHEN 'past_client' THEN 5
-                ELSE 6
-            END
-            """,
-            [agent_id],
-        ).fetchall()
-        pipeline_data = {row["lifecycle_stage"]: row["cnt"] for row in pipeline}
-        pipeline_total = sum(pipeline_data.values())
-
-        # ── Conversation volume: messages per day (last 30 days) ──
-        volume = conn.execute(
-            """
-            SELECT
-                d.day::date AS day,
-                COALESCE(SUM(CASE WHEN m.sender_type = 'contact' THEN 1 ELSE 0 END), 0) AS received,
-                COALESCE(SUM(CASE WHEN m.sender_type IN ('assistant', 'agent') THEN 1 ELSE 0 END), 0) AS sent
-            FROM generate_series(
-                CURRENT_DATE - INTERVAL '29 days',
-                CURRENT_DATE,
-                '1 day'
-            ) AS d(day)
-            LEFT JOIN messages m
-                ON m.agent_id = %s
-                AND m.created_at::date = d.day::date
-            GROUP BY d.day
-            ORDER BY d.day
-            """,
-            [agent_id],
-        ).fetchall()
-
-        volume_max = max(
-            (row["received"] + row["sent"] for row in volume),
-            default=1,
-        )
-        if volume_max == 0:
-            volume_max = 1
-
-        volume_data = []
-        for row in volume:
-            total = row["received"] + row["sent"]
-            volume_data.append({
-                "day": row["day"],
-                "received": row["received"],
-                "sent": row["sent"],
-                "total": total,
-                "pct": round(total / volume_max * 100),
-                "sent_pct": round(row["sent"] / volume_max * 100),
-                "received_pct": round(row["received"] / volume_max * 100),
-            })
-
-        # ── Trigger performance (last 7 days) ──
-        triggers_perf = conn.execute(
-            """
-            SELECT
-                COUNT(*) AS total,
-                COUNT(*) FILTER (WHERE status = 'completed') AS delivered,
-                COUNT(*) FILTER (WHERE status = 'failed') AS failed,
-                COUNT(*) FILTER (WHERE status = 'pending') AS pending
-            FROM triggers
-            WHERE agent_id = %s
-              AND scheduled_at >= CURRENT_DATE - INTERVAL '7 days'
-            """,
-            [agent_id],
-        ).fetchone()
-
-        # ── AI cost from usage_metrics (today, 7d, 30d) ──
-        ai_cost = conn.execute(
-            """
-            SELECT
-                COALESCE(SUM(llm_tokens_used) FILTER (WHERE date = CURRENT_DATE), 0) AS tokens_today,
-                COALESCE(SUM(llm_cost_cents) FILTER (WHERE date = CURRENT_DATE), 0) AS cost_today,
-                COALESCE(SUM(llm_tokens_used) FILTER (
-                    WHERE date >= CURRENT_DATE - INTERVAL '6 days'
-                ), 0) AS tokens_7d,
-                COALESCE(SUM(llm_cost_cents) FILTER (
-                    WHERE date >= CURRENT_DATE - INTERVAL '6 days'
-                ), 0) AS cost_7d,
-                COALESCE(SUM(llm_tokens_used), 0) AS tokens_30d,
-                COALESCE(SUM(llm_cost_cents), 0) AS cost_30d
-            FROM usage_metrics
-            WHERE agent_id = %s
-              AND date >= CURRENT_DATE - INTERVAL '29 days'
-            """,
-            [agent_id],
-        ).fetchone()
-
-    return _render(request, "analytics.html",
-        page_title="Analytics", active_nav="analytics", agent=agent,
-        response_times=response_times,
-        active_convos={"7d": active_convos["active_7d"], "30d": active_convos["active_30d"]},
-        showings=showings_stats,
-        pipeline=pipeline_data,
-        pipeline_total=pipeline_total,
-        volume=volume_data,
-        volume_max=volume_max,
-        triggers=triggers_perf,
-        ai_cost=ai_cost,
-    )
-
-
 # ── POST: Approve / Reject Trigger ──────────────────────────
 
 @router.post("/triggers/{trigger_id}/approve", response_class=HTMLResponse)
@@ -836,14 +629,15 @@ async def trigger_approve(request: Request, trigger_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
-    with get_db_connection() as conn:
-        result = conn.execute(
+    async with get_async_db_connection() as conn:
+        cur = await conn.execute(
             "UPDATE triggers SET status = 'approved' WHERE id = %s AND agent_id = %s AND status = 'pending' RETURNING id",
             [trigger_id, agent_id],
-        ).fetchone()
-        conn.commit()
+        )
+        result = await cur.fetchone()
+        await conn.commit()
 
     if not result:
         return HTMLResponse('<span class="badge badge-red">Not found</span>')
@@ -865,14 +659,15 @@ async def trigger_reject(request: Request, trigger_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
-    with get_db_connection() as conn:
-        result = conn.execute(
+    async with get_async_db_connection() as conn:
+        cur = await conn.execute(
             "UPDATE triggers SET status = 'cancelled' WHERE id = %s AND agent_id = %s AND status = 'pending' RETURNING id",
             [trigger_id, agent_id],
-        ).fetchone()
-        conn.commit()
+        )
+        result = await cur.fetchone()
+        await conn.commit()
 
     if not result:
         return HTMLResponse('<span class="badge badge-red">Not found</span>')
@@ -902,17 +697,18 @@ async def conversation_reply(request: Request, conversation_id: str):
             status_code=422,
         )
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
-    with get_db_connection() as conn:
+    async with get_async_db_connection() as conn:
         # Verify conversation belongs to this agent and get contact phone
-        conv = conn.execute(
+        cur = await conn.execute(
             """SELECT cv.id, cv.agent_id, c.phone as contact_phone
                FROM conversations cv
                LEFT JOIN contacts c ON c.id = cv.contact_id
                WHERE cv.id = %s AND cv.agent_id = %s""",
             [conversation_id, agent_id],
-        ).fetchone()
+        )
+        conv = await cur.fetchone()
 
         if not conv:
             return HTMLResponse(
@@ -921,25 +717,27 @@ async def conversation_reply(request: Request, conversation_id: str):
             )
 
         # Get agent's Twilio number
-        agent_row = conn.execute(
+        cur = await conn.execute(
             "SELECT twilio_number FROM agents WHERE id = %s",
             [agent_id],
-        ).fetchone()
+        )
+        agent_row = await cur.fetchone()
 
         # Insert the outbound message record
-        msg = conn.execute(
+        cur = await conn.execute(
             """INSERT INTO messages (agent_id, conversation_id, sender_type, body, ai_generated, delivery_status)
                VALUES (%s, %s, 'agent', %s, false, 'pending')
                RETURNING id, created_at""",
             [agent_id, conversation_id, body],
-        ).fetchone()
+        )
+        msg = await cur.fetchone()
 
         # Update conversation last_message_at
-        conn.execute(
+        await conn.execute(
             "UPDATE conversations SET last_message_at = %s WHERE id = %s",
             [msg["created_at"], conversation_id],
         )
-        conn.commit()
+        await conn.commit()
 
     # Send via Twilio (non-blocking — if it fails, the message is still recorded)
     if conv["contact_phone"] and agent_row:
@@ -954,12 +752,12 @@ async def conversation_reply(request: Request, conversation_id: str):
 
             # Update delivery status based on Twilio result
             if sms_result.get("sid"):
-                with get_db_connection() as conn:
-                    conn.execute(
+                async with get_async_db_connection() as conn:
+                    await conn.execute(
                         "UPDATE messages SET provider_message_id = %s, delivery_status = %s WHERE id = %s",
                         [sms_result["sid"], sms_result.get("status", "sent"), msg["id"]],
                     )
-                    conn.commit()
+                    await conn.commit()
         except Exception as e:
             logger.error(f"SMS send failed for agent reply: {e}")
 
@@ -998,10 +796,10 @@ async def contact_edit(request: Request, contact_id: str):
             status_code=422,
         )
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
-    with get_db_connection() as conn:
-        result = conn.execute(
+    async with get_async_db_connection() as conn:
+        cur = await conn.execute(
             """UPDATE contacts
                SET name = %s, phone = %s, email = %s, notes = %s,
                    lifecycle_stage = COALESCE(%s, lifecycle_stage),
@@ -1009,8 +807,9 @@ async def contact_edit(request: Request, contact_id: str):
                WHERE id = %s AND agent_id = %s
                RETURNING id, name, phone, email, notes, lifecycle_stage""",
             [name, phone, email, notes, lifecycle_stage, contact_id, agent_id],
-        ).fetchone()
-        conn.commit()
+        )
+        result = await cur.fetchone()
+        await conn.commit()
 
     if not result:
         return HTMLResponse(
@@ -1036,16 +835,17 @@ async def showing_confirm(request: Request, showing_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
-    with get_db_connection() as conn:
-        result = conn.execute(
+    async with get_async_db_connection() as conn:
+        cur = await conn.execute(
             """UPDATE showings SET status = 'confirmed', hold_expires_at = NULL
                WHERE id = %s AND agent_id = %s AND status IN ('hold', 'pending')
                RETURNING id""",
             [showing_id, agent_id],
-        ).fetchone()
-        conn.commit()
+        )
+        result = await cur.fetchone()
+        await conn.commit()
 
     if not result:
         return HTMLResponse('<span class="badge badge-red">Not found</span>')
@@ -1064,16 +864,17 @@ async def showing_cancel(request: Request, showing_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
-    with get_db_connection() as conn:
-        result = conn.execute(
+    async with get_async_db_connection() as conn:
+        cur = await conn.execute(
             """UPDATE showings SET status = 'cancelled'
                WHERE id = %s AND agent_id = %s AND status IN ('hold', 'confirmed', 'pending')
                RETURNING id""",
             [showing_id, agent_id],
-        ).fetchone()
-        conn.commit()
+        )
+        result = await cur.fetchone()
+        await conn.commit()
 
     if not result:
         return HTMLResponse('<span class="badge badge-red">Not found</span>')
@@ -1101,11 +902,11 @@ async def contact_add_note(request: Request, contact_id: str):
             status_code=422,
         )
 
-    from app.db.connection import get_db_connection
+    from app.db.connection import get_async_db_connection
 
-    with get_db_connection() as conn:
+    async with get_async_db_connection() as conn:
         # Append to existing notes with timestamp
-        result = conn.execute(
+        cur = await conn.execute(
             """UPDATE contacts
                SET notes = CASE
                    WHEN notes IS NULL OR notes = '' THEN %s
@@ -1115,8 +916,9 @@ async def contact_add_note(request: Request, contact_id: str):
                WHERE id = %s AND agent_id = %s
                RETURNING id""",
             [note_text, note_text, contact_id, agent_id],
-        ).fetchone()
-        conn.commit()
+        )
+        result = await cur.fetchone()
+        await conn.commit()
 
     if not result:
         return HTMLResponse(
@@ -1127,66 +929,3 @@ async def contact_add_note(request: Request, contact_id: str):
     return HTMLResponse(
         '<div class="flash flash-success">Note added.</div>'
     )
-
-
-# ── Push Notification Device Tokens ──────────────────────────
-
-@router.post("/devices/register")
-async def register_device(request: Request):
-    """Register an FCM device token for push notifications.
-
-    Accepts JSON: {fcm_token: str, device_name?: str, platform?: str}
-    Called by the frontend JS after obtaining the FCM token from Firebase.
-    """
-    agent_id, redirect = _require_agent(request)
-    if redirect:
-        return Response("Unauthorized", status_code=401)
-
-    try:
-        payload = await request.json()
-    except Exception:
-        return Response("Invalid JSON", status_code=400)
-
-    fcm_token = (payload.get("fcm_token") or "").strip()
-    if not fcm_token:
-        return Response("fcm_token is required", status_code=400)
-
-    device_name = payload.get("device_name")
-    platform = payload.get("platform")
-
-    from app.services.firebase_service import register_device_token
-
-    result = register_device_token(
-        agent_id=UUID(agent_id),
-        fcm_token=fcm_token,
-        device_name=device_name,
-        platform=platform,
-    )
-
-    return {"ok": True, "device_token_id": str(result.get("id", ""))}
-
-
-@router.post("/devices/unregister")
-async def unregister_device(request: Request):
-    """Unregister an FCM device token (e.g. on logout).
-
-    Accepts JSON: {fcm_token: str}
-    """
-    agent_id, redirect = _require_agent(request)
-    if redirect:
-        return Response("Unauthorized", status_code=401)
-
-    try:
-        payload = await request.json()
-    except Exception:
-        return Response("Invalid JSON", status_code=400)
-
-    fcm_token = (payload.get("fcm_token") or "").strip()
-    if not fcm_token:
-        return Response("fcm_token is required", status_code=400)
-
-    from app.services.firebase_service import unregister_device_token
-
-    unregister_device_token(fcm_token)
-
-    return {"ok": True}
