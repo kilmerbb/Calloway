@@ -1,16 +1,17 @@
 /* Operator Console — Solo Realtor AI */
 :root {
-    --bg: #0f172a;
-    --bg-card: #1e293b;
-    --bg-hover: #334155;
-    --border: #334155;
-    --text: #e2e8f0;
-    --text-muted: #94a3b8;
-    --accent: #3b82f6;
-    --accent-hover: #2563eb;
-    --green: #22c55e;
-    --yellow: #eab308;
-    --red: #ef4444;
+    --bg: #121212;
+    --bg-card: #181818;
+    --bg-hover: #282828;
+    --border: #333333;
+    --text: #FFFFFF;
+    --text-muted: #B3B3B3;
+    --text-subdued: #A7A7A7;
+    --accent: #1ED760;
+    --accent-hover: #1DB954;
+    --green: #1ED760;
+    --yellow: #FFA42B;
+    --red: #E91429;
     --sidebar-w: 220px;
 }
 
@@ -56,7 +57,7 @@ a:hover { text-decoration: underline; }
     transition: background 0.15s;
 }
 .nav-item:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
-.nav-item.active { color: var(--accent); background: rgba(59,130,246,0.1); border-right: 2px solid var(--accent); }
+.nav-item.active { color: var(--accent); background: rgba(30,215,96,0.1); border-right: 2px solid var(--accent); }
 
 .main-content {
     margin-left: var(--sidebar-w);
@@ -128,14 +129,14 @@ tr:hover td { background: var(--bg-hover); }
 .badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
 .badge-yellow { background: rgba(234,179,8,0.15); color: var(--yellow); }
 .badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
-.badge-blue { background: rgba(59,130,246,0.15); color: var(--accent); }
+.badge-blue { background: rgba(30,215,96,0.15); color: var(--accent); }
 .badge-gray { background: rgba(148,163,184,0.15); color: var(--text-muted); }
 
 /* Chat */
 .chat-thread { max-width: 700px; }
 .chat-msg { padding: 0.5rem 0.75rem; margin: 0.25rem 0; border-radius: 8px; max-width: 85%; }
 .chat-client { background: var(--bg-hover); }
-.chat-ai { background: rgba(59,130,246,0.1); margin-left: auto; }
+.chat-ai { background: rgba(30,215,96,0.1); margin-left: auto; }
 .chat-system { background: rgba(234,179,8,0.1); font-style: italic; font-size: 13px; }
 .chat-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
@@ -165,7 +166,7 @@ textarea { min-height: 80px; resize: vertical; }
     border: none;
     transition: background 0.15s;
 }
-.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary { background: var(--accent); color: #000; font-weight: 600; }
 .btn-primary:hover { background: var(--accent-hover); text-decoration: none; }
 .btn-danger { background: var(--red); color: #fff; }
 .btn-danger:hover { background: #dc2626; }
@@ -303,7 +304,7 @@ details summary:hover { color: var(--accent); }
 .option-card input[type="radio"],
 .option-card input[type="checkbox"] { margin-top: 3px; accent-color: var(--accent); }
 .option-card input:checked ~ .option-card-body { color: var(--text); }
-.option-card:has(input:checked) { border-color: var(--accent); background: rgba(59,130,246,0.05); }
+.option-card:has(input:checked) { border-color: var(--accent); background: rgba(30,215,96,0.05); }
 
 .option-card-body { display: flex; flex-direction: column; }
 .option-card-body strong { font-size: 14px; margin-bottom: 2px; }
