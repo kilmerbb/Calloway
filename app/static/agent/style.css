@@ -851,6 +851,140 @@ input:focus {
     .more-menu-backdrop { display: none !important; }
 }
 
+/* ---------- Interactive Action Buttons ---------- */
+.action-buttons {
+    display: inline-flex;
+    gap: var(--space-2);
+    align-items: center;
+}
+
+.btn-green {
+    background: var(--color-success);
+    color: white;
+}
+.btn-green:hover {
+    background: #1a8754;
+    color: white;
+}
+
+.btn-red {
+    background: var(--color-error);
+    color: white;
+}
+.btn-red:hover {
+    background: #c82333;
+    color: white;
+}
+
+/* ---------- Flash Messages ---------- */
+.flash {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-3);
+    font-size: 14px;
+    font-weight: 500;
+}
+.flash-success {
+    background: var(--color-success-soft);
+    color: var(--color-success);
+}
+.flash-error {
+    background: var(--color-error-soft);
+    color: var(--color-error);
+}
+
+/* ---------- Reply Form ---------- */
+.reply-form {
+    position: sticky;
+    bottom: 60px;
+    z-index: 10;
+    padding: var(--space-3);
+}
+.reply-input-row {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-end;
+}
+.reply-textarea {
+    flex: 1;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    font-size: 15px;
+    color: var(--color-text-primary);
+    resize: none;
+    min-height: 44px;
+    font-family: inherit;
+}
+.reply-textarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+.reply-send {
+    width: auto;
+    padding: var(--space-3) var(--space-5);
+    min-height: 44px;
+}
+
+/* ---------- Contact Expandable Panel ---------- */
+.contact-expandable {
+    cursor: pointer;
+}
+.contact-panel {
+    background: var(--color-bg-elevated);
+    border-left: 3px solid var(--color-accent);
+    padding: var(--space-4);
+    margin-bottom: var(--space-2);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+.contact-section {
+    margin-bottom: var(--space-3);
+}
+.contact-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: var(--space-2) 0;
+}
+.edit-form, .note-form {
+    padding: var(--space-3) 0;
+}
+.form-row {
+    margin-bottom: var(--space-3);
+}
+.form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-1);
+}
+.form-input {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-base);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    color: var(--color-text-primary);
+    font-family: inherit;
+    min-height: 36px;
+}
+.form-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+select.form-input {
+    appearance: auto;
+}
+textarea.form-input {
+    resize: vertical;
+}
+
 /* ---------- Reduced Motion ---------- */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
