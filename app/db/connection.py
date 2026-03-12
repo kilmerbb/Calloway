@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import quote_plus
 from uuid import UUID
 from typing import Any
 
@@ -17,8 +18,11 @@ def get_connection_string() -> str:
     settings = get_settings()
     if settings.ENVIRONMENT == "development":
         return "postgresql://postgres:postgres@localhost:5432/realtor_ai"
+    # Extract just the project ref (e.g. "ptgdqauzzlkbtqyaddim" from "https://ptgdqauzzlkbtqyaddim.supabase.co")
     host = settings.SUPABASE_URL.replace("https://", "").replace("http://", "")
-    return f"postgresql://postgres.{host}:{settings.SUPABASE_SERVICE_KEY}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+    project_ref = host.split(".")[0]
+    password = quote_plus(settings.SUPABASE_SERVICE_KEY)
+    return f"postgresql://postgres.{project_ref}:{password}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
 
 
 def init_pool(min_size: int = 2, max_size: int = 20) -> None:
