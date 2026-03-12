@@ -16,7 +16,7 @@ from app.api.console import router as console_router
 from app.api.harness import router as harness_router
 from app.api.billing import router as billing_router
 from app.api.agent_portal import router as agent_portal_router
-from app.db.connection import init_pool, close_pool
+from app.db.connection import init_pool, close_pool, init_async_pool, close_async_pool
 from app.services.redis_pool import get_redis_pool
 from app.pipeline.structured_logging import configure_logging, set_correlation_id
 
@@ -41,8 +41,10 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_pool()
-    logger.info("Database connection pool initialized")
+    await init_async_pool()
+    logger.info("Database connection pools initialized (sync + async)")
     yield
+    await close_async_pool()
     close_pool()
     pool = get_redis_pool()
     pool.close()

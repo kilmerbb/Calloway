@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     VAPI_WEBHOOK_SECRET: str = ""
 
     # Firebase
-    FIREBASE_SERVER_KEY: str = ""
+    FIREBASE_SERVER_KEY: str = ""  # Legacy — kept for backward compat
+    FIREBASE_CREDENTIALS_JSON: str = ""  # Service-account JSON (string or file path)
 
     # Stripe
     STRIPE_SECRET_KEY: str = ""
