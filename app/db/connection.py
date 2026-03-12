@@ -30,12 +30,17 @@ def init_pool(min_size: int = 2, max_size: int = 20) -> None:
     global _pool
     if _pool is not None:
         return
+    conninfo = get_connection_string()
+    logger.info("Connecting to DB pool...")
     _pool = ConnectionPool(
-        get_connection_string(),
+        conninfo,
         min_size=min_size,
         max_size=max_size,
         kwargs={"row_factory": dict_row},
+        open=False,  # Don't block startup waiting for connections
+        timeout=10,
     )
+    _pool.open(wait=False)  # Start filling pool in background
     logger.info(f"DB pool initialized (min={min_size}, max={max_size})")
 
 
