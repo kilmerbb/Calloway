@@ -595,3 +595,598 @@ async def campaigns_list(request: Request):
         page_title="Campaigns", active_nav="campaigns", agent=agent,
         campaigns=campaigns, enrollments=enrollments,
     )
+
+
+# ── Analytics ──────────────────────────────────────────────
+
+def _format_duration(seconds: float) -> str:
+    """Format seconds into a human-readable duration string."""
+    if not seconds or seconds == 0:
+        return "--"
+    seconds = int(seconds)
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        minutes = seconds // 60
+        return f"{minutes}m"
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    if minutes:
+        return f"{hours}h {minutes}m"
+    return f"{hours}h"
+
+
+@router.get("/analytics", response_class=HTMLResponse)
+async def analytics(request: Request):
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return redirect
+
+    agent = _get_agent(agent_id)
+    if not agent:
+        return RedirectResponse("/agent/login", status_code=303)
+
+    from app.db.connection import get_db_connection
+
+    with get_db_connection() as conn:
+        # ── KPI 1: Average response time (today, 7d, 30d) ──
+        # Time between inbound (contact) message and next outbound response
+        response_time_query = """
+            WITH response_pairs AS (
+                SELECT
+                    m_in.conversation_id,
+                    m_in.created_at AS inbound_at,
+                    (
+                        SELECT MIN(m_out.created_at)
+                        FROM messages m_out
+                        WHERE m_out.conversation_id = m_in.conversation_id
+                          AND m_out.agent_id = %s
+                          AND m_out.sender_type IN ('assistant', 'agent')
+                          AND m_out.created_at > m_in.created_at
+                          AND m_out.created_at < m_in.created_at + INTERVAL '24 hours'
+                    ) AS response_at
+                FROM messages m_in
+                WHERE m_in.agent_id = %s
+                  AND m_in.sender_type = 'contact'
+                  AND m_in.created_at >= CURRENT_DATE - INTERVAL '30 days'
+            )
+            SELECT
+                COALESCE(AVG(EXTRACT(EPOCH FROM response_at - inbound_at))
+                    FILTER (WHERE inbound_at >= CURRENT_DATE), 0) AS avg_today,
+                COALESCE(AVG(EXTRACT(EPOCH FROM response_at - inbound_at))
+                    FILTER (WHERE inbound_at >= CURRENT_DATE - INTERVAL '7 days'), 0) AS avg_7d,
+                COALESCE(AVG(EXTRACT(EPOCH FROM response_at - inbound_at)), 0) AS avg_30d
+            FROM response_pairs
+            WHERE response_at IS NOT NULL
+        """
+        rt = conn.execute(response_time_query, [agent_id, agent_id]).fetchone()
+        response_times = {
+            "today": _format_duration(rt["avg_today"]),
+            "7d": _format_duration(rt["avg_7d"]),
+            "30d": _format_duration(rt["avg_30d"]),
+        }
+
+        # ── KPI 2: Active conversations (unique contacts in 7d/30d) ──
+        active_convos = conn.execute(
+            """
+            SELECT
+                COUNT(DISTINCT contact_id) FILTER (
+                    WHERE last_message_at >= CURRENT_DATE - INTERVAL '7 days'
+                ) AS active_7d,
+                COUNT(DISTINCT contact_id) FILTER (
+                    WHERE last_message_at >= CURRENT_DATE - INTERVAL '30 days'
+                ) AS active_30d
+            FROM conversations
+            WHERE agent_id = %s
+              AND contact_id IS NOT NULL
+              AND last_message_at >= CURRENT_DATE - INTERVAL '30 days'
+            """,
+            [agent_id],
+        ).fetchone()
+
+        # ── KPI 3: Showings this week + last week with status breakdown ──
+        showings_stats = conn.execute(
+            """
+            SELECT
+                COUNT(*) FILTER (
+                    WHERE start_time >= date_trunc('week', CURRENT_DATE)
+                ) AS this_week,
+                COUNT(*) FILTER (
+                    WHERE start_time >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'
+                      AND start_time < date_trunc('week', CURRENT_DATE)
+                ) AS last_week,
+                COUNT(*) FILTER (
+                    WHERE start_time >= date_trunc('week', CURRENT_DATE) AND status = 'confirmed'
+                ) AS confirmed,
+                COUNT(*) FILTER (
+                    WHERE start_time >= date_trunc('week', CURRENT_DATE) AND status = 'completed'
+                ) AS completed,
+                COUNT(*) FILTER (
+                    WHERE start_time >= date_trunc('week', CURRENT_DATE) AND status = 'cancelled'
+                ) AS cancelled
+            FROM showings
+            WHERE agent_id = %s
+              AND start_time >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'
+            """,
+            [agent_id],
+        ).fetchone()
+
+        # ── KPI 4: Lead pipeline by lifecycle stage ──
+        pipeline = conn.execute(
+            """
+            SELECT lifecycle_stage, COUNT(*) AS cnt
+            FROM contacts
+            WHERE agent_id = %s
+            GROUP BY lifecycle_stage
+            ORDER BY CASE lifecycle_stage
+                WHEN 'new_lead' THEN 1
+                WHEN 'active' THEN 2
+                WHEN 'under_contract' THEN 3
+                WHEN 'closed' THEN 4
+                WHEN 'past_client' THEN 5
+                ELSE 6
+            END
+            """,
+            [agent_id],
+        ).fetchall()
+        pipeline_data = {row["lifecycle_stage"]: row["cnt"] for row in pipeline}
+        pipeline_total = sum(pipeline_data.values())
+
+        # ── Conversation volume: messages per day (last 30 days) ──
+        volume = conn.execute(
+            """
+            SELECT
+                d.day::date AS day,
+                COALESCE(SUM(CASE WHEN m.sender_type = 'contact' THEN 1 ELSE 0 END), 0) AS received,
+                COALESCE(SUM(CASE WHEN m.sender_type IN ('assistant', 'agent') THEN 1 ELSE 0 END), 0) AS sent
+            FROM generate_series(
+                CURRENT_DATE - INTERVAL '29 days',
+                CURRENT_DATE,
+                '1 day'
+            ) AS d(day)
+            LEFT JOIN messages m
+                ON m.agent_id = %s
+                AND m.created_at::date = d.day::date
+            GROUP BY d.day
+            ORDER BY d.day
+            """,
+            [agent_id],
+        ).fetchall()
+
+        volume_max = max(
+            (row["received"] + row["sent"] for row in volume),
+            default=1,
+        )
+        if volume_max == 0:
+            volume_max = 1
+
+        volume_data = []
+        for row in volume:
+            total = row["received"] + row["sent"]
+            volume_data.append({
+                "day": row["day"],
+                "received": row["received"],
+                "sent": row["sent"],
+                "total": total,
+                "pct": round(total / volume_max * 100),
+                "sent_pct": round(row["sent"] / volume_max * 100),
+                "received_pct": round(row["received"] / volume_max * 100),
+            })
+
+        # ── Trigger performance (last 7 days) ──
+        triggers_perf = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE status = 'completed') AS delivered,
+                COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+                COUNT(*) FILTER (WHERE status = 'pending') AS pending
+            FROM triggers
+            WHERE agent_id = %s
+              AND scheduled_at >= CURRENT_DATE - INTERVAL '7 days'
+            """,
+            [agent_id],
+        ).fetchone()
+
+        # ── AI cost from usage_metrics (today, 7d, 30d) ──
+        ai_cost = conn.execute(
+            """
+            SELECT
+                COALESCE(SUM(llm_tokens_used) FILTER (WHERE date = CURRENT_DATE), 0) AS tokens_today,
+                COALESCE(SUM(llm_cost_cents) FILTER (WHERE date = CURRENT_DATE), 0) AS cost_today,
+                COALESCE(SUM(llm_tokens_used) FILTER (
+                    WHERE date >= CURRENT_DATE - INTERVAL '6 days'
+                ), 0) AS tokens_7d,
+                COALESCE(SUM(llm_cost_cents) FILTER (
+                    WHERE date >= CURRENT_DATE - INTERVAL '6 days'
+                ), 0) AS cost_7d,
+                COALESCE(SUM(llm_tokens_used), 0) AS tokens_30d,
+                COALESCE(SUM(llm_cost_cents), 0) AS cost_30d
+            FROM usage_metrics
+            WHERE agent_id = %s
+              AND date >= CURRENT_DATE - INTERVAL '29 days'
+            """,
+            [agent_id],
+        ).fetchone()
+
+    return _render(request, "analytics.html",
+        page_title="Analytics", active_nav="analytics", agent=agent,
+        response_times=response_times,
+        active_convos={"7d": active_convos["active_7d"], "30d": active_convos["active_30d"]},
+        showings=showings_stats,
+        pipeline=pipeline_data,
+        pipeline_total=pipeline_total,
+        volume=volume_data,
+        volume_max=volume_max,
+        triggers=triggers_perf,
+        ai_cost=ai_cost,
+    )
+
+
+# ── POST: Approve / Reject Trigger ──────────────────────────
+
+@router.post("/triggers/{trigger_id}/approve", response_class=HTMLResponse)
+async def trigger_approve(request: Request, trigger_id: str):
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    from app.db.connection import get_db_connection
+
+    with get_db_connection() as conn:
+        result = conn.execute(
+            "UPDATE triggers SET status = 'approved' WHERE id = %s AND agent_id = %s AND status = 'pending' RETURNING id",
+            [trigger_id, agent_id],
+        ).fetchone()
+        conn.commit()
+
+    if not result:
+        return HTMLResponse('<span class="badge badge-red">Not found</span>')
+
+    # Return HTMX partial for inline swap
+    return HTMLResponse(
+        '<span class="badge badge-green">Approved</span>'
+    )
+
+
+@router.post("/triggers/{trigger_id}/reject", response_class=HTMLResponse)
+async def trigger_reject(request: Request, trigger_id: str):
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    from app.db.connection import get_db_connection
+
+    with get_db_connection() as conn:
+        result = conn.execute(
+            "UPDATE triggers SET status = 'cancelled' WHERE id = %s AND agent_id = %s AND status = 'pending' RETURNING id",
+            [trigger_id, agent_id],
+        ).fetchone()
+        conn.commit()
+
+    if not result:
+        return HTMLResponse('<span class="badge badge-red">Not found</span>')
+
+    return HTMLResponse(
+        '<span class="badge badge-gray">Rejected</span>'
+    )
+
+
+# ── POST: Reply to Conversation ──────────────────────────────
+
+@router.post("/conversations/{conversation_id}/reply", response_class=HTMLResponse)
+async def conversation_reply(request: Request, conversation_id: str):
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    body = (form.get("body") or "").strip()
+    if not body:
+        return HTMLResponse(
+            '<div class="flash flash-error">Message cannot be empty.</div>',
+            status_code=422,
+        )
+
+    from app.db.connection import get_db_connection
+
+    with get_db_connection() as conn:
+        # Verify conversation belongs to this agent and get contact phone
+        conv = conn.execute(
+            """SELECT cv.id, cv.agent_id, c.phone as contact_phone
+               FROM conversations cv
+               LEFT JOIN contacts c ON c.id = cv.contact_id
+               WHERE cv.id = %s AND cv.agent_id = %s""",
+            [conversation_id, agent_id],
+        ).fetchone()
+
+        if not conv:
+            return HTMLResponse(
+                '<div class="flash flash-error">Conversation not found.</div>',
+                status_code=404,
+            )
+
+        # Get agent's Twilio number
+        agent_row = conn.execute(
+            "SELECT twilio_number FROM agents WHERE id = %s",
+            [agent_id],
+        ).fetchone()
+
+        # Insert the outbound message record
+        msg = conn.execute(
+            """INSERT INTO messages (agent_id, conversation_id, sender_type, body, ai_generated, delivery_status)
+               VALUES (%s, %s, 'agent', %s, false, 'pending')
+               RETURNING id, created_at""",
+            [agent_id, conversation_id, body],
+        ).fetchone()
+
+        # Update conversation last_message_at
+        conn.execute(
+            "UPDATE conversations SET last_message_at = %s WHERE id = %s",
+            [msg["created_at"], conversation_id],
+        )
+        conn.commit()
+
+    # Send via Twilio (non-blocking — if it fails, the message is still recorded)
+    if conv["contact_phone"] and agent_row:
+        try:
+            from app.services.twilio_service import send_sms
+            sms_result = send_sms(
+                to=conv["contact_phone"],
+                from_=agent_row["twilio_number"],
+                body=body,
+                agent_id=UUID(agent_id),
+            )
+
+            # Update delivery status based on Twilio result
+            if sms_result.get("sid"):
+                with get_db_connection() as conn:
+                    conn.execute(
+                        "UPDATE messages SET provider_message_id = %s, delivery_status = %s WHERE id = %s",
+                        [sms_result["sid"], sms_result.get("status", "sent"), msg["id"]],
+                    )
+                    conn.commit()
+        except Exception as e:
+            logger.error(f"SMS send failed for agent reply: {e}")
+
+    # Return HTMX partial — the new message bubble
+    time_str = msg["created_at"].strftime('%b %d %I:%M%p').lstrip('0') if msg["created_at"] else ""
+    return HTMLResponse(f'''
+        <div class="chat-msg chat-outbound">
+            {body}
+            <div class="chat-time">{time_str} &middot; You</div>
+        </div>
+    ''')
+
+
+# ── POST: Edit Contact ───────────────────────────────────────
+
+@router.post("/contacts/{contact_id}/edit", response_class=HTMLResponse)
+async def contact_edit(request: Request, contact_id: str):
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    name = (form.get("name") or "").strip()
+    phone = (form.get("phone") or "").strip()
+    email = (form.get("email") or "").strip() or None
+    notes = (form.get("notes") or "").strip() or None
+    lifecycle_stage = (form.get("lifecycle_stage") or "").strip() or None
+
+    if not name or not phone:
+        return HTMLResponse(
+            '<div class="flash flash-error">Name and phone are required.</div>',
+            status_code=422,
+        )
+
+    from app.db.connection import get_db_connection
+
+    with get_db_connection() as conn:
+        result = conn.execute(
+            """UPDATE contacts
+               SET name = %s, phone = %s, email = %s, notes = %s,
+                   lifecycle_stage = COALESCE(%s, lifecycle_stage),
+                   updated_at = now()
+               WHERE id = %s AND agent_id = %s
+               RETURNING id, name, phone, email, notes, lifecycle_stage""",
+            [name, phone, email, notes, lifecycle_stage, contact_id, agent_id],
+        ).fetchone()
+        conn.commit()
+
+    if not result:
+        return HTMLResponse(
+            '<div class="flash flash-error">Contact not found.</div>',
+            status_code=404,
+        )
+
+    return HTMLResponse(
+        '<div class="flash flash-success">Contact updated.</div>'
+    )
+
+
+# ── POST: Confirm / Cancel Showing ──────────────────────────
+
+@router.post("/showings/{showing_id}/confirm", response_class=HTMLResponse)
+async def showing_confirm(request: Request, showing_id: str):
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    from app.db.connection import get_db_connection
+
+    with get_db_connection() as conn:
+        result = conn.execute(
+            """UPDATE showings SET status = 'confirmed', hold_expires_at = NULL
+               WHERE id = %s AND agent_id = %s AND status IN ('hold', 'pending')
+               RETURNING id""",
+            [showing_id, agent_id],
+        ).fetchone()
+        conn.commit()
+
+    if not result:
+        return HTMLResponse('<span class="badge badge-red">Not found</span>')
+
+    return HTMLResponse('<span class="badge badge-green">confirmed</span>')
+
+
+@router.post("/showings/{showing_id}/cancel", response_class=HTMLResponse)
+async def showing_cancel(request: Request, showing_id: str):
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    from app.db.connection import get_db_connection
+
+    with get_db_connection() as conn:
+        result = conn.execute(
+            """UPDATE showings SET status = 'cancelled'
+               WHERE id = %s AND agent_id = %s AND status IN ('hold', 'confirmed', 'pending')
+               RETURNING id""",
+            [showing_id, agent_id],
+        ).fetchone()
+        conn.commit()
+
+    if not result:
+        return HTMLResponse('<span class="badge badge-red">Not found</span>')
+
+    return HTMLResponse('<span class="badge badge-gray">cancelled</span>')
+
+
+# ── POST: Quick Note on Contact ──────────────────────────────
+
+@router.post("/contacts/{contact_id}/note", response_class=HTMLResponse)
+async def contact_add_note(request: Request, contact_id: str):
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    note_text = (form.get("note") or "").strip()
+    if not note_text:
+        return HTMLResponse(
+            '<div class="flash flash-error">Note cannot be empty.</div>',
+            status_code=422,
+        )
+
+    from app.db.connection import get_db_connection
+
+    with get_db_connection() as conn:
+        # Append to existing notes with timestamp
+        result = conn.execute(
+            """UPDATE contacts
+               SET notes = CASE
+                   WHEN notes IS NULL OR notes = '' THEN %s
+                   ELSE notes || E'\n---\n' || %s
+               END,
+               updated_at = now()
+               WHERE id = %s AND agent_id = %s
+               RETURNING id""",
+            [note_text, note_text, contact_id, agent_id],
+        ).fetchone()
+        conn.commit()
+
+    if not result:
+        return HTMLResponse(
+            '<div class="flash flash-error">Contact not found.</div>',
+            status_code=404,
+        )
+
+    return HTMLResponse(
+        '<div class="flash flash-success">Note added.</div>'
+    )
+
+
+# ── Push Notification Device Tokens ──────────────────────────
+
+@router.post("/devices/register")
+async def register_device(request: Request):
+    """Register an FCM device token for push notifications.
+
+    Accepts JSON: {fcm_token: str, device_name?: str, platform?: str}
+    Called by the frontend JS after obtaining the FCM token from Firebase.
+    """
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return Response("Unauthorized", status_code=401)
+
+    try:
+        payload = await request.json()
+    except Exception:
+        return Response("Invalid JSON", status_code=400)
+
+    fcm_token = (payload.get("fcm_token") or "").strip()
+    if not fcm_token:
+        return Response("fcm_token is required", status_code=400)
+
+    device_name = payload.get("device_name")
+    platform = payload.get("platform")
+
+    from app.services.firebase_service import register_device_token
+
+    result = register_device_token(
+        agent_id=UUID(agent_id),
+        fcm_token=fcm_token,
+        device_name=device_name,
+        platform=platform,
+    )
+
+    return {"ok": True, "device_token_id": str(result.get("id", ""))}
+
+
+@router.post("/devices/unregister")
+async def unregister_device(request: Request):
+    """Unregister an FCM device token (e.g. on logout).
+
+    Accepts JSON: {fcm_token: str}
+    """
+    agent_id, redirect = _require_agent(request)
+    if redirect:
+        return Response("Unauthorized", status_code=401)
+
+    try:
+        payload = await request.json()
+    except Exception:
+        return Response("Invalid JSON", status_code=400)
+
+    fcm_token = (payload.get("fcm_token") or "").strip()
+    if not fcm_token:
+        return Response("fcm_token is required", status_code=400)
+
+    from app.services.firebase_service import unregister_device_token
+
+    unregister_device_token(fcm_token)
+
+    return {"ok": True}

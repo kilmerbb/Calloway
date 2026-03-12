@@ -28,7 +28,7 @@
 
 <div id="contactList" aria-live="polite">
     {% for c in contacts %}
-    <div class="list-item">
+    <div class="list-item contact-expandable" onclick="toggleContactPanel('{{ c.id }}')" role="button" tabindex="0" aria-expanded="false" aria-controls="contact-panel-{{ c.id }}">
         <div class="list-avatar">{{ c.name[0] }}</div>
         <div class="list-content">
             <div class="list-name">{{ c.name }}</div>
@@ -44,6 +44,59 @@
             {% if c.consent_status == 'revoked' %}<span class="badge badge-red">STOP</span>{% endif %}
         </div>
     </div>
+    <!-- Expandable edit / note panel -->
+    <div class="contact-panel" id="contact-panel-{{ c.id }}" style="display:none" role="region" aria-label="Edit {{ c.name }}">
+        <div id="contact-flash-{{ c.id }}"></div>
+        <details class="contact-section">
+            <summary class="contact-section-title">Edit contact</summary>
+            <form hx-post="/agent/contacts/{{ c.id }}/edit"
+                  hx-target="#contact-flash-{{ c.id }}"
+                  hx-swap="innerHTML"
+                  class="edit-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <div class="form-row">
+                    <label for="name-{{ c.id }}" class="form-label">Name</label>
+                    <input type="text" id="name-{{ c.id }}" name="name" value="{{ c.name }}" class="form-input" required>
+                </div>
+                <div class="form-row">
+                    <label for="phone-{{ c.id }}" class="form-label">Phone</label>
+                    <input type="tel" id="phone-{{ c.id }}" name="phone" value="{{ c.phone }}" class="form-input" required>
+                </div>
+                <div class="form-row">
+                    <label for="email-{{ c.id }}" class="form-label">Email</label>
+                    <input type="email" id="email-{{ c.id }}" name="email" value="{{ c.email or '' }}" class="form-input">
+                </div>
+                <div class="form-row">
+                    <label for="lifecycle-{{ c.id }}" class="form-label">Stage</label>
+                    <select id="lifecycle-{{ c.id }}" name="lifecycle_stage" class="form-input">
+                        {% for stage in ['new_lead', 'contacted', 'qualified', 'showing', 'offer', 'under_contract', 'closed', 'nurture', 'inactive'] %}
+                        <option value="{{ stage }}" {% if c.lifecycle_stage == stage %}selected{% endif %}>{{ stage|replace('_', ' ')|title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label for="notes-{{ c.id }}" class="form-label">Notes</label>
+                    <textarea id="notes-{{ c.id }}" name="notes" class="form-input" rows="2">{{ c.notes or '' }}</textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+            </form>
+        </details>
+        <details class="contact-section">
+            <summary class="contact-section-title">Quick note</summary>
+            <form hx-post="/agent/contacts/{{ c.id }}/note"
+                  hx-target="#contact-flash-{{ c.id }}"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="if(event.detail.successful) this.reset()"
+                  class="note-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <div class="form-row">
+                    <label for="note-{{ c.id }}" class="sr-only">Add a note</label>
+                    <textarea id="note-{{ c.id }}" name="note" class="form-input" rows="2" placeholder="Add a note..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Add note</button>
+            </form>
+        </details>
+    </div>
     {% endfor %}
 
     {% if not contacts %}
@@ -57,5 +110,15 @@
 <div class="count-footer">
     {{ contacts|length }} contact{% if contacts|length != 1 %}s{% endif %}
 </div>
+
+<script>
+function toggleContactPanel(contactId) {
+    var panel = document.getElementById('contact-panel-' + contactId);
+    var trigger = panel.previousElementSibling;
+    var isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    if (trigger) trigger.setAttribute('aria-expanded', !isOpen);
+}
+</script>
 
 {% endblock %}

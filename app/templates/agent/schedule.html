@@ -20,10 +20,26 @@
                     {{ s.contact_name }}
                     &middot; {{ s.start_time.strftime('%I:%M') }}–{{ s.end_time.strftime('%I:%M%p').lstrip('0').lower() }}
                     &middot;
+                    <span id="showing-status-{{ s.id }}">
                     {% if s.status == 'confirmed' %}<span class="badge badge-green">confirmed</span>
                     {% elif s.status == 'hold' %}<span class="badge badge-yellow">hold — expires {{ s.hold_expires_at.strftime('%I:%M%p').lstrip('0').lower() if s.hold_expires_at else '' }}</span>
                     {% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}
+                    </span>
                 </div>
+                {% if s.status in ('hold', 'pending', 'confirmed') %}
+                <div class="action-buttons" style="margin-top:0.25rem">
+                    {% if s.status != 'confirmed' %}
+                    <form hx-post="/agent/showings/{{ s.id }}/confirm" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-green">Confirm</button>
+                    </form>
+                    {% endif %}
+                    <form hx-post="/agent/showings/{{ s.id }}/cancel" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-red">Cancel</button>
+                    </form>
+                </div>
+                {% endif %}
             </div>
         </div>
         {% endfor %}
@@ -46,10 +62,26 @@
                 <div class="timeline-detail">
                     {{ s.contact_name }}
                     &middot;
+                    <span id="showing-status-{{ s.id }}">
                     {% if s.status == 'confirmed' %}<span class="badge badge-green">confirmed</span>
                     {% elif s.status == 'hold' %}<span class="badge badge-yellow">hold</span>
                     {% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}
+                    </span>
                 </div>
+                {% if s.status in ('hold', 'pending', 'confirmed') %}
+                <div class="action-buttons" style="margin-top:0.25rem">
+                    {% if s.status != 'confirmed' %}
+                    <form hx-post="/agent/showings/{{ s.id }}/confirm" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-green">Confirm</button>
+                    </form>
+                    {% endif %}
+                    <form hx-post="/agent/showings/{{ s.id }}/cancel" hx-target="#showing-status-{{ s.id }}" hx-swap="innerHTML" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-red">Cancel</button>
+                    </form>
+                </div>
+                {% endif %}
             </div>
         </div>
         {% endfor %}

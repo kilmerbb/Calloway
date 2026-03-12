@@ -23,6 +23,7 @@
             <a href="/agent/triggers" class="nav-link {% if active_nav == 'triggers' %}active{% endif %}">Reminders</a>
             <a href="/agent/scores" class="nav-link {% if active_nav == 'scores' %}active{% endif %}">Scores</a>
             <a href="/agent/campaigns" class="nav-link {% if active_nav == 'campaigns' %}active{% endif %}">Campaigns</a>
+            <a href="/agent/analytics" class="nav-link {% if active_nav == 'analytics' %}active{% endif %}">Analytics</a>
         </nav>
         <div class="header-right">
             <span class="agent-name">{{ agent.name }}</span>
@@ -51,7 +52,7 @@
             <span class="mobile-nav-icon" aria-hidden="true">&#128197;</span>
             <span>Schedule</span>
         </a>
-        <a href="javascript:void(0)" class="mobile-nav-item {% if active_nav in ('transactions', 'triggers', 'scores', 'campaigns') %}active{% endif %}" onclick="toggleMoreMenu()" aria-expanded="false" aria-controls="moreMenu">
+        <a href="javascript:void(0)" class="mobile-nav-item {% if active_nav in ('transactions', 'triggers', 'scores', 'campaigns', 'analytics') %}active{% endif %}" onclick="toggleMoreMenu()" aria-expanded="false" aria-controls="moreMenu">
             <span class="mobile-nav-icon" aria-hidden="true">&#8943;</span>
             <span>More</span>
         </a>
@@ -70,6 +71,9 @@
         </a>
         <a href="/agent/campaigns" class="more-menu-item {% if active_nav == 'campaigns' %}active{% endif %}" role="menuitem">
             <span aria-hidden="true">&#128232;</span> Campaigns
+        </a>
+        <a href="/agent/analytics" class="more-menu-item {% if active_nav == 'analytics' %}active{% endif %}" role="menuitem">
+            <span aria-hidden="true">&#128202;</span> Analytics
         </a>
     </div>
 

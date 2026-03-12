@@ -40,10 +40,22 @@
         <div class="list-avatar">{{ item.contact_name[0] if item.contact_name else '?' }}</div>
         <div class="list-content">
             <div class="list-name">{{ item.contact_name or 'Unknown' }}</div>
-            <div class="list-preview">{{ item.draft_response[:80] }}{% if item.draft_response|length > 80 %}...{% endif %}</div>
+            <div class="list-preview">{{ item.message_template[:80] if item.message_template %}{% if item.message_template and item.message_template|length > 80 %}...{% endif %}</div>
         </div>
         <div class="list-right">
-            <div class="list-time">{{ item.created_at.strftime('%I:%M%p').lstrip('0').lower() if item.created_at else '' }}</div>
+            <div class="list-time">{{ item.scheduled_at.strftime('%I:%M%p').lstrip('0').lower() if item.scheduled_at else '' }}</div>
+            <div id="trigger-status-{{ item.id }}">
+                <div class="action-buttons">
+                    <form hx-post="/agent/triggers/{{ item.id }}/approve" hx-target="#trigger-status-{{ item.id }}" hx-swap="innerHTML" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-green">Approve</button>
+                    </form>
+                    <form hx-post="/agent/triggers/{{ item.id }}/reject" hx-target="#trigger-status-{{ item.id }}" hx-swap="innerHTML" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-red">Reject</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
     {% endfor %}

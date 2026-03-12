@@ -23,10 +23,24 @@
     </div>
     <div class="list-right">
         <div class="list-time">{{ t.scheduled_at.strftime('%b %d %I:%M%p').lstrip('0').lower() if t.scheduled_at else '' }}</div>
-        {% if t.status == 'pending' %}<span class="badge badge-yellow">scheduled</span>
+        <div id="trigger-status-{{ t.id }}">
+        {% if t.status == 'pending' and t.autonomy_level == 'ask_agent' %}
+            <div class="action-buttons">
+                <form hx-post="/agent/triggers/{{ t.id }}/approve" hx-target="#trigger-status-{{ t.id }}" hx-swap="innerHTML" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-sm btn-green" aria-label="Approve trigger">Approve</button>
+                </form>
+                <form hx-post="/agent/triggers/{{ t.id }}/reject" hx-target="#trigger-status-{{ t.id }}" hx-swap="innerHTML" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-sm btn-red" aria-label="Reject trigger">Reject</button>
+                </form>
+            </div>
+        {% elif t.status == 'pending' %}<span class="badge badge-yellow">scheduled</span>
         {% elif t.status == 'completed' %}<span class="badge badge-green">sent</span>
+        {% elif t.status == 'approved' %}<span class="badge badge-green">Approved</span>
         {% elif t.status == 'error' %}<span class="badge badge-red">failed</span>
         {% else %}<span class="badge badge-gray">{{ t.status }}</span>{% endif %}
+        </div>
     </div>
 </div>
 {% endfor %}

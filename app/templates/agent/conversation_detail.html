@@ -11,7 +11,7 @@
     </div>
 </div>
 
-<div class="card chat-thread">
+<div class="card chat-thread" id="chatThread">
     {% for m in detail.messages %}
     {% if m.sender_type == 'system' %}
     <div class="chat-msg chat-system">{{ m.body }}</div>
@@ -26,6 +26,7 @@
         <div class="chat-time">
             {{ m.created_at.strftime('%b %d %I:%M%p').lstrip('0') if m.created_at else '' }}
             {% if m.ai_generated %} &middot; AI{% if m.model_used %}/{{ m.model_used }}{% endif %}{% endif %}
+            {% if m.sender_type == 'agent' and not m.ai_generated %} &middot; You{% endif %}
             {% if m.delivery_status == 'delivered' %} &middot; <span aria-label="Delivered">&#10003;</span>{% endif %}
             {% if m.delivery_status == 'read' %} &middot; <span aria-label="Read">&#10003;&#10003;</span>{% endif %}
             {% if m.delivery_status == 'failed' or m.delivery_status == 'undelivered' %} &middot; <span class="chat-status-failed" aria-label="Delivery failed">&#9888; {{ m.delivery_status }}</span>{% endif %}
@@ -40,6 +41,23 @@
         <p>No messages in this conversation yet.</p>
     </div>
     {% endif %}
+</div>
+
+<!-- Reply form -->
+<div class="card reply-form">
+    <div id="replyFlash"></div>
+    <form hx-post="/agent/conversations/{{ detail.id }}/reply"
+          hx-target="#chatThread"
+          hx-swap="beforeend"
+          hx-on::after-request="if(event.detail.successful) this.reset()"
+          class="reply-input-row">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label for="replyBody" class="sr-only">Type a message</label>
+        <textarea id="replyBody" name="body" class="reply-textarea"
+                  placeholder="Type a message..." rows="2"
+                  required aria-label="Message text"></textarea>
+        <button type="submit" class="btn btn-primary reply-send" aria-label="Send message">Send</button>
+    </form>
 </div>
 
 {% endblock %}
