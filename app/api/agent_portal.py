@@ -107,10 +107,13 @@ def _require_agent(request: Request) -> tuple[str, RedirectResponse | None]:
 
 
 def _render(request: Request, template: str, **ctx):
-    resp = Response()
-    csrf = generate_csrf_token(request, resp)
+    tmp = Response()
+    csrf = generate_csrf_token(request, tmp)
     ctx["csrf_token"] = csrf
-    return templates.TemplateResponse(request, template, ctx)
+    resp = templates.TemplateResponse(request, template, ctx)
+    for header_value in tmp.headers.getlist("set-cookie"):
+        resp.headers.append("set-cookie", header_value)
+    return resp
 
 
 def _check_csrf(request: Request, csrf_token: str | None) -> Response | None:

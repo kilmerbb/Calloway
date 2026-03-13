@@ -21,10 +21,17 @@ templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
 def _render(request: Request, template: str, response: Response | None = None, **ctx):
     """Render a template with CSRF token injected."""
-    resp = response or Response()
-    csrf = generate_csrf_token(request, resp)
+    # Generate the CSRF token first (may set cookie via response object).
+    # We use a temporary Response to capture any Set-Cookie header, then
+    # transfer it to the final TemplateResponse so the cookie reaches the browser.
+    tmp = Response()
+    csrf = generate_csrf_token(request, tmp)
     ctx["csrf_token"] = csrf
-    return templates.TemplateResponse(request, template, ctx)
+    resp = templates.TemplateResponse(request, template, ctx)
+    # Copy Set-Cookie headers from the temp response to the real one
+    for header_value in tmp.headers.getlist("set-cookie"):
+        resp.headers.append("set-cookie", header_value)
+    return resp
 
 
 def _require_auth(request: Request) -> RedirectResponse | None:
