@@ -2,6 +2,14 @@
 
 Reads the database connection string from app.config to stay in sync
 with the application's settings (env vars / .env file).
+
+Note on autogenerate
+--------------------
+Calloway uses raw SQL (psycopg) rather than SQLAlchemy ORM models.
+``alembic revision --autogenerate`` will NOT detect schema changes
+automatically.  Write migrations by hand with ``alembic revision -m "desc"``.
+If SQLAlchemy models are added later, import them here and set
+``target_metadata`` to enable autogenerate.
 """
 import sys
 from logging.config import fileConfig
@@ -23,6 +31,10 @@ config.set_main_option("sqlalchemy.url", get_connection_string())
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# No SQLAlchemy ORM models yet -- autogenerate is not available.
+# To enable it later, define models with a shared DeclarativeBase and set:
+#   from app.db.models import Base
+#   target_metadata = Base.metadata
 target_metadata = None
 
 
