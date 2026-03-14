@@ -182,7 +182,7 @@ async def tenant_list(request: Request):
         return JSONResponse([{"id": str(a["id"]), "name": a["name"]} for a in agents])
 
     return _render(request, "tenants.html",
-        page_title="Tenants", active_nav="tenants",
+        page_title="Customers", active_nav="tenants",
         agents=agents, search=search, sort_by=sort_by,
     )
 
@@ -193,7 +193,7 @@ async def tenant_new_form(request: Request):
     if redirect:
         return redirect
     return _render(request, "tenant_new.html",
-        page_title="New Tenant", active_nav="tenants", error=None,
+        page_title="New Customer", active_nav="tenants", error=None,
     )
 
 
@@ -215,7 +215,7 @@ async def tenant_create(request: Request):
         return RedirectResponse(f"/console/tenants/{agent_id}", status_code=303)
     except ValueError as e:
         return _render(request, "tenant_new.html",
-            page_title="New Tenant", active_nav="tenants", error=str(e),
+            page_title="New Customer", active_nav="tenants", error=str(e),
         )
 
 
@@ -231,7 +231,7 @@ async def tenant_detail(request: Request, agent_id: str):
         return RedirectResponse("/console/tenants", status_code=303)
 
     return _render(request, "tenant_detail.html",
-        page_title=f"Tenant: {detail['agent']['name']}",
+        page_title=f"Customer: {detail['agent']['name']}",
         active_nav="tenants", detail=detail,
     )
 
@@ -248,7 +248,7 @@ async def tenant_edit_form(request: Request, agent_id: str):
         return RedirectResponse("/console/tenants", status_code=303)
 
     return _render(request, "tenant_edit.html",
-        page_title=f"Edit: {detail['agent']['name']}",
+        page_title=f"Edit Customer: {detail['agent']['name']}",
         active_nav="tenants", agent=detail["agent"], error=None,
     )
 
@@ -273,7 +273,7 @@ async def tenant_update(request: Request, agent_id: str):
         from app.services.console_queries import async_get_agent_detail
         detail = await async_get_agent_detail(agent_id)
         return _render(request, "tenant_edit.html",
-            page_title=f"Edit: {detail['agent']['name']}",
+            page_title=f"Edit Customer: {detail['agent']['name']}",
             active_nav="tenants", agent=detail["agent"], error=str(e),
         )
 
@@ -330,7 +330,7 @@ async def conversation_list(request: Request):
     search = request.query_params.get("search", "")
 
     return _render(request, "conversations.html",
-        page_title="Conversations", active_nav="conversations",
+        page_title="Messages", active_nav="conversations",
         conversations=await async_get_recent_conversations(
             agent_id=agent_filter or None,
             channel=channel_filter or None,
@@ -373,7 +373,7 @@ async def trigger_list(request: Request):
     agent_filter = request.query_params.get("agent", "")
 
     return _render(request, "triggers.html",
-        page_title="Triggers", active_nav="triggers",
+        page_title="Automations", active_nav="triggers",
         triggers=await async_get_trigger_queue(
             status=status_filter if status_filter != "all" else None,
             agent_id=agent_filter or None,
@@ -485,7 +485,7 @@ async def health_overview(request: Request):
     from app.services.console_queries import async_get_health_overview, async_get_all_agents
 
     return _render(request, "health.html",
-        page_title="Health", active_nav="health",
+        page_title="System Health", active_nav="health",
         health=await async_get_health_overview(),
         agents=await async_get_all_agents(),
     )
@@ -593,5 +593,5 @@ async def user_manual(request: Request):
         return redirect
 
     return _render(request, "manual.html",
-        page_title="User Manual", active_nav="manual",
+        page_title="Help", active_nav="manual",
     )
