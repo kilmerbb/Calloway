@@ -15,22 +15,28 @@ POLL_INTERVAL = 60  # seconds
 
 
 def run_trigger_worker():
-    """Main loop: poll for due triggers every 60 seconds."""
+    """Main loop: poll for due triggers every 60 seconds.
+
+    Kept for backward compatibility (single-process mode).
+    For the separated worker, use ``run_trigger_worker_once`` instead.
+    """
     logger.info("Trigger worker started")
     while True:
-        try:
-            fired = process_due_triggers()
-            from app.tools.showings import expire_stale_holds
-            expired = expire_stale_holds()
-            reverted = revert_expired_statuses()
-            if fired or expired or reverted:
-                logger.info(
-                    f"Trigger cycle: {fired} fired, {expired} holds expired, "
-                    f"{reverted} statuses reverted"
-                )
-        except Exception as e:
-            logger.error(f"Trigger worker error: {e}")
+        run_trigger_worker_once()
         time.sleep(POLL_INTERVAL)
+
+
+def run_trigger_worker_once():
+    """Execute a single trigger-processing cycle (no sleep)."""
+    fired = process_due_triggers()
+    from app.tools.showings import expire_stale_holds
+    expired = expire_stale_holds()
+    reverted = revert_expired_statuses()
+    if fired or expired or reverted:
+        logger.info(
+            f"Trigger cycle: {fired} fired, {expired} holds expired, "
+            f"{reverted} statuses reverted"
+        )
 
 
 def process_due_triggers() -> int:

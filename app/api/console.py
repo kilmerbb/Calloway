@@ -146,14 +146,14 @@ async def dashboard(request: Request):
         return auth
 
     from app.services.console_queries import (
-        async_get_system_pulse, async_get_recent_activity, async_get_agents_needing_attention,
+        get_system_pulse, get_recent_activity, get_agents_needing_attention,
     )
 
     return _render(request, "dashboard.html",
         page_title="Home", active_nav="dashboard",
-        pulse=await async_get_system_pulse(),
-        activity=await async_get_recent_activity(limit=20),
-        attention=await async_get_agents_needing_attention(),
+        pulse=await get_system_pulse(),
+        activity=await get_recent_activity(limit=20),
+        attention=await get_agents_needing_attention(),
     )
 
 
@@ -164,9 +164,9 @@ async def dashboard_activity_feed(request: Request):
     if isinstance(auth, RedirectResponse):
         return auth
 
-    from app.services.console_queries import async_get_recent_activity
+    from app.services.console_queries import get_recent_activity
     return _render(request, "partials/activity_feed.html",
-        activity=await async_get_recent_activity(limit=20),
+        activity=await get_recent_activity(limit=20),
     )
 
 
@@ -232,8 +232,8 @@ async def tenant_list(request: Request):
     if isinstance(auth, RedirectResponse):
         return auth
 
-    from app.services.console_queries import async_get_all_agents
-    agents = await async_get_all_agents()
+    from app.services.console_queries import get_all_agents
+    agents = await get_all_agents()
 
     search = request.query_params.get("search", "")
     sort_by = request.query_params.get("sort", "name")
@@ -302,8 +302,8 @@ async def tenant_detail(request: Request, agent_id: str):
     if isinstance(auth, RedirectResponse):
         return auth
 
-    from app.services.console_queries import async_get_agent_detail
-    detail = await async_get_agent_detail(agent_id)
+    from app.services.console_queries import get_agent_detail
+    detail = await get_agent_detail(agent_id)
     if not detail:
         return RedirectResponse("/console/tenants", status_code=303)
 
@@ -319,8 +319,8 @@ async def tenant_edit_form(request: Request, agent_id: str):
     if isinstance(auth, RedirectResponse):
         return auth
 
-    from app.services.console_queries import async_get_agent_detail
-    detail = await async_get_agent_detail(agent_id)
+    from app.services.console_queries import get_agent_detail
+    detail = await get_agent_detail(agent_id)
     if not detail:
         return RedirectResponse("/console/tenants", status_code=303)
 
@@ -358,8 +358,8 @@ async def tenant_update(request: Request, agent_id: str):
         )
         return RedirectResponse(f"/console/tenants/{agent_id}", status_code=303)
     except ValueError as e:
-        from app.services.console_queries import async_get_agent_detail
-        detail = await async_get_agent_detail(agent_id)
+        from app.services.console_queries import get_agent_detail
+        detail = await get_agent_detail(agent_id)
         return _render(request, "tenant_edit.html",
             page_title=f"Edit Customer: {detail['agent']['name']}",
             active_nav="tenants", agent=detail["agent"], error=str(e),
@@ -381,8 +381,8 @@ async def tenant_deactivate(request: Request, agent_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.services.console_queries import async_deactivate_agent
-    await async_deactivate_agent(agent_id)
+    from app.services.console_queries import deactivate_agent
+    await deactivate_agent(agent_id)
     log_audit(
         user_id=auth.get("user_id"),
         action="deactivate_tenant",
@@ -433,7 +433,7 @@ async def conversation_list(request: Request):
     if isinstance(auth, RedirectResponse):
         return auth
 
-    from app.services.console_queries import async_get_recent_conversations, async_get_all_agents
+    from app.services.console_queries import get_recent_conversations, get_all_agents
 
     agent_filter = request.query_params.get("agent", "")
     channel_filter = request.query_params.get("channel", "")
@@ -441,12 +441,12 @@ async def conversation_list(request: Request):
 
     return _render(request, "conversations.html",
         page_title="Messages", active_nav="conversations",
-        conversations=await async_get_recent_conversations(
+        conversations=await get_recent_conversations(
             agent_id=agent_filter or None,
             channel=channel_filter or None,
             search=search or None, limit=100,
         ),
-        agents=await async_get_all_agents(),
+        agents=await get_all_agents(),
         agent_filter=agent_filter, channel_filter=channel_filter, search=search,
     )
 
@@ -457,8 +457,8 @@ async def conversation_detail(request: Request, conversation_id: str):
     if isinstance(auth, RedirectResponse):
         return auth
 
-    from app.services.console_queries import async_get_conversation_detail
-    detail = await async_get_conversation_detail(conversation_id)
+    from app.services.console_queries import get_conversation_detail
+    detail = await get_conversation_detail(conversation_id)
     if not detail:
         return RedirectResponse("/console/conversations", status_code=303)
 
@@ -477,18 +477,18 @@ async def trigger_list(request: Request):
     if isinstance(auth, RedirectResponse):
         return auth
 
-    from app.services.console_queries import async_get_trigger_queue, async_get_all_agents
+    from app.services.console_queries import get_trigger_queue, get_all_agents
 
     status_filter = request.query_params.get("status", "pending")
     agent_filter = request.query_params.get("agent", "")
 
     return _render(request, "triggers.html",
         page_title="Automations", active_nav="triggers",
-        triggers=await async_get_trigger_queue(
+        triggers=await get_trigger_queue(
             status=status_filter if status_filter != "all" else None,
             agent_id=agent_filter or None,
         ),
-        agents=await async_get_all_agents(),
+        agents=await get_all_agents(),
         status_filter=status_filter, agent_filter=agent_filter,
     )
 
@@ -508,8 +508,8 @@ async def trigger_retry(request: Request, trigger_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.services.console_queries import async_retry_trigger
-    await async_retry_trigger(trigger_id)
+    from app.services.console_queries import retry_trigger
+    await retry_trigger(trigger_id)
     log_audit(
         user_id=auth.get("user_id"),
         action="retry_trigger",
@@ -535,8 +535,8 @@ async def trigger_cancel(request: Request, trigger_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.services.console_queries import async_cancel_trigger
-    await async_cancel_trigger(trigger_id)
+    from app.services.console_queries import cancel_trigger
+    await cancel_trigger(trigger_id)
     log_audit(
         user_id=auth.get("user_id"),
         action="cancel_trigger",
@@ -562,8 +562,8 @@ async def trigger_fire_now(request: Request, trigger_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.services.console_queries import async_fire_trigger_now
-    await async_fire_trigger_now(trigger_id)
+    from app.services.console_queries import fire_trigger_now
+    await fire_trigger_now(trigger_id)
     log_audit(
         user_id=auth.get("user_id"),
         action="fire_trigger_now",
@@ -609,7 +609,7 @@ async def health_overview(request: Request):
         return auth
 
     from app.services.console_queries import (
-        async_get_health_overview, async_get_all_agents, async_get_recent_errors,
+        get_health_overview, get_all_agents, get_recent_errors,
     )
 
     agent_filter = request.query_params.get("agent", "")
@@ -617,9 +617,9 @@ async def health_overview(request: Request):
 
     return _render(request, "health.html",
         page_title="System Health", active_nav="health",
-        health=await async_get_health_overview(),
-        agents=await async_get_all_agents(),
-        errors=await async_get_recent_errors(limit=100, agent_id=agent_filter or None),
+        health=await get_health_overview(),
+        agents=await get_all_agents(),
+        errors=await get_recent_errors(limit=100, agent_id=agent_filter or None),
         agent_filter=agent_filter,
         active_tab=active_tab,
     )
@@ -628,8 +628,12 @@ async def health_overview(request: Request):
 @router.get("/health/status-dot", response_class=HTMLResponse)
 async def health_status_dot(request: Request):
     """HTMX partial: health status indicator."""
-    from app.services.console_queries import async_get_health_status_color
-    color = await async_get_health_status_color()
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    from app.services.console_queries import get_health_status_color
+    color = await get_health_status_color()
     return HTMLResponse(
         f'<span class="status-dot status-{color}" title="System {color}"></span>'
     )
@@ -674,7 +678,7 @@ async def billing_overview(request: Request):
 
     from app.services.billing_service import get_billing_summary, PLAN_TIERS
     from app.services.console_queries import (
-        async_get_cost_summary, async_get_cost_by_agent, async_get_model_tier_breakdown,
+        get_cost_summary, get_cost_by_agent, get_model_tier_breakdown,
     )
 
     active_tab = request.query_params.get("tab", "subscriptions")
@@ -683,9 +687,9 @@ async def billing_overview(request: Request):
         page_title="Billing", active_nav="billing",
         subscriptions=get_billing_summary(),
         plan_tiers=PLAN_TIERS,
-        cost_summary=await async_get_cost_summary(days=30),
-        per_agent=await async_get_cost_by_agent(days=30),
-        model_tiers=await async_get_model_tier_breakdown(days=30),
+        cost_summary=await get_cost_summary(days=30),
+        per_agent=await get_cost_by_agent(days=30),
+        model_tiers=await get_model_tier_breakdown(days=30),
         active_tab=active_tab,
     )
 
@@ -785,13 +789,13 @@ async def tenant_messages_tab(request: Request, agent_id: str):
     if isinstance(auth, RedirectResponse):
         return auth
 
-    from app.services.console_queries import async_get_conversations_by_contact
+    from app.services.console_queries import get_conversations_by_contact
 
     page = int(request.query_params.get("page", "1"))
     per_page = int(request.query_params.get("per_page", "25"))
     offset = (page - 1) * per_page
 
-    contacts = await async_get_conversations_by_contact(
+    contacts = await get_conversations_by_contact(
         agent_id, limit=per_page, offset=offset,
     )
 
@@ -809,13 +813,13 @@ async def tenant_messages_thread(request: Request, agent_id: str, contact_id: st
     if isinstance(auth, RedirectResponse):
         return auth
 
-    from app.services.console_queries import async_get_conversation_thread
+    from app.services.console_queries import get_conversation_thread
 
     page = int(request.query_params.get("page", "1"))
     per_page = 50
     offset = (page - 1) * per_page
 
-    thread = await async_get_conversation_thread(
+    thread = await get_conversation_thread(
         agent_id, contact_id, limit=per_page, offset=offset,
     )
 
@@ -840,11 +844,11 @@ async def tenant_kb_tab(request: Request, agent_id: str):
         return auth
 
     from app.services.console_queries import (
-        async_get_knowledge_base_items, async_get_kb_settings,
+        get_knowledge_base_items, get_kb_settings,
     )
 
-    items = await async_get_knowledge_base_items(agent_id)
-    settings = await async_get_kb_settings(agent_id)
+    items = await get_knowledge_base_items(agent_id)
+    settings = await get_kb_settings(agent_id)
 
     # Group items by source_type for display
     grouped = {}
@@ -881,10 +885,10 @@ async def tenant_kb_remove(request: Request, agent_id: str, source_type: str, so
     if csrf_err:
         return csrf_err
 
-    from app.services.console_queries import async_remove_kb_item
+    from app.services.console_queries import remove_kb_item
 
     try:
-        deleted = await async_remove_kb_item(agent_id, source_type, source_id)
+        deleted = await remove_kb_item(agent_id, source_type, source_id)
         logger.info(f"Removed {deleted} KB chunks for {source_type}/{source_id} (agent {agent_id})")
         log_audit(
             user_id=auth.get("user_id"),
@@ -969,7 +973,7 @@ async def tenant_kb_set_expiration(request: Request, agent_id: str, source_type:
     if csrf_err:
         return csrf_err
 
-    from app.services.console_queries import async_set_kb_item_expiration
+    from app.services.console_queries import set_kb_item_expiration
 
     expires_at = form.get("expires_at") or None
 
@@ -986,7 +990,7 @@ async def tenant_kb_set_expiration(request: Request, agent_id: str, source_type:
             return Response("Invalid date format", status_code=400)
 
     try:
-        await async_set_kb_item_expiration(agent_id, source_type, source_id, expires_at)
+        await set_kb_item_expiration(agent_id, source_type, source_id, expires_at)
         log_audit(
             user_id=auth.get("user_id"),
             action="set_kb_expiration",
@@ -1017,14 +1021,14 @@ async def tenant_kb_update_settings(request: Request, agent_id: str):
     if csrf_err:
         return csrf_err
 
-    from app.services.console_queries import async_update_kb_settings
+    from app.services.console_queries import update_kb_settings
 
     policy = form.get("kb_expiration_policy", "remind_only")
     default_ttl_raw = form.get("kb_default_ttl_days")
     default_ttl = int(default_ttl_raw) if default_ttl_raw and default_ttl_raw.strip() else None
 
     try:
-        await async_update_kb_settings(agent_id, policy, default_ttl)
+        await update_kb_settings(agent_id, policy, default_ttl)
         log_audit(
             user_id=auth.get("user_id"),
             action="update_kb_settings",
@@ -1111,8 +1115,8 @@ async def tenant_kb_upload(request: Request, agent_id: str):
         # Set expiration if provided
         expires_at = form.get("expires_at")
         if expires_at:
-            from app.services.console_queries import async_set_kb_item_expiration
-            await async_set_kb_item_expiration(agent_id, "document", str(doc_source_id), expires_at)
+            from app.services.console_queries import set_kb_item_expiration
+            await set_kb_item_expiration(agent_id, "document", str(doc_source_id), expires_at)
 
         logger.info(
             f"Uploaded KB document '{title}' with {len(chunks)} chunks "

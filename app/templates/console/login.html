@@ -15,8 +15,12 @@
     <form method="post" action="/console/login">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="you@company.com" title="Enter your email address (leave blank for legacy password login)">
+        </div>
+        <div class="form-group">
             <label for="password">Password</label>
-            <input type="password" id="password" name="password" required autofocus title="Enter the console password set in CONSOLE_PASSWORD">
+            <input type="password" id="password" name="password" required autofocus title="Enter your password">
         </div>
         <button type="submit" class="btn btn-primary" style="width:100%" title="Authenticate and access the admin console">Sign In</button>
     </form>

@@ -40,6 +40,9 @@ def dispatch(
             )
             # Still log the interaction, but don't send
             _log_conversation(event, decision, contact, agent, is_agent_command)
+            # Invalidate conversation cache after logging
+            from app.services.cache import cache_invalidate
+            cache_invalidate(f"calloway:conv:{agent.id}:{contact.id}")
             _update_usage_metrics(agent.id, event, decision, is_agent_command)
             return
 
@@ -100,6 +103,11 @@ def dispatch(
 
     # 5. Log conversation
     _log_conversation(event, decision, contact, agent, is_agent_command)
+
+    # 5b. Invalidate conversation cache so next read picks up the new message
+    if contact:
+        from app.services.cache import cache_invalidate
+        cache_invalidate(f"calloway:conv:{agent.id}:{contact.id}")
 
     # 6. Update usage metrics
     _update_usage_metrics(agent.id, event, decision, is_agent_command)

@@ -277,25 +277,34 @@ def log_audit(
     ip_address: str | None = None,
     metadata: dict | None = None,
 ) -> None:
-    """Write an audit log entry. Fire-and-forget — never raises."""
-    try:
-        from app.db.connection import get_db_connection
-        with get_db_connection() as conn:
-            conn.execute(
-                "INSERT INTO audit_log (user_id, action, target_entity, target_id, ip_address, metadata) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                [
-                    user_id,
-                    action,
-                    target_entity,
-                    target_id,
-                    ip_address,
-                    json.dumps(metadata) if metadata else None,
-                ],
-            )
-            conn.commit()
-    except Exception:
-        logger.exception("Failed to write audit log entry")
+    """Write an audit log entry. Fire-and-forget — never raises or blocks.
+
+    Uses a background thread so a slow/unreachable DB never stalls request handling.
+    """
+    import threading
+
+    def _write():
+        try:
+            from app.db.connection import get_db_connection
+            with get_db_connection() as conn:
+                conn.execute(
+                    "INSERT INTO audit_log (user_id, action, target_entity, target_id, ip_address, metadata) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    [
+                        user_id,
+                        action,
+                        target_entity,
+                        target_id,
+                        ip_address,
+                        json.dumps(metadata) if metadata else None,
+                    ],
+                )
+                conn.commit()
+        except Exception:
+            logger.warning("Failed to write audit log entry for action=%s", action)
+
+    t = threading.Thread(target=_write, daemon=True)
+    t.start()
 
 
 # ── User management helpers ─────────────────────────────────────────

@@ -7,10 +7,26 @@ from decimal import Decimal
 
 from fastapi.testclient import TestClient
 from app.main import app
+from app.services.console_queries import set_console_context, clear_console_context
 
 client = TestClient(app)
 
 AGENT_ID = str(uuid4())
+
+
+@pytest.fixture(autouse=True)
+def _set_console_auth_context():
+    """Set console auth context so direct query-function calls pass the guard."""
+    set_console_context({"source": "test", "test": True})
+    yield
+    clear_console_context()
+
+
+@pytest.fixture(autouse=True)
+def _mock_audit_log():
+    """Prevent log_audit from spawning background threads that hit real DB."""
+    with patch("app.api.console.log_audit"):
+        yield
 
 
 # ============================================================
@@ -101,9 +117,9 @@ def test_console_logout():
 # Step 2: Navigation
 # ============================================================
 
-@patch("app.services.console_queries.async_get_system_pulse", new_callable=AsyncMock)
-@patch("app.services.console_queries.async_get_recent_activity", new_callable=AsyncMock)
-@patch("app.services.console_queries.async_get_agents_needing_attention", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_system_pulse", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_recent_activity", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_agents_needing_attention", new_callable=AsyncMock)
 def test_dashboard_has_navigation(mock_attn, mock_act, mock_pulse):
     """Dashboard page has sidebar navigation links."""
     mock_pulse.return_value = {
@@ -119,8 +135,7 @@ def test_dashboard_has_navigation(mock_attn, mock_act, mock_pulse):
     assert "/console/tenants" in response.text
     assert "/console/conversations" in response.text
     assert "/console/triggers" in response.text
-    assert "/console/errors" in response.text
-    assert "/console/costs" in response.text
+    assert "/console/billing" in response.text
     assert "/console/health" in response.text
 
 
@@ -128,9 +143,9 @@ def test_dashboard_has_navigation(mock_attn, mock_act, mock_pulse):
 # Step 3: Dashboard
 # ============================================================
 
-@patch("app.services.console_queries.async_get_system_pulse", new_callable=AsyncMock)
-@patch("app.services.console_queries.async_get_recent_activity", new_callable=AsyncMock)
-@patch("app.services.console_queries.async_get_agents_needing_attention", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_system_pulse", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_recent_activity", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_agents_needing_attention", new_callable=AsyncMock)
 def test_dashboard_shows_pulse(mock_attn, mock_act, mock_pulse):
     """Dashboard shows system pulse cards."""
     mock_pulse.return_value = {
@@ -148,7 +163,7 @@ def test_dashboard_shows_pulse(mock_attn, mock_act, mock_pulse):
     assert "$12.5" in response.text  # cost
 
 
-@patch("app.services.console_queries.async_get_recent_activity", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_recent_activity", new_callable=AsyncMock)
 def test_activity_feed_partial(mock_act):
     """HTMX activity feed partial returns events."""
     mock_act.return_value = [
@@ -187,32 +202,36 @@ def test_query_layer_functions_exist():
     )
 
 
-@patch("app.services.console_queries.get_db_connection")
-def test_system_pulse_returns_defaults_on_error(mock_conn):
+@pytest.mark.asyncio
+@patch("app.services.console_queries.get_async_db_connection")
+async def test_system_pulse_returns_defaults_on_error(mock_conn):
     """System pulse returns zeros when DB is unavailable."""
     from app.services.console_queries import get_system_pulse
     mock_conn.side_effect = Exception("DB down")
-    result = get_system_pulse()
+    result = await get_system_pulse()
     assert result["total_agents"] == 0
     assert result["messages_today"] == 0
 
 
-@patch("app.services.console_queries.get_db_connection")
-def test_get_all_agents(mock_conn):
+@pytest.mark.asyncio
+@patch("app.services.console_queries.get_async_db_connection")
+async def test_get_all_agents(mock_conn):
     """get_all_agents returns agent list with stats."""
     from app.services.console_queries import get_all_agents
 
-    ctx = MagicMock()
-    ctx.execute.return_value.fetchall.return_value = [
+    mock_cur = AsyncMock()
+    mock_cur.fetchall.return_value = [
         {"id": AGENT_ID, "name": "Agent One", "contact_count": 15,
          "messages_today": 42, "last_active": date(2026, 3, 9),
          "errors_24h": 0, "current_status": "available",
          "brokerage": "Test RE", "market": "Philly", "twilio_number": "+15551111"},
     ]
-    mock_conn.return_value.__enter__ = MagicMock(return_value=ctx)
-    mock_conn.return_value.__exit__ = MagicMock(return_value=False)
+    mock_async_conn = AsyncMock()
+    mock_async_conn.execute.return_value = mock_cur
+    mock_conn.return_value.__aenter__ = AsyncMock(return_value=mock_async_conn)
+    mock_conn.return_value.__aexit__ = AsyncMock(return_value=False)
 
-    agents = get_all_agents()
+    agents = await get_all_agents()
     assert len(agents) == 1
     assert agents[0]["name"] == "Agent One"
     assert agents[0]["contact_count"] == 15
@@ -222,7 +241,7 @@ def test_get_all_agents(mock_conn):
 # Step 5: Tenant List + Detail
 # ============================================================
 
-@patch("app.services.console_queries.async_get_all_agents", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_all_agents", new_callable=AsyncMock)
 def test_tenant_list_renders(mock_agents):
     """Tenant list page renders agent table."""
     mock_agents.return_value = [
@@ -239,7 +258,7 @@ def test_tenant_list_renders(mock_agents):
     assert "RE/MAX" in response.text
 
 
-@patch("app.services.console_queries.async_get_all_agents", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_all_agents", new_callable=AsyncMock)
 def test_tenant_search(mock_agents):
     """Tenant search filters by name."""
     mock_agents.return_value = [
@@ -261,8 +280,8 @@ def test_tenant_search(mock_agents):
 # Step 6: Conversation Viewer
 # ============================================================
 
-@patch("app.services.console_queries.async_get_all_agents", new_callable=AsyncMock)
-@patch("app.services.console_queries.async_get_recent_conversations", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_all_agents", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_recent_conversations", new_callable=AsyncMock)
 def test_conversation_list_renders(mock_convos, mock_agents):
     """Conversation list renders."""
     mock_agents.return_value = []
@@ -282,8 +301,8 @@ def test_conversation_list_renders(mock_convos, mock_agents):
 # Step 7: Trigger Queue
 # ============================================================
 
-@patch("app.services.console_queries.async_get_all_agents", new_callable=AsyncMock)
-@patch("app.services.console_queries.async_get_trigger_queue", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_all_agents", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_trigger_queue", new_callable=AsyncMock)
 def test_trigger_list_renders(mock_triggers, mock_agents):
     """Trigger queue renders with status badges."""
     mock_agents.return_value = []
@@ -309,8 +328,8 @@ def test_trigger_list_renders(mock_triggers, mock_agents):
 # Step 8: Error Log
 # ============================================================
 
-@patch("app.services.console_queries.async_get_all_agents", new_callable=AsyncMock)
-@patch("app.services.console_queries.async_get_recent_errors", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_all_agents", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_recent_errors", new_callable=AsyncMock)
 def test_error_log_renders(mock_errors, mock_agents):
     """Error log renders tool execution errors."""
     mock_agents.return_value = []
@@ -341,42 +360,20 @@ def test_log_error_function():
 # Step 9: Cost Dashboard
 # ============================================================
 
-@patch("app.services.console_queries.async_get_model_tier_breakdown", new_callable=AsyncMock)
-@patch("app.services.console_queries.async_get_cost_by_agent", new_callable=AsyncMock)
-@patch("app.services.console_queries.async_get_cost_summary", new_callable=AsyncMock)
-def test_cost_dashboard_renders(mock_summary, mock_agent_costs, mock_tiers):
-    """Cost dashboard renders with data."""
-    mock_summary.return_value = {
-        "total_cost_dollars": 45.50, "total_messages": 3000,
-        "total_voice_minutes": 120.5, "total_showings": 25,
-        "total_llm_calls": 800, "daily": [],
-    }
-    mock_agent_costs.return_value = [
-        {"name": "Agent One", "messages": 1500, "llm_calls": 400,
-         "tokens": 500000, "cost_cents": 2500, "voice_minutes": 60,
-         "cost_dollars": 25.0, "cost_per_message": 0.017},
-    ]
-    mock_tiers.return_value = {
-        "template": {"count": 500, "pct": 62.5},
-        "haiku": {"count": 200, "pct": 25.0},
-        "sonnet": {"count": 100, "pct": 12.5},
-        "_total": 800,
-    }
-
+def test_cost_dashboard_redirects_to_billing():
+    """GET /console/costs redirects to /console/billing."""
     cookies = _get_authed_client()
-    response = client.get("/console/costs", cookies=cookies)
-    assert response.status_code == 200
-    assert "$45.5" in response.text
-    assert "Agent One" in response.text
-    assert "template" in response.text
+    response = client.get("/console/costs", cookies=cookies, follow_redirects=False)
+    assert response.status_code == 302
+    assert "/console/billing" in response.headers.get("location", "")
 
 
 # ============================================================
 # Step 10: Health Overview
 # ============================================================
 
-@patch("app.services.console_queries.async_get_all_agents", new_callable=AsyncMock)
-@patch("app.services.console_queries.async_get_health_overview", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_all_agents", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_health_overview", new_callable=AsyncMock)
 def test_health_page_renders(mock_health, mock_agents):
     """Health page renders service indicators."""
     mock_agents.return_value = []
@@ -397,11 +394,12 @@ def test_health_page_renders(mock_health, mock_agents):
     assert "green" in response.text
 
 
-@patch("app.services.console_queries.async_get_health_status_color", new_callable=AsyncMock)
+@patch("app.services.console_queries.get_health_status_color", new_callable=AsyncMock)
 def test_health_status_dot(mock_color):
     """Health status dot HTMX partial works."""
     mock_color.return_value = "green"
-    response = client.get("/console/health/status-dot")
+    cookies = _get_authed_client()
+    response = client.get("/console/health/status-dot", cookies=cookies)
     assert response.status_code == 200
     assert "status-green" in response.text
 
@@ -476,45 +474,48 @@ def test_tenant_create_checks_duplicate_twilio(mock_conn):
         })
 
 
-@patch("app.services.console_queries.get_db_connection")
-def test_retry_trigger(mock_conn):
+@pytest.mark.asyncio
+@patch("app.services.console_queries.get_async_db_connection")
+async def test_retry_trigger(mock_conn):
     """retry_trigger resets status to pending."""
     from app.services.console_queries import retry_trigger
 
-    ctx = MagicMock()
-    mock_conn.return_value.__enter__ = MagicMock(return_value=ctx)
-    mock_conn.return_value.__exit__ = MagicMock(return_value=False)
+    mock_async_conn = AsyncMock()
+    mock_conn.return_value.__aenter__ = AsyncMock(return_value=mock_async_conn)
+    mock_conn.return_value.__aexit__ = AsyncMock(return_value=False)
 
-    retry_trigger(str(uuid4()))
-    ctx.execute.assert_called_once()
-    assert "pending" in str(ctx.execute.call_args)
+    await retry_trigger(str(uuid4()))
+    mock_async_conn.execute.assert_called_once()
+    assert "pending" in str(mock_async_conn.execute.call_args)
 
 
-@patch("app.services.console_queries.get_db_connection")
-def test_cancel_trigger(mock_conn):
+@pytest.mark.asyncio
+@patch("app.services.console_queries.get_async_db_connection")
+async def test_cancel_trigger(mock_conn):
     """cancel_trigger sets status to cancelled."""
     from app.services.console_queries import cancel_trigger
 
-    ctx = MagicMock()
-    mock_conn.return_value.__enter__ = MagicMock(return_value=ctx)
-    mock_conn.return_value.__exit__ = MagicMock(return_value=False)
+    mock_async_conn = AsyncMock()
+    mock_conn.return_value.__aenter__ = AsyncMock(return_value=mock_async_conn)
+    mock_conn.return_value.__aexit__ = AsyncMock(return_value=False)
 
-    cancel_trigger(str(uuid4()))
-    ctx.execute.assert_called_once()
-    assert "cancelled" in str(ctx.execute.call_args)
+    await cancel_trigger(str(uuid4()))
+    mock_async_conn.execute.assert_called_once()
+    assert "cancelled" in str(mock_async_conn.execute.call_args)
 
 
-@patch("app.services.console_queries.get_db_connection")
-def test_deactivate_agent(mock_conn):
+@pytest.mark.asyncio
+@patch("app.services.console_queries.get_async_db_connection")
+async def test_deactivate_agent(mock_conn):
     """deactivate_agent sets status and cancels triggers."""
     from app.services.console_queries import deactivate_agent
 
-    ctx = MagicMock()
-    mock_conn.return_value.__enter__ = MagicMock(return_value=ctx)
-    mock_conn.return_value.__exit__ = MagicMock(return_value=False)
+    mock_async_conn = AsyncMock()
+    mock_conn.return_value.__aenter__ = AsyncMock(return_value=mock_async_conn)
+    mock_conn.return_value.__aexit__ = AsyncMock(return_value=False)
 
-    deactivate_agent(str(uuid4()))
-    assert ctx.execute.call_count == 2  # agent update + trigger cancel
+    await deactivate_agent(str(uuid4()))
+    assert mock_async_conn.execute.call_count == 2  # agent update + trigger cancel
 
 
 def test_error_log_table_in_schema():

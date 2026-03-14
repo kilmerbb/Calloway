@@ -25,14 +25,20 @@ COPY --from=builder /install /usr/local
 # Copy application code
 COPY --chown=calloway:calloway . .
 
+# Ensure entrypoint is executable
+RUN chmod +x docker-entrypoint.sh
+
 # Switch to non-root user
 USER calloway
 
-ENV PORT=8000
+# PROCESS_TYPE controls which process starts: "web" (default) or "worker"
+ENV PROCESS_TYPE=web \
+    PORT=8000
 EXPOSE ${PORT}
 
-# Health check against the /health endpoint
+# Health check: web uses /health endpoint, worker uses sentinel file.
+# The web healthcheck is the default; docker-compose overrides for worker.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request, os; urllib.request.urlopen(f'http://localhost:{os.environ.get(\"PORT\", 8000)}/health')" || exit 1
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --workers 2"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

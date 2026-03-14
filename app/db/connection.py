@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from urllib.parse import quote_plus
 from uuid import UUID
@@ -34,8 +35,29 @@ def get_connection_string() -> str:
 # Synchronous pool (kept for workers + backward compatibility)
 # ============================================================
 
-def init_pool(min_size: int = 2, max_size: int = 20) -> None:
-    """Initialize the global synchronous connection pool. Call once at app startup."""
+def _get_pool_defaults() -> tuple[int, int]:
+    """Return (sync_max, async_max) pool sizes from env vars or sensible defaults.
+
+    Defaults vary by process type:
+      - web:    sync=5,  async=20  (mostly async FastAPI handlers)
+      - worker: sync=15, async=5   (mostly sync DB work)
+    """
+    is_worker = os.environ.get("PROCESS_TYPE", "web") == "worker"
+    sync_default = 15 if is_worker else 5
+    async_default = 5 if is_worker else 20
+    sync_max = int(os.environ.get("DB_SYNC_POOL_MAX", str(sync_default)))
+    async_max = int(os.environ.get("DB_ASYNC_POOL_MAX", str(async_default)))
+    return sync_max, async_max
+
+
+def init_pool(min_size: int = 2, max_size: int | None = None) -> None:
+    """Initialize the global synchronous connection pool. Call once at app startup.
+
+    If *max_size* is not provided, it is read from ``DB_SYNC_POOL_MAX`` (env)
+    or chosen automatically based on ``PROCESS_TYPE``.
+    """
+    if max_size is None:
+        max_size, _ = _get_pool_defaults()
     global _pool
     if _pool is not None:
         return
@@ -87,8 +109,14 @@ def get_db_connection() -> psycopg.Connection:
 # Async pool (primary path for FastAPI handlers)
 # ============================================================
 
-async def init_async_pool(min_size: int = 2, max_size: int = 20) -> None:
-    """Initialize the global async connection pool. Call once at app startup."""
+async def init_async_pool(min_size: int = 2, max_size: int | None = None) -> None:
+    """Initialize the global async connection pool. Call once at app startup.
+
+    If *max_size* is not provided, it is read from ``DB_ASYNC_POOL_MAX`` (env)
+    or chosen automatically based on ``PROCESS_TYPE``.
+    """
+    if max_size is None:
+        _, max_size = _get_pool_defaults()
     global _async_pool
     if _async_pool is not None:
         return

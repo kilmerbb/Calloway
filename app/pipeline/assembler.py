@@ -6,6 +6,7 @@ and loads only the most recent messages.  This keeps the token budget
 focused on *current* context while preserving the full relationship
 history in condensed form.
 """
+import json as _json
 import logging
 import re
 from uuid import UUID
@@ -15,6 +16,7 @@ from app.models.schemas import (
     NormalizedEvent, Contact, AgentConfig, IntentClassification,
     AssembledContext, Listing, Trigger, Message,
 )
+from app.services.cache import cache_get, cache_set
 from app.tools.listings import get_listing, search_listings
 
 logger = logging.getLogger(__name__)
@@ -57,7 +59,7 @@ def assemble_context(
             triggers = _load_contact_triggers(agent.id, contact.id)
 
     elif intent.intent == "lead_qualification":
-        listings = search_listings(agent.id, filters={"status": "active"})
+        listings = _cached_active_listings(agent.id)
 
     elif intent.intent == "transaction":
         if contact:
@@ -67,7 +69,7 @@ def assemble_context(
         pass  # Just conversation history (already loaded)
 
     elif intent.intent == "agent_command":
-        listings = search_listings(agent.id, filters={"status": "active"})
+        listings = _cached_active_listings(agent.id)
         calendar_slots = _load_calendar_placeholder(agent.id)
 
     # Token budget trimming
@@ -131,7 +133,21 @@ def _load_history_with_summary(
 def _load_conversation_history(
     agent_id: UUID, contact_id: UUID, limit: int = 20
 ) -> list[Message]:
-    """Load the last N messages for a contact."""
+    """Load the last N messages for a contact (cached 30s)."""
+    cache_key = f"calloway:conv:{agent_id}:{contact_id}"
+
+    # --- cache hit path ---
+    cached = cache_get(cache_key)
+    if cached is not None:
+        try:
+            rows = _json.loads(cached)
+            messages = [Message(**r) for r in rows]
+            # Respect caller's limit even on cache hit
+            return messages[-limit:] if len(messages) > limit else messages
+        except Exception as e:
+            logger.warning("Failed to deserialise cached conversation: %s", e)
+
+    # --- cache miss: load from DB ---
     try:
         with get_db_connection() as conn:
             rows = conn.execute(
@@ -141,7 +157,18 @@ def _load_conversation_history(
                    ORDER BY m.created_at DESC LIMIT %s""",
                 [str(agent_id), str(contact_id), limit],
             ).fetchall()
-        return [Message(**r) for r in reversed(rows)]
+        messages = [Message(**r) for r in reversed(rows)]
+
+        # Cache the result (30s TTL)
+        try:
+            serialised = _json.dumps(
+                [m.model_dump(mode="json") for m in messages]
+            )
+            cache_set(cache_key, serialised, ttl=30)
+        except Exception as e:
+            logger.warning("Failed to cache conversation history: %s", e)
+
+        return messages
     except Exception as e:
         logger.error(f"Failed to load conversation history: {e}")
         return []
@@ -228,9 +255,34 @@ def _find_referenced_listing(body: str, agent_id: UUID) -> Listing | None:
     return best
 
 
+def _cached_active_listings(agent_id: UUID) -> list[Listing]:
+    """Return active listings for an agent, cached for 300s."""
+    cache_key = f"calloway:listings:{agent_id}"
+
+    cached = cache_get(cache_key)
+    if cached is not None:
+        try:
+            rows = _json.loads(cached)
+            return [Listing(**r) for r in rows]
+        except Exception as e:
+            logger.warning("Failed to deserialise cached listings: %s", e)
+
+    listings = search_listings(agent_id, filters={"status": "active"})
+
+    try:
+        serialised = _json.dumps(
+            [l.model_dump(mode="json") for l in listings]
+        )
+        cache_set(cache_key, serialised, ttl=300)
+    except Exception as e:
+        logger.warning("Failed to cache listings: %s", e)
+
+    return listings
+
+
 def _load_relevant_listings(agent_id: UUID, contact: Contact) -> list[Listing]:
     """Load listings relevant to a contact's preferences."""
-    return search_listings(agent_id, filters={"status": "active"})
+    return _cached_active_listings(agent_id)
 
 
 def _load_contact_triggers(agent_id: UUID, contact_id: UUID) -> list[Trigger]:

@@ -416,7 +416,7 @@ async def harness_home(request: Request):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_all_agents
+    from app.services.console_queries import sync_get_all_agents as get_all_agents
     return _render(request, "composer.html",
         page_title="Testing Harness", active_nav="harness",
         agents=get_all_agents(),
@@ -452,7 +452,7 @@ async def replay_page(request: Request):
     if redirect:
         return redirect
 
-    from app.services.console_queries import get_all_agents
+    from app.services.console_queries import sync_get_all_agents as get_all_agents
     return _render(request, "replay.html",
         page_title="Conversation Replay", active_nav="harness",
         agents=get_all_agents(),

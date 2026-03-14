@@ -519,3 +519,37 @@ CREATE TABLE IF NOT EXISTS harness_traces (
 );
 CREATE INDEX idx_harness_traces_created ON harness_traces(created_at DESC);
 CREATE INDEX idx_harness_traces_agent ON harness_traces(agent_id);
+
+-- ============================================================
+-- 16. console_users (Operator Console per-user auth)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS console_users (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email           TEXT NOT NULL,
+    password_hash   TEXT NOT NULL,
+    display_name    TEXT NOT NULL,
+    role            TEXT NOT NULL DEFAULT 'viewer',
+    active          BOOLEAN NOT NULL DEFAULT true,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_console_users_email ON console_users(email);
+
+-- ============================================================
+-- 17. audit_log (Operator Console audit trail)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS audit_log (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID REFERENCES console_users(id),
+    action          TEXT NOT NULL,
+    target_entity   TEXT,
+    target_id       TEXT,
+    ip_address      TEXT,
+    metadata        JSONB,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_audit_log_created ON audit_log(created_at);
+CREATE INDEX idx_audit_log_user ON audit_log(user_id);
+CREATE INDEX idx_audit_log_action ON audit_log(action);
