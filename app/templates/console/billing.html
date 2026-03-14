@@ -1,131 +1,262 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- Plan Tiers -->
-<div class="section">
-    <div class="section-title">Plan Tiers</div>
-    <div class="card-grid">
-        {% for tier_id, tier in plan_tiers.items() %}
-        <div class="card">
-            <div class="card-label">{{ tier.name }}</div>
-            <div class="card-value">${{ (tier.price_cents / 100)|int }}<small style="font-size:14px; font-weight:400;">/mo</small></div>
-            <ul style="margin-top: 0.5rem; margin-left: 1rem; font-size: 12px; color: var(--text-muted);">
-                {% for f in tier.features %}
-                <li>{{ f }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endfor %}
-    </div>
+<!-- Tab Bar -->
+<div class="tab-bar" role="tablist">
+    <button class="tab-btn {% if active_tab == 'subscriptions' %}active{% endif %}" role="tab"
+            aria-selected="{{ 'true' if active_tab == 'subscriptions' else 'false' }}"
+            data-tab="subscriptions">Subscriptions</button>
+    <button class="tab-btn {% if active_tab == 'ai-costs' %}active{% endif %}" role="tab"
+            aria-selected="{{ 'true' if active_tab == 'ai-costs' else 'false' }}"
+            data-tab="ai-costs">AI Costs</button>
 </div>
 
-<!-- Subscriptions -->
-<div class="section">
-    <div class="section-title">Active Subscriptions ({{ subscriptions|length }})</div>
-    {% if subscriptions %}
-    <table>
-        <thead>
-            <tr>
-                <th>Agent</th>
-                <th>Plan</th>
-                <th>Status</th>
-                <th>Messages Used</th>
-                <th>Monthly Revenue</th>
-                <th>Period Ends</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for s in subscriptions %}
-            <tr>
-                <td>
-                    <a href="/console/tenants/{{ s.agent_id }}">{{ s.agent_name }}</a>
-                    <div style="font-size:11px; color:var(--text-muted);">{{ s.agent_email }}</div>
-                </td>
-                <td>
-                    <span class="badge badge-blue">{{ s.plan_tier }}</span>
-                </td>
-                <td>
-                    {% if s.status == 'active' %}<span class="badge badge-green">active</span>
-                    {% elif s.status == 'trialing' %}<span class="badge badge-yellow">trial</span>
-                    {% elif s.status == 'past_due' %}<span class="badge badge-red">past due</span>
-                    {% elif s.status == 'canceled' %}<span class="badge badge-gray">canceled</span>
-                    {% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}
-                    {% if s.cancel_at_period_end %}<span class="badge badge-yellow" style="margin-left:4px;">canceling</span>{% endif %}
-                </td>
-                <td>
-                    {{ s.messages_used }} / {{ s.message_limit }}
-                    {% set pct = (s.messages_used / s.message_limit * 100) if s.message_limit > 0 else 0 %}
-                    <div style="height:4px; background:var(--border); border-radius:2px; margin-top:4px;">
-                        <div style="height:100%; width:{{ [pct, 100]|min }}%; background:{% if pct > 90 %}var(--red){% elif pct > 70 %}var(--yellow){% else %}var(--green){% endif %}; border-radius:2px;"></div>
-                    </div>
-                </td>
-                <td>${{ (s.monthly_price_cents / 100)|int }}</td>
-                <td style="font-size:12px;">{{ s.current_period_end.strftime('%b %d, %Y') if s.current_period_end else '—' }}</td>
-                <td>
-                    {% if s.status not in ['canceled'] %}
-                    <details style="position:relative;">
-                        <summary class="btn btn-outline btn-sm">Change Plan</summary>
-                        <div style="position:absolute; right:0; top:100%; z-index:5; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:0.75rem; min-width:200px; margin-top:4px;">
-                            <form method="post" action="/console/billing/{{ s.agent_id }}/change-plan">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <div class="form-group" style="margin-bottom:0.5rem;">
-                                    <select name="plan_tier" style="font-size:12px;">
-                                        {% for tid, t in plan_tiers.items() %}
-                                        <option value="{{ tid }}" {% if s.plan_tier == tid %}selected{% endif %}>${{ (t.price_cents / 100)|int }}/mo — {{ t.name }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <button type="submit" class="btn btn-primary btn-sm" style="width:100%;">Apply</button>
-                            </form>
-                            <form method="post" action="/console/billing/{{ s.agent_id }}/cancel" style="margin-top:0.5rem;" onsubmit="return confirm('Cancel this subscription at the end of the billing period?');">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <button type="submit" class="btn btn-danger btn-sm" style="width:100%;">Cancel Subscription</button>
-                            </form>
-                        </div>
-                    </details>
-                    {% endif %}
-                </td>
-            </tr>
+<!-- Tab Panel: Subscriptions -->
+<div id="panel-subscriptions" class="tab-panel {% if active_tab == 'subscriptions' %}active{% endif %}" role="tabpanel">
+
+    <!-- Plan Tiers -->
+    <div class="section">
+        <div class="section-title">Plan Tiers</div>
+        <div class="card-grid">
+            {% for tier_id, tier in plan_tiers.items() %}
+            <div class="card">
+                <div class="card-label">{{ tier.name }}</div>
+                <div class="card-value">${{ (tier.price_cents / 100)|int }}<small style="font-size:14px; font-weight:400;">/mo</small></div>
+                <ul style="margin-top: 0.5rem; margin-left: 1rem; font-size: 12px; color: var(--text-muted);">
+                    {% for f in tier.features %}
+                    <li>{{ f }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
             {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <div style="text-align:center; color:var(--text-muted); padding:2rem;">
-        No subscriptions yet. Create a subscription when onboarding a new agent, or use the Stripe dashboard directly.
+        </div>
     </div>
-    {% endif %}
+
+    <!-- Subscriptions -->
+    <div class="section">
+        <div class="section-title">Active Subscriptions ({{ subscriptions|length }})</div>
+        {% if subscriptions %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Customer</th>
+                    <th>Plan</th>
+                    <th>Status</th>
+                    <th>Messages Used</th>
+                    <th>Monthly Revenue</th>
+                    <th>Period Ends</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in subscriptions %}
+                <tr>
+                    <td>
+                        <a href="/console/tenants/{{ s.agent_id }}">{{ s.agent_name }}</a>
+                        <div style="font-size:11px; color:var(--text-muted);">{{ s.agent_email }}</div>
+                    </td>
+                    <td>
+                        <span class="badge badge-blue">{{ s.plan_tier }}</span>
+                    </td>
+                    <td>
+                        {% if s.status == 'active' %}<span class="badge badge-green">active</span>
+                        {% elif s.status == 'trialing' %}<span class="badge badge-yellow">trial</span>
+                        {% elif s.status == 'past_due' %}<span class="badge badge-red">past due</span>
+                        {% elif s.status == 'canceled' %}<span class="badge badge-gray">canceled</span>
+                        {% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}
+                        {% if s.cancel_at_period_end %}<span class="badge badge-yellow" style="margin-left:4px;">canceling</span>{% endif %}
+                    </td>
+                    <td>
+                        {{ s.messages_used }} / {{ s.message_limit }}
+                        {% set pct = (s.messages_used / s.message_limit * 100) if s.message_limit > 0 else 0 %}
+                        <div style="height:4px; background:var(--border); border-radius:2px; margin-top:4px;">
+                            <div style="height:100%; width:{{ [pct, 100]|min }}%; background:{% if pct > 90 %}var(--red){% elif pct > 70 %}var(--yellow){% else %}var(--green){% endif %}; border-radius:2px;"></div>
+                        </div>
+                    </td>
+                    <td>${{ (s.monthly_price_cents / 100)|int }}</td>
+                    <td style="font-size:12px;">{{ s.current_period_end.strftime('%b %d, %Y') if s.current_period_end else '—' }}</td>
+                    <td>
+                        {% if s.status not in ['canceled'] %}
+                        <details style="position:relative;">
+                            <summary class="btn btn-outline btn-sm">Change Plan</summary>
+                            <div style="position:absolute; right:0; top:100%; z-index:5; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:0.75rem; min-width:200px; margin-top:4px;">
+                                <form method="post" action="/console/billing/{{ s.agent_id }}/change-plan">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <div class="form-group" style="margin-bottom:0.5rem;">
+                                        <select name="plan_tier" style="font-size:12px;">
+                                            {% for tid, t in plan_tiers.items() %}
+                                            <option value="{{ tid }}" {% if s.plan_tier == tid %}selected{% endif %}>${{ (t.price_cents / 100)|int }}/mo — {{ t.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-sm" style="width:100%;">Apply</button>
+                                </form>
+                                <form method="post" action="/console/billing/{{ s.agent_id }}/cancel" style="margin-top:0.5rem;" onsubmit="return confirm('Cancel this subscription at the end of the billing period?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="btn btn-danger btn-sm" style="width:100%;">Cancel Subscription</button>
+                                </form>
+                            </div>
+                        </details>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center; color:var(--text-muted); padding:2rem;">
+            No subscriptions yet. Create a subscription when onboarding a new agent, or use the Stripe dashboard directly.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Revenue Summary -->
+    <div class="section">
+        <div class="section-title">Revenue Summary</div>
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-label">Monthly Recurring Revenue</div>
+                <div class="card-value">
+                    ${{ "{:,.0f}".format(subscriptions|selectattr('status', 'in', ['active', 'trialing'])|map(attribute='monthly_price_cents')|sum / 100) }}
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-label">Active Subscribers</div>
+                <div class="card-value">
+                    {{ subscriptions|selectattr('status', 'in', ['active', 'trialing'])|list|length }}
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-label">Trial Subscribers</div>
+                <div class="card-value">
+                    {{ subscriptions|selectattr('status', 'equalto', 'trialing')|list|length }}
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-label">Past Due</div>
+                <div class="card-value" {% if subscriptions|selectattr('status', 'equalto', 'past_due')|list|length > 0 %}style="color:var(--red)"{% endif %}>
+                    {{ subscriptions|selectattr('status', 'equalto', 'past_due')|list|length }}
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
-<!-- Revenue Summary -->
-<div class="section">
-    <div class="section-title">Revenue Summary</div>
+<!-- Tab Panel: AI Costs -->
+<div id="panel-ai-costs" class="tab-panel {% if active_tab == 'ai-costs' %}active{% endif %}" role="tabpanel">
+
+    <!-- Summary Cards -->
     <div class="card-grid">
-        <div class="card">
-            <div class="card-label">Monthly Recurring Revenue</div>
-            <div class="card-value">
-                ${{ "{:,.0f}".format(subscriptions|selectattr('status', 'in', ['active', 'trialing'])|map(attribute='monthly_price_cents')|sum / 100) }}
-            </div>
+        <div class="card" title="Total estimated AI spend across all customers in the last 30 days">
+            <div class="card-label">Total AI Cost (30d)</div>
+            <div class="card-value">${{ cost_summary.total_cost_dollars }}</div>
         </div>
-        <div class="card">
-            <div class="card-label">Active Subscribers</div>
-            <div class="card-value">
-                {{ subscriptions|selectattr('status', 'in', ['active', 'trialing'])|list|length }}
-            </div>
+        <div class="card" title="Total messages sent and received across all customers in 30 days">
+            <div class="card-label">Total Messages</div>
+            <div class="card-value">{{ cost_summary.total_messages }}</div>
         </div>
-        <div class="card">
-            <div class="card-label">Trial Subscribers</div>
-            <div class="card-value">
-                {{ subscriptions|selectattr('status', 'equalto', 'trialing')|list|length }}
-            </div>
+        <div class="card" title="Total Vapi voice call minutes in the last 30 days">
+            <div class="card-label">Voice Minutes</div>
+            <div class="card-value">{{ cost_summary.total_voice_minutes|round(1) }}</div>
         </div>
-        <div class="card">
-            <div class="card-label">Past Due</div>
-            <div class="card-value" {% if subscriptions|selectattr('status', 'equalto', 'past_due')|list|length > 0 %}style="color:var(--red)"{% endif %}>
-                {{ subscriptions|selectattr('status', 'equalto', 'past_due')|list|length }}
-            </div>
+        <div class="card" title="Property showings successfully booked by the AI in 30 days">
+            <div class="card-label">Showings Booked</div>
+            <div class="card-value">{{ cost_summary.total_showings }}</div>
+        </div>
+        <div class="card" title="Total number of AI requests made in 30 days">
+            <div class="card-label">AI Requests</div>
+            <div class="card-value">{{ cost_summary.total_llm_calls }}</div>
         </div>
     </div>
+
+    <!-- Daily Cost Chart -->
+    <div class="section">
+        <div class="section-title" title="Visual breakdown of daily AI spend — hover each bar for details">Daily Cost (30 days)</div>
+        {% if cost_summary.daily %}
+        {% set max_cost = namespace(val=1) %}
+        {% for d in cost_summary.daily %}
+            {% if d.cost > max_cost.val %}{% set max_cost.val = d.cost %}{% endif %}
+        {% endfor %}
+        <div class="bar-chart">
+            {% for d in cost_summary.daily %}
+            <div class="bar" style="height: {{ (d.cost / max_cost.val * 100)|int }}%;" title="{{ d.date }}: ${{ (d.cost / 100)|round(2) }}"></div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="color: var(--text-muted);">No cost data yet.</div>
+        {% endif %}
+    </div>
+
+    <!-- Model Tier Breakdown -->
+    <div class="section">
+        <div class="section-title" title="Distribution of AI requests by model tier — template (cheapest), haiku, sonnet (most capable)">AI Model Usage</div>
+        <table style="max-width: 400px;">
+            <thead><tr><th>Model</th><th title="Number of AI requests using this model">Count</th><th title="Percentage of total requests">%</th></tr></thead>
+            <tbody>
+                {% for model, data in model_tiers.items() %}
+                {% if model != '_total' %}
+                <tr>
+                    <td><span class="badge {% if model == 'template' %}badge-gray{% elif model == 'haiku' %}badge-green{% elif model == 'sonnet' %}badge-blue{% else %}badge-yellow{% endif %}" title="{% if model == 'template' %}Pre-built templates — no AI cost{% elif model == 'haiku' %}Fast, low-cost model for simple tasks{% elif model == 'sonnet' %}More capable model for complex reasoning{% else %}Other model tier{% endif %}">{{ model }}</span></td>
+                    <td>{{ data.count }}</td>
+                    <td>{{ data.pct }}%</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Per-Agent Costs -->
+    <div class="section">
+        <div class="section-title" title="Cost breakdown by customer — highlighted in red if exceeding $15/month">Cost by Customer (30 days)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th title="Customer name">Customer</th>
+                    <th title="Total messages sent and received">Messages</th>
+                    <th title="Total AI requests">AI Requests</th>
+                    <th title="Total tokens consumed">Tokens</th>
+                    <th title="Estimated AI cost — highlighted red if over $15">Cost</th>
+                    <th title="Total Vapi voice call minutes">Voice Min</th>
+                    <th title="Average cost per message">Cost/Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in per_agent %}
+                <tr>
+                    <td>{{ a.name }}</td>
+                    <td>{{ a.messages }}</td>
+                    <td>{{ a.llm_calls }}</td>
+                    <td>{{ a.tokens }}</td>
+                    <td {% if a.cost_dollars > 15 %}style="color: var(--red); font-weight: 600;" title="Cost exceeds $15 threshold"{% endif %}>${{ a.cost_dollars }}</td>
+                    <td>{{ a.voice_minutes }}</td>
+                    <td>${{ a.cost_per_message }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
 </div>
+
+<!-- Tab switching JS -->
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tabId = btn.dataset.tab;
+        // Deactivate all tabs and panels
+        btn.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('active');
+            b.setAttribute('aria-selected', 'false');
+        });
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        // Activate clicked tab and its panel
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        document.getElementById('panel-' + tabId).classList.add('active');
+    });
+});
+</script>
 
 {% endblock %}

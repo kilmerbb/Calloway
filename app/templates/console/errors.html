@@ -2,8 +2,8 @@
 {% block content %}
 <form method="get" class="filters">
     <div class="form-group">
-        <label>Agent</label>
-        <select name="agent" title="Filter errors by tenant">
+        <label>Customer</label>
+        <select name="agent" title="Filter errors by customer">
             <option value="">All</option>
             {% for a in agents %}
             <option value="{{ a.id }}" {% if agent_filter == a.id|string %}selected{% endif %}>{{ a.name }}</option>
@@ -15,12 +15,12 @@
 
 {% if errors.tool_errors %}
 <div class="section">
-    <div class="section-title" title="Errors from external tool calls (e.g. calendar, MLS, CRM integrations)">Tool Execution Errors</div>
+    <div class="section-title" title="Errors from external integrations (e.g. calendar, MLS, CRM)">Integration Errors</div>
     <table>
         <thead>
             <tr>
                 <th title="When the error occurred">Time</th>
-                <th title="Which tenant triggered the error">Agent</th>
+                <th title="Which customer triggered the error">Customer</th>
                 <th title="The tool that failed">Tool</th>
                 <th title="Click to expand full error details, input, and output">Error</th>
                 <th title="How long the tool call took before failing">Latency</th>
@@ -51,12 +51,12 @@ Output: {{ e.output_json }}</pre>
 
 {% if errors.app_errors %}
 <div class="section">
-    <div class="section-title" title="Internal application errors and warnings logged by the system">Application Errors</div>
+    <div class="section-title" title="Internal system errors and warnings logged by the system">System Errors</div>
     <table>
         <thead>
             <tr>
                 <th title="When the error occurred">Time</th>
-                <th title="Which tenant was involved (if applicable)">Agent</th>
+                <th title="Which customer was involved (if applicable)">Customer</th>
                 <th title="Code module that raised the error">Module</th>
                 <th title="Error severity level">Severity</th>
                 <th title="Click to expand full message and stack trace">Message</th>

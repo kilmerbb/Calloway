@@ -2,11 +2,11 @@
 {% block content %}
 <!-- Summary Cards -->
 <div class="card-grid">
-    <div class="card" title="Total estimated LLM API spend across all tenants in the last 30 days">
-        <div class="card-label">Total LLM Cost (30d)</div>
+    <div class="card" title="Total estimated AI spend across all customers in the last 30 days">
+        <div class="card-label">Total AI Cost (30d)</div>
         <div class="card-value">${{ summary.total_cost_dollars }}</div>
     </div>
-    <div class="card" title="Total messages sent and received across all tenants in 30 days">
+    <div class="card" title="Total messages sent and received across all customers in 30 days">
         <div class="card-label">Total Messages</div>
         <div class="card-value">{{ summary.total_messages }}</div>
     </div>
@@ -18,15 +18,15 @@
         <div class="card-label">Showings Booked</div>
         <div class="card-value">{{ summary.total_showings }}</div>
     </div>
-    <div class="card" title="Total number of LLM API calls made in 30 days">
-        <div class="card-label">LLM Calls</div>
+    <div class="card" title="Total number of AI requests made in 30 days">
+        <div class="card-label">AI Requests</div>
         <div class="card-value">{{ summary.total_llm_calls }}</div>
     </div>
 </div>
 
 <!-- Daily Cost Chart -->
 <div class="section">
-    <div class="section-title" title="Visual breakdown of daily LLM spend — hover each bar for details">Daily Cost (30 days)</div>
+    <div class="section-title" title="Visual breakdown of daily AI spend — hover each bar for details">Daily Cost (30 days)</div>
     {% if summary.daily %}
     {% set max_cost = namespace(val=1) %}
     {% for d in summary.daily %}
@@ -44,14 +44,14 @@
 
 <!-- Model Tier Breakdown -->
 <div class="section">
-    <div class="section-title" title="Distribution of LLM calls by model tier — template (cheapest), haiku, sonnet (most capable)">Model Tier Breakdown</div>
+    <div class="section-title" title="Distribution of AI requests by model tier — template (cheapest), haiku, sonnet (most capable)">AI Model Usage</div>
     <table style="max-width: 400px;">
-        <thead><tr><th>Model</th><th title="Number of API calls using this model">Count</th><th title="Percentage of total calls">%</th></tr></thead>
+        <thead><tr><th>Model</th><th title="Number of AI requests using this model">Count</th><th title="Percentage of total requests">%</th></tr></thead>
         <tbody>
             {% for model, data in model_tiers.items() %}
             {% if model != '_total' %}
             <tr>
-                <td><span class="badge {% if model == 'template' %}badge-gray{% elif model == 'haiku' %}badge-green{% elif model == 'sonnet' %}badge-blue{% else %}badge-yellow{% endif %}" title="{% if model == 'template' %}Pre-built templates — no LLM cost{% elif model == 'haiku' %}Fast, low-cost model for simple tasks{% elif model == 'sonnet' %}More capable model for complex reasoning{% else %}Other model tier{% endif %}">{{ model }}</span></td>
+                <td><span class="badge {% if model == 'template' %}badge-gray{% elif model == 'haiku' %}badge-green{% elif model == 'sonnet' %}badge-blue{% else %}badge-yellow{% endif %}" title="{% if model == 'template' %}Pre-built templates — no AI cost{% elif model == 'haiku' %}Fast, low-cost model for simple tasks{% elif model == 'sonnet' %}More capable model for complex reasoning{% else %}Other model tier{% endif %}">{{ model }}</span></td>
                 <td>{{ data.count }}</td>
                 <td>{{ data.pct }}%</td>
             </tr>
@@ -63,17 +63,17 @@
 
 <!-- Per-Agent Costs -->
 <div class="section">
-    <div class="section-title" title="Cost breakdown by tenant — agents highlighted in red exceed $15/month">Per-Agent Costs (30 days)</div>
+    <div class="section-title" title="Cost breakdown by customer — highlighted in red if exceeding $15/month">Cost by Customer (30 days)</div>
     <table>
         <thead>
             <tr>
-                <th title="Tenant name">Agent</th>
+                <th title="Customer name">Customer</th>
                 <th title="Total messages sent and received">Messages</th>
-                <th title="Total LLM API calls">LLM Calls</th>
+                <th title="Total AI requests">AI Requests</th>
                 <th title="Total tokens consumed">Tokens</th>
-                <th title="Estimated LLM cost — highlighted red if over $15">Cost</th>
+                <th title="Estimated AI cost — highlighted red if over $15">Cost</th>
                 <th title="Total Vapi voice call minutes">Voice Min</th>
-                <th title="Average cost per message">$/msg</th>
+                <th title="Average cost per message">Cost/Message</th>
             </tr>
         </thead>
         <tbody>

@@ -27,14 +27,13 @@
     <strong>Table of Contents</strong>
     <a href="#login">Login</a>
     <a href="#sidebar">Sidebar Navigation</a>
-    <a href="#dashboard">Dashboard</a>
-    <a href="#tenants">Tenants</a>
-    <a href="#conversations">Conversations</a>
-    <a href="#triggers">Triggers</a>
-    <a href="#errors">Errors</a>
-    <a href="#costs">Costs</a>
-    <a href="#health">Health</a>
-    <a href="#harness">Harness</a>
+    <a href="#dashboard">Home</a>
+    <a href="#tenants">Customers</a>
+    <a href="#conversations">Messages</a>
+    <a href="#triggers">Automations</a>
+    <a href="#health">System Health</a>
+    <a href="#billing">Billing</a>
+    <a href="#harness">Testing</a>
     <a href="#tips">Tips &amp; Shortcuts</a>
 </div>
 
@@ -50,15 +49,14 @@
 <table>
     <thead><tr><th>Nav Item</th><th>Description</th></tr></thead>
     <tbody>
-        <tr><td><strong>Dashboard</strong></td><td>System overview with key metrics and live activity feed</td></tr>
-        <tr><td><strong>Tenants</strong></td><td>Manage real estate agent accounts</td></tr>
-        <tr><td><strong>Conversations</strong></td><td>View all SMS, RCS, voice, and email conversations</td></tr>
-        <tr><td><strong>Triggers</strong></td><td>Scheduled actions like follow-ups, reminders, and briefings</td></tr>
-        <tr><td><strong>Errors</strong></td><td>Tool execution failures and application errors</td></tr>
-        <tr><td><strong>Costs</strong></td><td>LLM spend, token usage, and per-agent cost breakdown</td></tr>
-        <tr><td><strong>Health</strong></td><td>Service connectivity, latency metrics, and manual scans</td></tr>
-        <tr><td><strong>Harness</strong></td><td>Test harness for simulating conversations</td></tr>
-        <tr><td><strong>Manual</strong></td><td>This page</td></tr>
+        <tr><td><strong>Home</strong></td><td>System overview with key metrics and live activity feed</td></tr>
+        <tr><td><strong>Customers</strong></td><td>Manage real estate agent accounts</td></tr>
+        <tr><td><strong>Messages</strong></td><td>View all SMS, RCS, voice, and email conversations</td></tr>
+        <tr><td><strong>Automations</strong></td><td>Scheduled actions like follow-ups, reminders, and briefings</td></tr>
+        <tr><td><strong>Billing</strong></td><td>Subscriptions, revenue tracking, and AI cost breakdown</td></tr>
+        <tr><td><strong>System Health</strong></td><td>Service connectivity, response times, errors, and manual checks</td></tr>
+        <tr><td><strong>Testing</strong></td><td>Simulate conversations to test AI behavior</td></tr>
+        <tr><td><strong>Help</strong></td><td>This page</td></tr>
         <tr><td><strong>Logout</strong></td><td>End your session and return to the login screen</td></tr>
     </tbody>
 </table>
@@ -66,37 +64,37 @@
 
 <hr>
 
-<h2 id="dashboard">Dashboard</h2>
+<h2 id="dashboard">Home</h2>
 
 <h3>Pulse Cards (top row)</h3>
 <table>
     <thead><tr><th>Card</th><th>What It Shows</th></tr></thead>
     <tbody>
-        <tr><td><strong>Active Tenants</strong></td><td>Total registered agent accounts</td></tr>
+        <tr><td><strong>Active Customers</strong></td><td>Total registered agent accounts</td></tr>
         <tr><td><strong>Messages Today</strong></td><td>Messages sent/received since midnight (server time)</td></tr>
         <tr><td><strong>Messages 24h</strong></td><td>Messages in the last 24-hour rolling window</td></tr>
-        <tr><td><strong>Errors 24h</strong></td><td>Tool + application errors in the last 24 hours. Turns red if &gt; 0.</td></tr>
-        <tr><td><strong>LLM Cost Today</strong></td><td>Estimated LLM API spend across all tenants today</td></tr>
+        <tr><td><strong>Errors 24h</strong></td><td>Integration + system errors in the last 24 hours. Turns red if &gt; 0.</td></tr>
+        <tr><td><strong>AI Cost Today</strong></td><td>Estimated AI spend across all customers today</td></tr>
     </tbody>
 </table>
 
 <h3>Recent Activity (left panel)</h3>
-<p>A live feed of the most recent messages across all tenants. Auto-refreshes every 15 seconds. Each entry shows the timestamp, agent name, sender badge (green for client, blue for AI, gray for system), message preview, and contact name.</p>
+<p>A live feed of the most recent messages across all customers. Auto-refreshes every 15 seconds. Each entry shows the timestamp, agent name, sender badge (green for client, blue for AI, gray for system), message preview, and contact name.</p>
 
 <h3>Needs Attention (right panel)</h3>
-<p>Flags tenants needing manual intervention:</p>
+<p>Flags customers needing manual intervention:</p>
 <ul>
-    <li><strong style="color: var(--red);">Errors</strong> — Tenants with errors in the last 24 hours. Click the name to investigate.</li>
-    <li><strong style="color: var(--yellow);">Inactive 48h+</strong> — Tenants with no activity for 48+ hours. May indicate a Twilio issue.</li>
-    <li><strong>All clear</strong> — Shown when no tenants need attention.</li>
+    <li><strong style="color: var(--red);">Errors</strong> — Customers with errors in the last 24 hours. Click the name to investigate.</li>
+    <li><strong style="color: var(--yellow);">Inactive 48h+</strong> — Customers with no activity for 48+ hours. May indicate a Twilio issue.</li>
+    <li><strong>All clear</strong> — Shown when no customers need attention.</li>
 </ul>
 
 <hr>
 
-<h2 id="tenants">Tenants</h2>
+<h2 id="tenants">Customers</h2>
 
-<h3>Tenant List</h3>
-<p>A table of all registered agent accounts. Use the <strong>Search</strong> bar to filter by name or market, and click <strong>New Tenant</strong> to register a new agent.</p>
+<h3>Customer List</h3>
+<p>A table of all registered agent accounts. Use the <strong>Search</strong> bar to filter by name or market, and click <strong>New Customer</strong> to register a new agent.</p>
 
 <h4>Table Columns</h4>
 <table>
@@ -105,7 +103,7 @@
         <tr><td><strong>Name</strong></td><td>Agent's display name. Click to view full profile.</td></tr>
         <tr><td><strong>Brokerage</strong></td><td>The agent's brokerage firm</td></tr>
         <tr><td><strong>Market</strong></td><td>Primary geographic market area</td></tr>
-        <tr><td><strong>Twilio #</strong></td><td>The Twilio phone number assigned to this tenant</td></tr>
+        <tr><td><strong>Twilio #</strong></td><td>The Twilio phone number assigned to this customer</td></tr>
         <tr><td><strong>Contacts</strong></td><td>Total contacts in the agent's CRM</td></tr>
         <tr><td><strong>Msgs Today</strong></td><td>Messages sent/received today</td></tr>
         <tr><td><strong>Last Active</strong></td><td>Timestamp of most recent activity</td></tr>
@@ -114,7 +112,7 @@
     </tbody>
 </table>
 
-<h3>New Tenant</h3>
+<h3>New Customer</h3>
 <p>Form to register a new real estate agent. Fields marked <strong>*</strong> are required.</p>
 
 <h4>Agent Profile</h4>
@@ -124,7 +122,7 @@
     <li><strong>Phone*</strong> — Personal phone in E.164 format (e.g. <code>+15551234567</code>)</li>
     <li><strong>Brokerage</strong> — Brokerage firm name</li>
     <li><strong>Market</strong> — Primary geographic area</li>
-    <li><strong>Timezone</strong> — Used for scheduling triggers and daily briefings</li>
+    <li><strong>Timezone</strong> — Used for scheduling automations and daily briefings</li>
 </ul>
 
 <h4>Twilio Configuration</h4>
@@ -153,28 +151,28 @@
     <li><strong>System Prompt Override</strong> — Custom system prompt that overrides the default AI instructions</li>
 </ul>
 
-<h3>Tenant Detail</h3>
-<p>Full profile view for a single tenant. Action buttons at the top:</p>
+<h3>Customer Detail</h3>
+<p>Full profile view for a single customer. Action buttons at the top:</p>
 <table>
     <thead><tr><th>Button</th><th>What It Does</th></tr></thead>
     <tbody>
-        <tr><td><strong>Edit Config</strong></td><td>Opens the edit form to change profile, tone, autonomy, etc.</td></tr>
+        <tr><td><strong>Edit Settings</strong></td><td>Opens the edit form to change profile, tone, autonomy, etc.</td></tr>
         <tr><td><strong>Test SMS</strong></td><td>Sends a test SMS to verify Twilio is working</td></tr>
-        <tr><td><strong>Deactivate</strong></td><td>Disables the tenant — stops all AI responses and scheduled triggers. Requires confirmation.</td></tr>
+        <tr><td><strong>Deactivate</strong></td><td>Disables the customer — stops all AI responses and scheduled automations. Requires confirmation.</td></tr>
     </tbody>
 </table>
 
 <p>The left panel shows <strong>Profile</strong>, expandable <strong>Configuration</strong> (Style Profile, Autonomy Rules, Scheduling Prefs, Raw JSON), and <strong>Recent Messages</strong> (last 20).</p>
-<p>The right sidebar shows <strong>This Month</strong> stats (cost, messages, errors), <strong>Contacts</strong> (with lifecycle stage and consent badges), <strong>Listings</strong>, and <strong>Pending Triggers</strong>.</p>
+<p>The right sidebar shows <strong>This Month</strong> stats (cost, messages, errors), <strong>Contacts</strong> (with lifecycle stage and consent badges), <strong>Listings</strong>, and <strong>Scheduled Automations</strong>.</p>
 <p>A red <span class="badge badge-red">revoked</span> badge on a contact means TCPA consent was revoked — no automated messages allowed.</p>
 
 <hr>
 
-<h2 id="conversations">Conversations</h2>
+<h2 id="conversations">Messages</h2>
 
 <h3>Filters</h3>
 <ul>
-    <li><strong>Agent</strong> — Filter by tenant</li>
+    <li><strong>Customer</strong> — Filter by customer</li>
     <li><strong>Channel</strong> — SMS, RCS, Vapi (voice), or Email</li>
     <li><strong>Search</strong> — Contact name or phone number</li>
 </ul>
@@ -186,30 +184,30 @@
     <li><strong>Blue messages</strong> — AI-generated responses</li>
     <li><strong>Gray messages</strong> — System messages</li>
 </ul>
-<p>Each message shows metadata: sender type, LLM model used, token count, detected intent, feedback score, and timestamp.</p>
-<p><strong>Tool execution blocks</strong> appear inline as expandable sections. Click to see tool name, status, input/output JSON, error message, and latency.</p>
-<p>The right sidebar shows <strong>Contact</strong> info (name, phone, role, lifecycle stage) and <strong>Active Triggers</strong> for this conversation.</p>
+<p>Each message shows metadata: sender type, AI model used, token count, detected intent, feedback score, and timestamp.</p>
+<p><strong>Integration blocks</strong> appear inline as expandable sections. Click to see tool name, status, input/output JSON, error message, and latency.</p>
+<p>The right sidebar shows <strong>Contact</strong> info (name, phone, role, lifecycle stage) and <strong>Active Automations</strong> for this conversation.</p>
 
 <hr>
 
-<h2 id="triggers">Triggers</h2>
-<p>Triggers are scheduled actions the AI creates (follow-ups, review requests, briefings, etc.).</p>
+<h2 id="triggers">Automations</h2>
+<p>Automations are scheduled actions the AI creates (follow-ups, review requests, briefings, etc.).</p>
 
 <h3>Filters</h3>
 <ul>
     <li><strong>Status</strong> — Pending, Completed, Error, Cancelled, or All</li>
-    <li><strong>Agent</strong> — Filter by tenant</li>
+    <li><strong>Customer</strong> — Filter by customer</li>
 </ul>
 
 <h3>Table Columns</h3>
 <table>
     <thead><tr><th>Column</th><th>Description</th></tr></thead>
     <tbody>
-        <tr><td><strong>Type</strong></td><td>Trigger category (e.g. <code>follow_up</code>, <code>review_request</code>, <code>daily_briefing</code>)</td></tr>
-        <tr><td><strong>Scheduled</strong></td><td>When the trigger will fire</td></tr>
+        <tr><td><strong>Type</strong></td><td>Automation category (e.g. <code>follow_up</code>, <code>review_request</code>, <code>daily_briefing</code>)</td></tr>
+        <tr><td><strong>Scheduled</strong></td><td>When the automation will run</td></tr>
         <tr><td><strong>Status</strong></td><td><span class="badge badge-blue">pending</span> = waiting, <span class="badge badge-green">completed</span> = done, <span class="badge badge-red">error</span> = failed, <span class="badge badge-gray">cancelled</span></td></tr>
-        <tr><td><strong>Action</strong></td><td>What happens when it fires (e.g. <code>send_sms</code>)</td></tr>
-        <tr><td><strong>Autonomy</strong></td><td>Whether it fires automatically or requires approval</td></tr>
+        <tr><td><strong>Action</strong></td><td>What happens when it runs (e.g. <code>send_sms</code>)</td></tr>
+        <tr><td><strong>Autonomy</strong></td><td>Whether it runs automatically or requires approval</td></tr>
         <tr><td><strong>Recurrence</strong></td><td>Repeat schedule or one-time</td></tr>
     </tbody>
 </table>
@@ -218,77 +216,77 @@
 <table>
     <thead><tr><th>Button</th><th>When Shown</th><th>What It Does</th></tr></thead>
     <tbody>
-        <tr><td><strong>Retry</strong></td><td>Error triggers</td><td>Reset to pending and attempt execution again</td></tr>
-        <tr><td><strong>Fire Now</strong></td><td>Pending triggers</td><td>Execute immediately instead of waiting</td></tr>
-        <tr><td><strong>Cancel</strong></td><td>Pending triggers</td><td>Cancel the trigger — it will not fire</td></tr>
+        <tr><td><strong>Retry</strong></td><td>Error automations</td><td>Reset to pending and attempt execution again</td></tr>
+        <tr><td><strong>Run Now</strong></td><td>Pending automations</td><td>Execute immediately instead of waiting</td></tr>
+        <tr><td><strong>Cancel</strong></td><td>Pending automations</td><td>Cancel the automation — it will not run</td></tr>
     </tbody>
 </table>
 
 <hr>
 
-<h2 id="errors">Errors</h2>
-<p>Filter by <strong>Agent</strong> to narrow down errors to a specific tenant.</p>
+<h2 id="health">System Health</h2>
+<p>Auto-refreshes every 30 seconds. This page contains four tabs:</p>
 
-<h3>Tool Execution Errors</h3>
-<p>Failures from external tool calls (calendar, MLS, CRM, etc.). Click the error summary to expand and see full error message, input JSON, output JSON, and latency.</p>
+<h3>Services</h3>
+<p>Cards for each external service: <span class="status-dot status-green" style="display:inline-block;"></span> Green = healthy, <span class="status-dot status-yellow" style="display:inline-block;"></span> Yellow = degraded, <span class="status-dot status-red" style="display:inline-block;"></span> Red = unreachable.</p>
 
-<h3>Application Errors</h3>
+<h3>Response Times (24h)</h3>
+<ul>
+    <li><strong>Avg Response Time</strong> — Average end-to-end response time</li>
+    <li><strong>Typical (Median)</strong> — Median response time (50% of requests are faster)</li>
+    <li><strong>Slowest 5%</strong> — 95th percentile (95% of requests are faster)</li>
+</ul>
+
+<h3>Errors</h3>
+<p>Filter by <strong>Customer</strong> to narrow down errors to a specific customer.</p>
+<h4>Integration Errors</h4>
+<p>Failures from external integrations (calendar, MLS, CRM, etc.). Click the error summary to expand and see full error message, input JSON, output JSON, and latency.</p>
+<h4>System Errors</h4>
 <p>Internal system errors and warnings. Severity badges: <span class="badge badge-red">error</span> = requires investigation, <span class="badge badge-yellow">warning</span> = non-critical. Click to expand the full message and stack trace.</p>
+
+<h3>Actions</h3>
+<p><strong>Run Check</strong> — Select a customer and click <strong>Run Check</strong> to run the daily check immediately. This checks contacts, automations, and health metrics for that agent.</p>
 
 <hr>
 
-<h2 id="costs">Costs</h2>
+<h2 id="billing">Billing</h2>
+<p>This page contains two tabs: Subscriptions and AI Costs.</p>
 
-<h3>Summary Cards</h3>
+<h3>Subscriptions</h3>
+<p>Manage plan tiers, active subscriptions, plan changes, and cancellations. Revenue summary cards show Monthly Recurring Revenue, Active Subscribers, Trial Subscribers, and Past Due accounts.</p>
+
+<h3>AI Costs</h3>
 <table>
     <thead><tr><th>Card</th><th>Description</th></tr></thead>
     <tbody>
-        <tr><td><strong>Total LLM Cost (30d)</strong></td><td>Estimated LLM API spend in the last 30 days</td></tr>
+        <tr><td><strong>Total AI Cost (30d)</strong></td><td>Estimated AI spend in the last 30 days</td></tr>
         <tr><td><strong>Total Messages</strong></td><td>Messages sent/received in 30 days</td></tr>
         <tr><td><strong>Voice Minutes</strong></td><td>Vapi voice call minutes in 30 days</td></tr>
         <tr><td><strong>Showings Booked</strong></td><td>Showings booked by the AI in 30 days</td></tr>
-        <tr><td><strong>LLM Calls</strong></td><td>Total LLM API calls in 30 days</td></tr>
+        <tr><td><strong>AI Requests</strong></td><td>Total AI requests in 30 days</td></tr>
     </tbody>
 </table>
 
-<h3>Daily Cost Chart</h3>
-<p>A bar chart of daily LLM spend over 30 days. Hover each bar for the exact date and dollar amount.</p>
+<h4>Daily Cost Chart</h4>
+<p>A bar chart of daily AI spend over 30 days. Hover each bar for the exact date and dollar amount.</p>
 
-<h3>Model Tier Breakdown</h3>
+<h4>AI Model Usage</h4>
 <table>
     <thead><tr><th>Model</th><th>Description</th></tr></thead>
     <tbody>
-        <tr><td><span class="badge badge-gray">template</span></td><td>Pre-built templates — no LLM cost</td></tr>
+        <tr><td><span class="badge badge-gray">template</span></td><td>Pre-built templates — no AI cost</td></tr>
         <tr><td><span class="badge badge-green">haiku</span></td><td>Fast, low-cost model for simple tasks</td></tr>
         <tr><td><span class="badge badge-blue">sonnet</span></td><td>More capable model for complex reasoning</td></tr>
     </tbody>
 </table>
 
-<h3>Per-Agent Costs</h3>
-<p>Detailed breakdown by tenant: messages, LLM calls, tokens, cost, voice minutes, and cost per message. Costs over <strong>$15</strong> are highlighted in <strong style="color: var(--red);">red</strong>.</p>
+<h4>Cost by Customer</h4>
+<p>Detailed breakdown by customer: messages, AI requests, tokens, cost, voice minutes, and cost per message. Costs over <strong>$15</strong> are highlighted in <strong style="color: var(--red);">red</strong>.</p>
 
 <hr>
 
-<h2 id="health">Health</h2>
-<p>Auto-refreshes every 30 seconds.</p>
-
-<h3>Service Connectivity</h3>
-<p>Cards for each external service: <span class="status-dot status-green" style="display:inline-block;"></span> Green = healthy, <span class="status-dot status-yellow" style="display:inline-block;"></span> Yellow = degraded, <span class="status-dot status-red" style="display:inline-block;"></span> Red = unreachable.</p>
-
-<h3>Pipeline Performance (24h)</h3>
-<ul>
-    <li><strong>Avg Latency</strong> — Average end-to-end response time</li>
-    <li><strong>p50</strong> — Median latency (50% of requests are faster)</li>
-    <li><strong>p95</strong> — 95th percentile (95% of requests are faster)</li>
-</ul>
-
-<h3>Manual Actions</h3>
-<p><strong>Run Scan</strong> — Select a tenant and click <strong>Run Scan</strong> to trigger the daily scan immediately. This checks contacts, triggers, and health metrics for that agent.</p>
-
-<hr>
-
-<h2 id="harness">Harness</h2>
-<p>The Test Harness is a separate tool for simulating conversations. Use it to test how the AI responds to various scenarios without involving real contacts or Twilio.</p>
+<h2 id="harness">Testing</h2>
+<p>The Testing tool is a conversation simulator. Use it to test how the AI responds to various scenarios without involving real contacts or Twilio.</p>
 
 <hr>
 
@@ -297,7 +295,7 @@
     <li><strong>Hover any element</strong> for a tooltip explaining what it does</li>
     <li><strong>Click triangles</strong> (<code>&lt;details&gt;</code>) to expand configuration, errors, or tool executions</li>
     <li>Use <strong>browser back/forward</strong> to navigate between pages</li>
-    <li>Dashboard and Health pages use <strong>HTMX</strong> for live updates — no manual refresh needed</li>
+    <li>Home and System Health pages use <strong>HTMX</strong> for live updates — no manual refresh needed</li>
     <li>Sessions expire after <strong>24 hours</strong> — you'll be redirected to login automatically</li>
     <li>The password is set via <code>CONSOLE_PASSWORD</code> env var — change it in Railway for production use</li>
 </ul>

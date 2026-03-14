@@ -2,8 +2,8 @@
 {% block content %}
 <form method="get" class="filters">
     <div class="form-group">
-        <label>Agent</label>
-        <select name="agent" title="Filter conversations by tenant">
+        <label>Customer</label>
+        <select name="agent" title="Filter conversations by customer">
             <option value="">All</option>
             {% for a in agents %}
             <option value="{{ a.id }}" {% if agent_filter == a.id|string %}selected{% endif %}>{{ a.name }}</option>
@@ -29,7 +29,7 @@
 <table>
     <thead>
         <tr>
-            <th title="The tenant this conversation belongs to">Agent</th>
+            <th title="The customer this conversation belongs to">Customer</th>
             <th title="The contact (lead/client) — click to view full conversation">Contact</th>
             <th title="Contact's phone number">Phone</th>
             <th title="Communication channel used">Channel</th>
