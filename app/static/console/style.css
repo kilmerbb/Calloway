@@ -594,7 +594,402 @@ details summary:hover { color: var(--accent); }
     }
 }
 
-/* Responsive */
+/* ============================================================
+   Profile Tab — Two Column Layout
+   ============================================================ */
+.profile-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+/* ============================================================
+   Messages Tab — Layout
+   ============================================================ */
+.messages-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    min-height: 500px;
+    max-height: calc(100vh - 250px);
+}
+
+.messages-contact-list {
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+}
+
+.messages-thread {
+    background: var(--bg);
+    padding: 16px;
+    overflow-y: auto;
+}
+
+/* Contact List Items */
+.contact-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+    border-left: 2px solid transparent;
+}
+
+.contact-item:hover {
+    background: var(--bg-hover);
+}
+
+.contact-item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.contact-item.active {
+    background: rgba(30, 215, 96, 0.1);
+    border-left-color: var(--accent);
+}
+
+.contact-item-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.contact-item.active .contact-item-name {
+    color: var(--accent);
+}
+
+.contact-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.contact-item-preview {
+    font-size: 13px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.contact-item-time {
+    font-size: 12px;
+    color: var(--text-subdued);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* Thread Header */
+.thread-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.thread-header-name {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.thread-header-phone {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+/* Message Bubbles */
+.msg {
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    max-width: 85%;
+}
+
+.msg-client {
+    background: var(--bg-hover);
+}
+
+.msg-ai {
+    background: rgba(30, 215, 96, 0.1);
+}
+
+.msg-system {
+    background: rgba(255, 164, 43, 0.1);
+    font-style: italic;
+    font-size: 13px;
+}
+
+.msg-other {
+    background: rgba(234, 179, 8, 0.1);
+}
+
+.msg-sender {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.msg-timestamp {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.msg-body {
+    font-size: 14px;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+/* Tool Call Blocks */
+.tool-call {
+    margin-top: 8px;
+    padding: 8px;
+    background: var(--bg);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+
+.tool-call summary {
+    font-size: 12px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.tool-call summary:hover {
+    color: var(--accent);
+}
+
+.tool-call-output {
+    font-size: 11px;
+    padding: 8px;
+    margin-top: 8px;
+    max-height: 200px;
+    overflow: auto;
+    background: var(--bg);
+    border-radius: 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Thread Empty State */
+.thread-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    gap: 8px;
+}
+
+.thread-empty-icon {
+    font-size: 32px;
+    opacity: 0.5;
+}
+
+/* Messages Empty State */
+.messages-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    gap: 12px;
+}
+
+.messages-empty-icon {
+    font-size: 40px;
+    opacity: 0.4;
+}
+
+.messages-empty-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.messages-empty-desc {
+    font-size: 14px;
+    max-width: 320px;
+    line-height: 1.5;
+}
+
+/* Refresh button loading state */
+.htmx-indicator {
+    display: none;
+}
+.htmx-request .htmx-indicator {
+    display: inline;
+}
+.htmx-request .refresh-label {
+    display: none;
+}
+
+/* ============================================================
+   Knowledge Base Tab
+   ============================================================ */
+
+/* Summary Bar */
+.kb-summary-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    background: var(--bg-card);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+}
+
+.kb-summary-count {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.kb-summary-warning {
+    color: var(--yellow);
+}
+
+.kb-summary-expired {
+    color: var(--red);
+}
+
+/* Global Settings Row */
+.kb-settings-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border-radius: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+/* Source Group Header */
+.kb-group-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+    margin-bottom: 8px;
+}
+
+.kb-group-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.kb-group-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+/* Knowledge Base Item Cards */
+.kb-item {
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+}
+
+.kb-item:hover {
+    background: var(--bg-hover);
+}
+
+.kb-item--first {
+    border-radius: 8px 8px 0 0;
+}
+
+.kb-item--last {
+    border-radius: 0 0 8px 8px;
+    border-bottom: none;
+}
+
+.kb-item--only {
+    border-radius: 8px;
+    border-bottom: none;
+}
+
+.kb-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.kb-item-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.kb-item-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.kb-item-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* Add Document Form */
+.kb-add-form .form-group {
+    margin-bottom: 0.75rem;
+}
+
+/* ============================================================
+   Loading Skeleton
+   ============================================================ */
+.loading-skeleton {
+    padding: 1rem;
+}
+
+.skeleton-row {
+    height: 48px;
+    background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
 @media (max-width: 768px) {
     .mobile-menu-toggle { display: flex; }
     .sidebar { transform: translateX(-100%); transition: transform 0.2s; position: fixed; z-index: 20; }
@@ -607,4 +1002,26 @@ details summary:hover { color: var(--accent); }
     .wizard-container { max-width: 100%; }
     table { font-size: 12px; }
     th, td { padding: 0.4rem 0.5rem; }
+
+    /* Tab bar: horizontal scroll on mobile */
+    .tab-bar { overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+    .tab-btn { flex-shrink: 0; }
+
+    /* Profile tab: single column on mobile */
+    .profile-two-col { grid-template-columns: 1fr; }
+
+    /* Messages tab: stack contact list above thread on mobile */
+    .messages-layout {
+        grid-template-columns: 1fr;
+        max-height: none;
+    }
+    .messages-contact-list {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        max-height: 300px;
+    }
+
+    /* KB item actions: wrap on smaller screens */
+    .kb-item-actions { justify-content: flex-start; }
+    .kb-settings-row { flex-direction: column; align-items: flex-start; }
 }

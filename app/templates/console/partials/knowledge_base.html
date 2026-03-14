@@ -1,0 +1,128 @@
+<!-- Knowledge Base Tab: Items Grouped by Source Type -->
+<!-- Loaded via HTMX: GET /console/tenants/:agent_id/tab/knowledge-base -->
+
+{% if items and items|length > 0 %}
+<!-- Summary Bar -->
+<div class="kb-summary-bar" role="status" aria-label="Knowledge base summary">
+    <span class="kb-summary-count">{{ total_items }} item{{ 's' if total_items != 1 else '' }}</span>
+    {% if active_count is defined %}<span class="kb-summary-detail">{{ active_count }} active</span>{% endif %}
+    {% if expiring_count is defined and expiring_count > 0 %}<span class="kb-summary-detail kb-summary-warning">{{ expiring_count }} expiring soon</span>{% endif %}
+    {% if expired_count is defined and expired_count > 0 %}<span class="kb-summary-detail kb-summary-expired">{{ expired_count }} expired</span>{% endif %}
+</div>
+
+<!-- Global Settings Row -->
+<div class="kb-settings-row">
+    <form hx-post="/console/tenants/{{ agent_id }}/knowledge-base/policy"
+          hx-target="#panel-kb-content"
+          hx-swap="innerHTML"
+          style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; width: 100%;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <label for="kb-default-expiration" style="font-size: 13px; color: var(--text-muted); white-space: nowrap;">Default expiration:</label>
+            <select id="kb-default-expiration" name="default_ttl_days" style="width: auto;" title="Default time-to-live for new knowledge base items">
+                <option value="" {% if not default_ttl_days %}selected{% endif %}>No expiration</option>
+                <option value="30" {% if default_ttl_days == 30 %}selected{% endif %}>30 days</option>
+                <option value="60" {% if default_ttl_days == 60 %}selected{% endif %}>60 days</option>
+                <option value="90" {% if default_ttl_days == 90 %}selected{% endif %}>90 days</option>
+                <option value="180" {% if default_ttl_days == 180 %}selected{% endif %}>180 days</option>
+                <option value="365" {% if default_ttl_days == 365 %}selected{% endif %}>1 year</option>
+            </select>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <label for="kb-expiration-behavior" style="font-size: 13px; color: var(--text-muted); white-space: nowrap;">Behavior:</label>
+            <select id="kb-expiration-behavior" name="expiration_policy" style="width: auto;" title="What happens when a knowledge base item expires">
+                <option value="remind_only" {% if expiration_policy == 'remind_only' %}selected{% endif %}>Remind only</option>
+                <option value="auto_remove" {% if expiration_policy == 'auto_remove' %}selected{% endif %}>Auto-remove</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-outline btn-sm" title="Save global knowledge base settings">Save</button>
+    </form>
+</div>
+
+<!-- Items Grouped by Source Type -->
+{% for group in grouped_items %}
+<div class="kb-group">
+    <div class="kb-group-header">
+        <span class="kb-group-label">{{ group.source_type|capitalize }}s ({{ group.items|length }})</span>
+        <span class="kb-group-line"></span>
+    </div>
+    <div class="kb-group-items">
+        {% for item in group.items %}
+        <div class="kb-item {% if loop.first and loop.last %}kb-item--only{% elif loop.first %}kb-item--first{% elif loop.last %}kb-item--last{% endif %}">
+            <div class="kb-item-header">
+                <div class="kb-item-title">
+                    {{ item.title or (item.source_type + ' #' + item.source_id[:8]) }}
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    {% if item.source_type == 'conversation' %}
+                    <span class="badge badge-blue">CONVERSATION</span>
+                    {% elif item.source_type == 'contact' %}
+                    <span class="badge badge-gray">CONTACT</span>
+                    {% elif item.source_type == 'listing' %}
+                    <span class="badge badge-yellow">LISTING</span>
+                    {% elif item.source_type == 'document' %}
+                    <span class="badge badge-blue">DOCUMENT</span>
+                    {% else %}
+                    <span class="badge badge-gray">{{ item.source_type|upper }}</span>
+                    {% endif %}
+
+                    {% if item.is_expired %}
+                    <span class="badge badge-red" title="This item has expired">Expired</span>
+                    {% elif item.is_expiring_soon %}
+                    <span class="badge badge-yellow" title="Expires within 7 days">Expiring Soon</span>
+                    {% else %}
+                    <span class="badge badge-green">Active</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="kb-item-meta">
+                Indexed: {{ item.indexed_at.strftime('%b %d, %Y') if item.indexed_at else '—' }}
+                &nbsp;|&nbsp; {{ item.chunk_count }} chunk{{ 's' if item.chunk_count != 1 else '' }}
+                &nbsp;|&nbsp;
+                {% if item.expires_at %}
+                {% if item.is_expired %}
+                Expired: {{ item.expires_at.strftime('%b %d, %Y') }}
+                {% else %}
+                Expires: {{ item.expires_at.strftime('%b %d, %Y') }}
+                {% endif %}
+                {% else %}
+                No expiration
+                {% endif %}
+            </div>
+            <div class="kb-item-actions">
+                <form method="post" action="/console/tenants/{{ agent_id }}/knowledge-base/{{ item.source_id }}/remove" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-outline btn-sm"
+                            onclick="return confirm('Remove {{ item.title or 'this item' }}? This will delete all {{ item.chunk_count }} embedding chunks. The AI will no longer use this information.')"
+                            title="Remove this item and all its embeddings from the knowledge base">Remove</button>
+                </form>
+                {% if item.source_type != 'document' %}
+                <form method="post" action="/console/tenants/{{ agent_id }}/knowledge-base/{{ item.source_id }}/reindex" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-outline btn-sm"
+                            title="Re-read the source record and regenerate embeddings">Re-index</button>
+                </form>
+                {% endif %}
+                <form method="post" action="/console/tenants/{{ agent_id }}/knowledge-base/{{ item.source_id }}/expire" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <label class="sr-only" for="expire-{{ item.source_id }}">Set expiration for {{ item.title or 'this item' }}</label>
+                    <input type="date" id="expire-{{ item.source_id }}" name="expires_at" style="width: auto; padding: 0.2rem 0.4rem; font-size: 11px;"
+                           value="{{ item.expires_at.strftime('%Y-%m-%d') if item.expires_at else '' }}"
+                           title="Set or change the expiration date for this item">
+                    <button type="submit" class="btn btn-outline btn-sm" title="Save expiration date">Set Expiration</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+{% else %}
+<!-- Empty state: no knowledge base items -->
+<div class="messages-empty">
+    <div class="messages-empty-icon" aria-hidden="true">&#9673;</div>
+    <div class="messages-empty-title">No knowledge base items for this customer.</div>
+    <div class="messages-empty-desc">Items are indexed automatically from conversations, contacts, and listings. You can also upload documents manually using the "Add Document" button above.</div>
+</div>
+{% endif %}
