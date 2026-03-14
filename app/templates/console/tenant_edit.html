@@ -14,7 +14,7 @@
         <div class="form-group"><label>Brokerage</label><input type="text" name="brokerage" value="{{ agent.brokerage or '' }}" title="The agent's real estate brokerage firm"></div>
         <div class="form-group"><label>Market</label><input type="text" name="market" value="{{ agent.market or '' }}" title="Primary geographic market area"></div>
         <div class="form-group"><label>Timezone</label>
-            <select name="timezone" title="Used for scheduling triggers and daily briefings">
+            <select name="timezone" title="Used for scheduling automations and daily briefings">
                 {% for tz in ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'] %}
                 <option value="{{ tz }}" {% if agent.timezone == tz %}selected{% endif %}>{{ tz.split('/')[-1] }}</option>
                 {% endfor %}
@@ -47,7 +47,7 @@
         <div class="form-group"><label>System Prompt Override</label><textarea name="system_prompt" title="Custom system prompt that overrides the default AI instructions">{{ agent.system_prompt or '' }}</textarea></div>
     </div>
 
-    <button type="submit" class="btn btn-primary" title="Save all changes to this tenant's configuration">Save Changes</button>
-    <a href="/console/tenants/{{ agent.id }}" class="btn btn-outline" style="margin-left: 0.5rem;" title="Discard changes and return to tenant detail">Cancel</a>
+    <button type="submit" class="btn btn-primary" title="Save all changes to this customer's configuration">Save Changes</button>
+    <a href="/console/tenants/{{ agent.id }}" class="btn btn-outline" style="margin-left: 0.5rem;" title="Discard changes and return to customer detail">Cancel</a>
 </form>
 {% endblock %}

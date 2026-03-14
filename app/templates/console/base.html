@@ -115,7 +115,7 @@
     });
     overlay.addEventListener('click', closeSidebar);
     // Close on nav click (mobile)
-    sidebar.querySelectorAll('.nav-item').forEach(function(link) {
+    sidebar.querySelectorAll('.nav-item, .btn-new-agent').forEach(function(link) {
         link.addEventListener('click', closeSidebar);
     });
 })();

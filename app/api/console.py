@@ -432,44 +432,27 @@ async def trigger_fire_now(request: Request, trigger_id: str):
 
 
 # ============================================================
-# Errors
+# Errors (redirect to Health)
 # ============================================================
 
-@router.get("/errors", response_class=HTMLResponse)
-async def error_list(request: Request):
+@router.get("/errors")
+async def error_list_redirect(request: Request):
     redirect = _require_auth(request)
     if redirect:
         return redirect
-
-    from app.services.console_queries import async_get_recent_errors, async_get_all_agents
-
-    agent_filter = request.query_params.get("agent", "")
-
-    return _render(request, "errors.html",
-        page_title="Errors", active_nav="errors",
-        errors=await async_get_recent_errors(limit=100, agent_id=agent_filter or None),
-        agents=await async_get_all_agents(), agent_filter=agent_filter,
-    )
+    return RedirectResponse(url="/console/health?tab=errors", status_code=302)
 
 
 # ============================================================
-# Costs
+# Costs (redirect to Billing)
 # ============================================================
 
-@router.get("/costs", response_class=HTMLResponse)
-async def cost_dashboard(request: Request):
+@router.get("/costs")
+async def cost_dashboard_redirect(request: Request):
     redirect = _require_auth(request)
     if redirect:
         return redirect
-
-    from app.services.console_queries import async_get_cost_summary, async_get_cost_by_agent, async_get_model_tier_breakdown
-
-    return _render(request, "costs.html",
-        page_title="Costs", active_nav="costs",
-        summary=await async_get_cost_summary(days=30),
-        per_agent=await async_get_cost_by_agent(days=30),
-        model_tiers=await async_get_model_tier_breakdown(days=30),
-    )
+    return RedirectResponse(url="/console/billing?tab=ai-costs", status_code=302)
 
 
 # ============================================================
@@ -482,12 +465,20 @@ async def health_overview(request: Request):
     if redirect:
         return redirect
 
-    from app.services.console_queries import async_get_health_overview, async_get_all_agents
+    from app.services.console_queries import (
+        async_get_health_overview, async_get_all_agents, async_get_recent_errors,
+    )
+
+    agent_filter = request.query_params.get("agent", "")
+    active_tab = request.query_params.get("tab", "services")
 
     return _render(request, "health.html",
         page_title="System Health", active_nav="health",
         health=await async_get_health_overview(),
         agents=await async_get_all_agents(),
+        errors=await async_get_recent_errors(limit=100, agent_id=agent_filter or None),
+        agent_filter=agent_filter,
+        active_tab=active_tab,
     )
 
 
@@ -528,11 +519,20 @@ async def billing_overview(request: Request):
         return redirect
 
     from app.services.billing_service import get_billing_summary, PLAN_TIERS
+    from app.services.console_queries import (
+        async_get_cost_summary, async_get_cost_by_agent, async_get_model_tier_breakdown,
+    )
+
+    active_tab = request.query_params.get("tab", "subscriptions")
 
     return _render(request, "billing.html",
         page_title="Billing", active_nav="billing",
         subscriptions=get_billing_summary(),
         plan_tiers=PLAN_TIERS,
+        cost_summary=await async_get_cost_summary(days=30),
+        per_agent=await async_get_cost_by_agent(days=30),
+        model_tiers=await async_get_model_tier_breakdown(days=30),
+        active_tab=active_tab,
     )
 
 

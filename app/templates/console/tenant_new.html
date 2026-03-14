@@ -14,7 +14,7 @@
         <div class="form-group"><label>Brokerage</label><input type="text" name="brokerage" title="The agent's real estate brokerage firm"></div>
         <div class="form-group"><label>Market</label><input type="text" name="market" placeholder="e.g. Philadelphia" title="Primary geographic market area the agent serves"></div>
         <div class="form-group"><label>Timezone</label>
-            <select name="timezone" title="Used for scheduling triggers and daily briefings in the agent's local time">
+            <select name="timezone" title="Used for scheduling automations and daily briefings in the agent's local time">
                 <option value="America/New_York">Eastern</option>
                 <option value="America/Chicago">Central</option>
                 <option value="America/Denver">Mountain</option>
@@ -54,10 +54,10 @@
         <div class="section-title">Optional</div>
         <div class="form-group"><label>Google Review Link</label><input type="text" name="google_review_link" title="URL to the agent's Google Business review page — AI may share this with satisfied clients"></div>
         <div class="form-group"><label>Briefing Time</label><input type="time" name="briefing_time" value="07:30" title="Time of day (in agent's timezone) to send the daily briefing summary"></div>
-        <div class="form-group"><label>System Prompt Override</label><textarea name="system_prompt" title="Custom system prompt that overrides the default AI instructions for this tenant"></textarea></div>
+        <div class="form-group"><label>System Prompt Override</label><textarea name="system_prompt" title="Custom system prompt that overrides the default AI instructions for this customer"></textarea></div>
     </div>
 
-    <button type="submit" class="btn btn-primary" title="Save this tenant and create their account">Create Tenant</button>
-    <a href="/console/tenants" class="btn btn-outline" style="margin-left: 0.5rem;" title="Discard changes and return to the tenant list">Cancel</a>
+    <button type="submit" class="btn btn-primary" title="Save this customer and create their account">Create Customer</button>
+    <a href="/console/tenants" class="btn btn-outline" style="margin-left: 0.5rem;" title="Discard changes and return to the customer list">Cancel</a>
 </form>
 {% endblock %}

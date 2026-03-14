@@ -3,15 +3,15 @@
 <form method="get" class="filters">
     <div class="form-group">
         <label for="status-filter">Status</label>
-        <select name="status" id="status-filter" title="Filter triggers by their current status">
+        <select name="status" id="status-filter" title="Filter automations by their current status">
             {% for s in ['pending', 'completed', 'error', 'cancelled', 'all'] %}
             <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|capitalize }}</option>
             {% endfor %}
         </select>
     </div>
     <div class="form-group">
-        <label for="agent-filter">Agent</label>
-        <select name="agent" id="agent-filter" title="Filter triggers by tenant">
+        <label for="agent-filter">Customer</label>
+        <select name="agent" id="agent-filter" title="Filter automations by customer">
             <option value="">All</option>
             {% for a in agents %}
             <option value="{{ a.id }}" {% if agent_filter == a.id|string %}selected{% endif %}>{{ a.name }}</option>
@@ -24,14 +24,14 @@
 <table>
     <thead>
         <tr>
-            <th title="The tenant this trigger belongs to">Agent</th>
-            <th title="Trigger category (e.g. follow_up, review_request, daily_briefing)">Type</th>
-            <th title="Date and time when this trigger is scheduled to fire">Scheduled</th>
-            <th title="Current trigger status">Status</th>
-            <th title="What happens when the trigger fires (e.g. send_sms, send_email)">Action</th>
-            <th title="Whether this trigger fires automatically or requires approval">Autonomy</th>
+            <th title="The customer this automation belongs to">Customer</th>
+            <th title="Automation category (e.g. follow_up, review_request, daily_briefing)">Type</th>
+            <th title="Date and time when this automation is scheduled to run">Scheduled</th>
+            <th title="Current automation status">Status</th>
+            <th title="What happens when the automation runs (e.g. send_sms, send_email)">Action</th>
+            <th title="Whether this automation runs automatically or requires approval">Autonomy</th>
             <th title="Repeat schedule (e.g. daily, weekly) or one-time">Recurrence</th>
-            <th title="Available actions for this trigger">Actions</th>
+            <th title="Available actions for this automation">Actions</th>
         </tr>
     </thead>
     <tbody>
@@ -41,9 +41,9 @@
             <td>{{ t.trigger_type }}</td>
             <td style="font-size:12px;">{{ t.scheduled_at.strftime('%b %d %H:%M') if t.scheduled_at else '—' }}</td>
             <td>
-                {% if t.status == 'pending' %}<span class="badge badge-blue" title="Waiting to fire at the scheduled time" aria-label="Status: pending">pending</span>
+                {% if t.status == 'pending' %}<span class="badge badge-blue" title="Waiting to run at the scheduled time" aria-label="Status: pending">pending</span>
                 {% elif t.status == 'completed' %}<span class="badge badge-green" title="Successfully executed" aria-label="Status: completed">completed</span>
-                {% elif t.status == 'error' %}<span class="badge badge-red" title="Failed to execute — can be retried" aria-label="Status: error">error</span>
+                {% elif t.status == 'error' %}<span class="badge badge-red" title="Failed to run — can be retried" aria-label="Status: error">error</span>
                 {% elif t.status == 'cancelled' %}<span class="badge badge-gray" title="Manually cancelled by operator" aria-label="Status: cancelled">cancelled</span>
                 {% else %}<span class="badge badge-gray" aria-label="Status: {{ t.status }}">{{ t.status }}</span>{% endif %}
             </td>
@@ -54,24 +54,24 @@
                 {% if t.status == 'error' %}
                 <form method="post" action="/console/triggers/{{ t.id }}/retry" style="display:inline;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-outline btn-sm" title="Reset this trigger to pending and attempt execution again">Retry</button>
+                    <button type="submit" class="btn btn-outline btn-sm" title="Retry this automation">Retry</button>
                 </form>
                 {% endif %}
                 {% if t.status == 'pending' %}
-                <form method="post" action="/console/triggers/{{ t.id }}/fire-now" style="display:inline;" onsubmit="return confirm('Fire this trigger now? This will send a real message to the contact.');">
+                <form method="post" action="/console/triggers/{{ t.id }}/fire-now" style="display:inline;" onsubmit="return confirm('Run this automation now? This will send a real message to the contact.');">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-outline btn-sm" title="Execute this trigger immediately — sends a real message">Fire Now</button>
+                    <button type="submit" class="btn btn-outline btn-sm" title="Run this automation immediately — sends a real message">Run Now</button>
                 </form>
-                <form method="post" action="/console/triggers/{{ t.id }}/cancel" style="display:inline;" onsubmit="return confirm('Cancel this trigger?');">
+                <form method="post" action="/console/triggers/{{ t.id }}/cancel" style="display:inline;" onsubmit="return confirm('Cancel this automation?');">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-danger btn-sm" title="Cancel this trigger — it will not fire">Cancel</button>
+                    <button type="submit" class="btn btn-danger btn-sm" title="Cancel this automation — it will not run">Cancel</button>
                 </form>
                 {% endif %}
             </td>
         </tr>
         {% endfor %}
         {% if not triggers %}
-        <tr><td colspan="8" style="color:var(--text-muted); text-align:center;">No triggers found.</td></tr>
+        <tr><td colspan="8" style="color:var(--text-muted); text-align:center;">No automations found.</td></tr>
         {% endif %}
     </tbody>
 </table>

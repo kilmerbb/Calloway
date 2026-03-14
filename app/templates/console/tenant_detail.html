@@ -3,18 +3,18 @@
 {% set agent = detail.agent %}
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
     <div>
-        <span class="badge {% if agent.current_status == 'available' %}badge-green{% elif agent.current_status == 'deactivated' %}badge-red{% else %}badge-yellow{% endif %}" title="Current availability status for this tenant">{{ agent.current_status }}</span>
+        <span class="badge {% if agent.current_status == 'available' %}badge-green{% elif agent.current_status == 'deactivated' %}badge-red{% else %}badge-yellow{% endif %}" title="Current availability status for this customer">{{ agent.current_status }}</span>
     </div>
     <div style="display: flex; gap: 0.5rem;">
-        <a href="/console/tenants/{{ agent.id }}/edit" class="btn btn-outline btn-sm" title="Edit this tenant's profile, tone, autonomy, and settings">Edit Config</a>
+        <a href="/console/tenants/{{ agent.id }}/edit" class="btn btn-outline btn-sm" title="Edit this customer's profile, tone, autonomy, and settings">Edit Settings</a>
         <form method="post" action="/console/tenants/{{ agent.id }}/test-sms" style="display:inline;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn btn-outline btn-sm" title="Send a test SMS to the tenant's phone number to verify Twilio is working">Test SMS</button>
+            <button type="submit" class="btn btn-outline btn-sm" title="Send a test SMS to the customer's phone number to verify Twilio is working">Test SMS</button>
         </form>
         {% if agent.current_status != 'deactivated' %}
         <form method="post" action="/console/tenants/{{ agent.id }}/deactivate" style="display:inline;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Deactivate this tenant?')" title="Disable this tenant — stops all AI responses and scheduled triggers">Deactivate</button>
+            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Deactivate this customer?')" title="Disable this customer — stops all AI responses and scheduled automations">Deactivate</button>
         </form>
         {% endif %}
     </div>
@@ -59,7 +59,7 @@
 
         <!-- Recent Messages -->
         <div class="section">
-            <div class="section-title" title="The 20 most recent messages for this tenant">Recent Messages ({{ detail.recent_messages|length }})</div>
+            <div class="section-title" title="The 20 most recent messages for this customer">Recent Messages ({{ detail.recent_messages|length }})</div>
             {% for m in detail.recent_messages[:20] %}
             <div class="feed-item">
                 <span class="feed-time">{{ m.created_at.strftime('%b %d %H:%M') if m.created_at else '' }}</span>
@@ -80,7 +80,7 @@
         <!-- Stats -->
         <div class="section">
             <div class="section-title" title="Usage statistics for the current calendar month">This Month</div>
-            <div class="card" style="margin-bottom:0.5rem;" title="Estimated LLM API cost for this tenant this month">
+            <div class="card" style="margin-bottom:0.5rem;" title="Estimated AI cost for this customer this month">
                 <div class="card-label">Cost</div>
                 <div class="card-value">${{ detail.cost_this_month_dollars }}</div>
             </div>
@@ -88,7 +88,7 @@
                 <div class="card-label">Messages</div>
                 <div class="card-value">{{ detail.messages_this_month }}</div>
             </div>
-            <div class="card" title="Errors in the last 24 hours for this tenant">
+            <div class="card" title="Errors in the last 24 hours for this customer">
                 <div class="card-label">Errors 24h</div>
                 <div class="card-value" {% if detail.errors_24h > 0 %}style="color:var(--red)"{% endif %}>{{ detail.errors_24h }}</div>
             </div>
@@ -96,7 +96,7 @@
 
         <!-- Contacts -->
         <div class="section">
-            <div class="section-title" title="People this tenant has communicated with">Contacts ({{ detail.contacts|length }})</div>
+            <div class="section-title" title="People this customer has communicated with">Contacts ({{ detail.contacts|length }})</div>
             {% for c in detail.contacts[:15] %}
             <div class="feed-item" style="font-size:13px;">
                 {{ c.name }} <span class="badge badge-gray" title="CRM lifecycle stage">{{ c.lifecycle_stage }}</span>
@@ -107,7 +107,7 @@
 
         <!-- Listings -->
         <div class="section">
-            <div class="section-title" title="Real estate listings associated with this tenant">Listings ({{ detail.listings|length }})</div>
+            <div class="section-title" title="Real estate listings associated with this customer">Listings ({{ detail.listings|length }})</div>
             {% for l in detail.listings[:10] %}
             <div class="feed-item" style="font-size:13px;">
                 {{ l.address }} — ${{ "{:,}".format(l.price) }}
@@ -118,7 +118,7 @@
 
         <!-- Pending Triggers -->
         <div class="section">
-            <div class="section-title" title="Scheduled actions waiting to fire — manage on the Triggers page">Pending Triggers ({{ detail.pending_triggers|length }})</div>
+            <div class="section-title" title="Scheduled actions waiting to run — manage on the Automations page">Scheduled Automations ({{ detail.pending_triggers|length }})</div>
             {% for t in detail.pending_triggers %}
             <div class="feed-item" style="font-size:13px;">
                 {{ t.trigger_type }} — {{ t.scheduled_at.strftime('%b %d %H:%M') if t.scheduled_at else '' }}

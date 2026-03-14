@@ -278,7 +278,7 @@ textarea { min-height: 80px; resize: vertical; }
 
 /* Section */
 .section { margin-bottom: 1.5rem; }
-.section-title { font-size: 16px; font-weight: 600; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+.section-title { font-size: 16px; font-weight: 600; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); letter-spacing: -0.3px; }
 
 /* Cost chart bars */
 .bar-chart { display: flex; align-items: flex-end; gap: 3px; height: 120px; }
@@ -539,6 +539,60 @@ details summary:hover { color: var(--accent); }
 
 /* Status text labels (accessibility — not just color) */
 .status-label { font-size: 11px; text-transform: uppercase; font-weight: 600; }
+
+/* Tab Bar */
+.tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.tab-btn:hover {
+    color: var(--text);
+}
+
+.tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.tab-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+    animation: fadeIn 0.2s ease;
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .nav-item,
+    .btn-new-agent,
+    .tab-btn,
+    .tab-panel {
+        transition: none;
+        animation: none;
+    }
+}
 
 /* Responsive */
 @media (max-width: 768px) {
