@@ -1,0 +1,112 @@
+<!-- Messages Tab: Conversation Thread for a Single Contact -->
+<!-- Loaded via HTMX: GET /console/tenants/:agent_id/tab/messages/:contact_id -->
+
+{% if contact %}
+<div class="thread-header">
+    <div>
+        <div class="thread-header-name">{{ contact.name or contact.phone or 'Unknown Contact' }}</div>
+        <div class="thread-header-phone">{{ contact.phone or '' }}
+            {% if contact.channel %}
+            <span class="badge {% if contact.channel == 'sms' %}badge-blue{% elif contact.channel == 'rcs' %}badge-green{% elif contact.channel == 'voice' %}badge-yellow{% else %}badge-gray{% endif %}" style="margin-left: 6px;">{{ contact.channel|upper }}</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if messages and messages|length > 0 %}
+<div class="thread-messages" role="log" aria-label="Conversation messages" aria-live="polite">
+    {% if has_more %}
+    <div style="text-align: center; margin-bottom: 1rem;">
+        <button class="btn btn-outline btn-sm"
+                hx-get="/console/tenants/{{ agent_id }}/tab/messages/{{ contact.id }}?before={{ messages[0].id }}"
+                hx-target="#messages-thread-area"
+                hx-swap="innerHTML"
+                title="Load earlier messages in this conversation">
+            Load earlier messages
+        </button>
+    </div>
+    {% endif %}
+
+    {% for msg in messages %}
+    <div class="msg {% if msg.sender_type == 'client' %}msg-client{% elif msg.sender_type == 'ai' %}msg-ai{% elif msg.sender_type == 'system' %}msg-system{% else %}msg-other{% endif %}"
+         role="article"
+         aria-label="Message from {{ msg.sender_type }} at {{ msg.created_at.strftime('%b %d, %Y %H:%M') if msg.created_at else 'unknown time' }}">
+        <div class="msg-sender">
+            {% if msg.sender_type == 'client' %}
+            <span class="badge badge-green" title="Inbound message from the contact">Client</span>
+            {% elif msg.sender_type == 'ai' %}
+            <span class="badge badge-blue" title="AI-generated response{% if msg.model_used %} using {{ msg.model_used }}{% endif %}">Cal{% if msg.model_used %}/{{ msg.model_used }}{% endif %}</span>
+            {% elif msg.sender_type == 'system' %}
+            <span class="badge badge-gray" title="System-generated message">System</span>
+            {% elif msg.sender_type == 'agent' %}
+            <span class="badge badge-yellow" title="Manual operator message">Agent</span>
+            {% else %}
+            <span class="badge badge-gray">{{ msg.sender_type }}</span>
+            {% endif %}
+
+            {% if msg.channel %}
+            <span class="badge badge-gray" style="font-size: 10px;">{{ msg.channel|upper }}</span>
+            {% endif %}
+
+            <span class="msg-timestamp">{{ msg.created_at.strftime('%b %d, %Y %H:%M') if msg.created_at else '' }}</span>
+        </div>
+        <div class="msg-body" {% if msg.body and msg.body|length > 1000 %}style="max-height: 300px; overflow-y: auto;"{% endif %}>
+            {{ msg.body or '' }}
+        </div>
+
+        {% if msg.delivery_status == 'failed' %}
+        <div style="margin-top: 4px;">
+            <span class="badge badge-red" title="{{ msg.failure_reason or 'Delivery failed' }}">Delivery failed</span>
+            {% if msg.failure_reason %}
+            <span style="font-size: 11px; color: var(--text-muted); margin-left: 4px;">{{ msg.failure_reason }}</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if msg.tool_calls and msg.tool_calls|length > 0 %}
+        <div class="msg-tools" style="margin-top: 8px;">
+            <details class="tool-call">
+                <summary>Tools used ({{ msg.tool_calls|length }})</summary>
+                {% for tool in msg.tool_calls %}
+                <div style="margin-top: 8px; padding: 6px; border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <span style="font-family: monospace; font-size: 12px; font-weight: 600;">{{ tool.tool_name }}</span>
+                        {% if tool.status == 'error' %}
+                        <span class="badge badge-red">error</span>
+                        {% elif tool.status == 'success' %}
+                        <span class="badge badge-green">ok</span>
+                        {% endif %}
+                        {% if tool.latency_ms %}
+                        <span style="font-size: 11px; color: var(--text-muted);">{{ tool.latency_ms }}ms</span>
+                        {% endif %}
+                    </div>
+                    {% if tool.error_message %}
+                    <div style="color: var(--red); font-size: 12px; margin-bottom: 4px;">{{ tool.error_message }}</div>
+                    {% endif %}
+                    {% if tool.input_json %}
+                    <details style="margin-top: 4px;">
+                        <summary style="font-size: 11px; color: var(--text-muted); cursor: pointer;">Input</summary>
+                        <pre class="tool-call-output">{{ tool.input_json }}</pre>
+                    </details>
+                    {% endif %}
+                    {% if tool.output_json %}
+                    <details style="margin-top: 4px;">
+                        <summary style="font-size: 11px; color: var(--text-muted); cursor: pointer;">Output</summary>
+                        <pre class="tool-call-output">{{ tool.output_json }}</pre>
+                    </details>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </details>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="thread-empty">
+    <div class="thread-empty-icon" aria-hidden="true">&#9993;</div>
+    <div>No messages in this conversation.</div>
+</div>
+{% endif %}

@@ -595,3 +595,303 @@ async def user_manual(request: Request):
     return _render(request, "manual.html",
         page_title="Help", active_nav="manual",
     )
+
+
+# ============================================================
+# Customer Detail — Messages Tab
+# ============================================================
+
+@router.get("/tenants/{agent_id}/tab/messages", response_class=HTMLResponse)
+async def tenant_messages_tab(request: Request, agent_id: str):
+    """HTMX partial: Messages tab — contact list with conversation summaries."""
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    from app.services.console_queries import async_get_conversations_by_contact
+
+    page = int(request.query_params.get("page", "1"))
+    per_page = int(request.query_params.get("per_page", "25"))
+    offset = (page - 1) * per_page
+
+    contacts = await async_get_conversations_by_contact(
+        agent_id, limit=per_page, offset=offset,
+    )
+
+    return _render(request, "partials/tenant_messages_tab.html",
+        agent_id=agent_id, contacts=contacts,
+        page=page, per_page=per_page,
+        has_more=len(contacts) == per_page,
+    )
+
+
+@router.get("/tenants/{agent_id}/tab/messages/{contact_id}", response_class=HTMLResponse)
+async def tenant_messages_thread(request: Request, agent_id: str, contact_id: str):
+    """HTMX partial: expanded conversation thread for a contact."""
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    from app.services.console_queries import async_get_conversation_thread
+
+    page = int(request.query_params.get("page", "1"))
+    per_page = 50
+    offset = (page - 1) * per_page
+
+    thread = await async_get_conversation_thread(
+        agent_id, contact_id, limit=per_page, offset=offset,
+    )
+
+    return _render(request, "partials/tenant_messages_thread.html",
+        agent_id=agent_id, contact_id=contact_id,
+        messages=thread["messages"],
+        total_tool_executions=thread["total_tool_executions"],
+        page=page, per_page=per_page,
+        has_more=len(thread["messages"]) == per_page,
+    )
+
+
+# ============================================================
+# Customer Detail — Knowledge Base Tab
+# ============================================================
+
+@router.get("/tenants/{agent_id}/tab/knowledge-base", response_class=HTMLResponse)
+async def tenant_kb_tab(request: Request, agent_id: str):
+    """HTMX partial: Knowledge Base tab — items grouped by source type."""
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    from app.services.console_queries import (
+        async_get_knowledge_base_items, async_get_kb_settings,
+    )
+
+    items = await async_get_knowledge_base_items(agent_id)
+    settings = await async_get_kb_settings(agent_id)
+
+    # Group items by source_type for display
+    grouped = {}
+    for item in items:
+        st = item["source_type"]
+        if st not in grouped:
+            grouped[st] = []
+        grouped[st].append(item)
+
+    total_chunks = sum(item["chunk_count"] for item in items)
+
+    return _render(request, "partials/tenant_kb_tab.html",
+        agent_id=agent_id,
+        grouped_items=grouped,
+        total_items=len(items),
+        total_chunks=total_chunks,
+        kb_settings=settings,
+    )
+
+
+@router.post("/tenants/{agent_id}/kb/{source_type}/{source_id}/remove")
+async def tenant_kb_remove(request: Request, agent_id: str, source_type: str, source_id: str):
+    """Remove a KB item — delete all embedding chunks for the source."""
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    from app.services.console_queries import async_remove_kb_item
+
+    try:
+        deleted = await async_remove_kb_item(agent_id, source_type, source_id)
+        logger.info(f"Removed {deleted} KB chunks for {source_type}/{source_id} (agent {agent_id})")
+    except Exception as e:
+        logger.error(f"KB remove failed: {e}")
+
+    return RedirectResponse(f"/console/tenants/{agent_id}?tab=knowledge-base", status_code=303)
+
+
+@router.post("/tenants/{agent_id}/kb/{source_type}/{source_id}/reindex")
+async def tenant_kb_reindex(request: Request, agent_id: str, source_type: str, source_id: str):
+    """Re-index a KB item by re-reading the source and re-embedding."""
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    # Documents cannot be re-indexed (no upstream source)
+    if source_type == "document":
+        return RedirectResponse(f"/console/tenants/{agent_id}?tab=knowledge-base", status_code=303)
+
+    from uuid import UUID as _UUID
+    from app.services.rag_service import get_rag_service
+    rag = get_rag_service()
+
+    try:
+        agent_uuid = _UUID(agent_id)
+        source_uuid = _UUID(source_id)
+
+        if source_type == "conversation":
+            chunks = rag.index_conversation(agent_uuid, source_uuid)
+        elif source_type == "contact":
+            chunks = rag.index_contact(agent_uuid, source_uuid)
+        elif source_type == "listing":
+            chunks = rag.index_listing(agent_uuid, source_uuid)
+        else:
+            logger.warning(f"Unknown source_type for re-index: {source_type}")
+            chunks = 0
+
+        logger.info(f"Re-indexed {chunks} chunks for {source_type}/{source_id} (agent {agent_id})")
+    except Exception as e:
+        logger.error(f"KB re-index failed: {e}")
+
+    return RedirectResponse(f"/console/tenants/{agent_id}?tab=knowledge-base", status_code=303)
+
+
+@router.post("/tenants/{agent_id}/kb/{source_type}/{source_id}/expire")
+async def tenant_kb_set_expiration(request: Request, agent_id: str, source_type: str, source_id: str):
+    """Set or clear expiration date on a KB item."""
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    from app.services.console_queries import async_set_kb_item_expiration
+
+    expires_at = form.get("expires_at") or None
+
+    # Validate that expiration date is in the future (if provided)
+    if expires_at:
+        from datetime import datetime, timezone as tz
+        try:
+            exp_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+            if exp_dt.tzinfo is None:
+                exp_dt = exp_dt.replace(tzinfo=tz.utc)
+            if exp_dt <= datetime.now(tz.utc):
+                return Response("Expiration date must be in the future", status_code=400)
+        except ValueError:
+            return Response("Invalid date format", status_code=400)
+
+    try:
+        await async_set_kb_item_expiration(agent_id, source_type, source_id, expires_at)
+    except Exception as e:
+        logger.error(f"KB expiration update failed: {e}")
+
+    return RedirectResponse(f"/console/tenants/{agent_id}?tab=knowledge-base", status_code=303)
+
+
+@router.post("/tenants/{agent_id}/kb/settings")
+async def tenant_kb_update_settings(request: Request, agent_id: str):
+    """Update KB expiration policy settings."""
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    from app.services.console_queries import async_update_kb_settings
+
+    policy = form.get("kb_expiration_policy", "remind_only")
+    default_ttl_raw = form.get("kb_default_ttl_days")
+    default_ttl = int(default_ttl_raw) if default_ttl_raw and default_ttl_raw.strip() else None
+
+    try:
+        await async_update_kb_settings(agent_id, policy, default_ttl)
+    except ValueError as e:
+        return Response(str(e), status_code=400)
+    except Exception as e:
+        logger.error(f"KB settings update failed: {e}")
+
+    return RedirectResponse(f"/console/tenants/{agent_id}?tab=knowledge-base", status_code=303)
+
+
+@router.post("/tenants/{agent_id}/kb/upload")
+async def tenant_kb_upload(request: Request, agent_id: str):
+    """Upload a new document to the knowledge base (text content, chunk and embed)."""
+    redirect = _require_auth(request)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
+
+    title = (form.get("title") or "").strip()
+    content = (form.get("content") or "").strip()
+
+    # Validation
+    if not title:
+        return Response("Title is required", status_code=400)
+    if not content:
+        return Response("Content is required", status_code=400)
+    if len(content) > 50_000:
+        return Response(
+            "Document too large. Maximum 50,000 characters. Split into multiple documents.",
+            status_code=400,
+        )
+
+    # Sanitize content: strip HTML/script tags
+    import re
+    content = re.sub(r"<script[^>]*>.*?</script>", "", content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r"<[^>]+>", "", content)
+
+    from uuid import uuid4, UUID as _UUID
+    from app.services.rag_service import get_rag_service
+    from app.services.embedding_service import chunk_text
+    from app.config import get_settings
+
+    rag = get_rag_service()
+    settings = get_settings()
+    agent_uuid = _UUID(agent_id)
+    doc_source_id = uuid4()
+
+    try:
+        chunks = chunk_text(
+            content,
+            chunk_size=settings.RAG_CHUNK_SIZE,
+            overlap=settings.RAG_CHUNK_OVERLAP,
+        )
+
+        if not chunks:
+            return Response("Content produced no chunks after processing", status_code=400)
+
+        metadata = {"title": title, "document": True}
+        rag._upsert_chunks(agent_uuid, "document", doc_source_id, chunks, metadata)
+
+        # Set title on all chunks for the new document
+        from app.db.connection import get_db_connection, set_agent_context
+        with get_db_connection() as conn:
+            set_agent_context(conn, agent_uuid)
+            conn.execute(
+                "UPDATE embeddings SET title = %s WHERE source_id = %s",
+                [title, str(doc_source_id)],
+            )
+            conn.commit()
+
+        # Set expiration if provided
+        expires_at = form.get("expires_at")
+        if expires_at:
+            from app.services.console_queries import async_set_kb_item_expiration
+            await async_set_kb_item_expiration(agent_id, "document", str(doc_source_id), expires_at)
+
+        logger.info(
+            f"Uploaded KB document '{title}' with {len(chunks)} chunks "
+            f"(agent {agent_id}, source_id {doc_source_id})"
+        )
+    except Exception as e:
+        logger.error(f"KB document upload failed: {e}")
+        return Response(f"Upload failed: {e}", status_code=500)
+
+    return RedirectResponse(f"/console/tenants/{agent_id}?tab=knowledge-base", status_code=303)

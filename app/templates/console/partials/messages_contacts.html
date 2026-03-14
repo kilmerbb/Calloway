@@ -1,0 +1,59 @@
+<!-- Messages Tab: Contact List with Conversation Summaries -->
+<!-- Loaded via HTMX: GET /console/tenants/:agent_id/tab/messages -->
+
+{% if contacts and contacts|length > 0 %}
+<div class="messages-layout">
+    <div class="messages-contact-list" role="list" aria-label="Contacts with conversations">
+        {% for contact in contacts %}
+        <div class="contact-item"
+             role="listitem"
+             tabindex="0"
+             hx-get="/console/tenants/{{ agent_id }}/tab/messages/{{ contact.id }}"
+             hx-target="#messages-thread-area"
+             hx-swap="innerHTML"
+             hx-indicator="#thread-loading"
+             onclick="document.querySelectorAll('.contact-item').forEach(c => c.classList.remove('active')); this.classList.add('active');"
+             onkeydown="if(event.key==='Enter'){this.click();}"
+             aria-label="View conversation with {{ contact.name or contact.phone }}">
+            <div class="contact-item-name">{{ contact.name or contact.phone or 'Unknown Contact' }}</div>
+            <div class="contact-item-meta">
+                {% if contact.channel == 'sms' %}
+                <span class="badge badge-blue">SMS</span>
+                {% elif contact.channel == 'rcs' %}
+                <span class="badge badge-green">RCS</span>
+                {% elif contact.channel == 'voice' %}
+                <span class="badge badge-yellow">Voice</span>
+                {% elif contact.channel == 'email' %}
+                <span class="badge badge-gray">Email</span>
+                {% else %}
+                <span class="badge badge-gray">{{ contact.channel or 'SMS' }}</span>
+                {% endif %}
+                <span>{{ contact.message_count or 0 }} msgs</span>
+                <span class="contact-item-time">{{ contact.last_message_relative or '' }}</span>
+            </div>
+            {% if contact.last_message_preview %}
+            <div class="contact-item-preview" title="{{ contact.last_message_preview }}">{{ contact.last_message_preview[:100] }}{% if contact.last_message_preview|length > 100 %}...{% endif %}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <div class="messages-thread" id="messages-thread-area">
+        <!-- Thread loading indicator -->
+        <div id="thread-loading" class="htmx-indicator" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+            Loading conversation...
+        </div>
+        <!-- Empty state: no contact selected yet -->
+        <div class="thread-empty">
+            <div class="thread-empty-icon" aria-hidden="true">&#9993;</div>
+            <div>Select a contact to view their conversation</div>
+        </div>
+    </div>
+</div>
+{% else %}
+<!-- Empty state: no conversations at all -->
+<div class="messages-empty">
+    <div class="messages-empty-icon" aria-hidden="true">&#9993;</div>
+    <div class="messages-empty-title">No conversations yet for this customer.</div>
+    <div class="messages-empty-desc">Conversations will appear here once contacts start texting. You can send a test SMS to verify the connection is working.</div>
+</div>
+{% endif %}

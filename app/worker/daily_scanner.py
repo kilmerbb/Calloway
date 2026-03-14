@@ -15,6 +15,12 @@ def run_daily_scan():
     agents = _get_all_active_agents()
     logger.info(f"Daily scan: processing {len(agents)} agents")
 
+    # Process knowledge base expirations across all agents
+    try:
+        process_kb_expirations()
+    except Exception as e:
+        logger.error(f"KB expiration processing failed: {e}")
+
     for agent in agents:
         try:
             scan_agent(agent)
@@ -290,6 +296,78 @@ def format_seller_report(report: dict) -> str:
             lines.append(f"  - {f['client']}: {f['feedback'][:100]}")
 
     return "\n".join(lines)
+
+
+# ============================================================
+# Knowledge Base Expiration Processing
+# ============================================================
+
+def process_kb_expirations() -> dict:
+    """Process expired knowledge base embeddings for all agents.
+
+    For agents with kb_expiration_policy='auto_remove': delete expired chunks.
+    For agents with kb_expiration_policy='remind_only': log a warning.
+
+    Returns summary stats.
+    """
+    results = {"auto_removed": 0, "remind_only": 0, "agents_processed": 0}
+
+    with get_db_connection() as conn:
+        # Find all expired embeddings grouped by agent
+        expired = conn.execute(
+            """SELECT DISTINCT e.agent_id, e.source_id, e.source_type, e.title,
+                      a.kb_expiration_policy
+               FROM embeddings e
+               JOIN agents a ON e.agent_id = a.id
+               WHERE e.expires_at IS NOT NULL AND e.expires_at < now()"""
+        ).fetchall()
+
+    if not expired:
+        logger.info("KB expiration scan: no expired items found")
+        return results
+
+    # Group by agent for processing
+    by_agent: dict[str, list[dict]] = {}
+    for row in expired:
+        aid = str(row["agent_id"])
+        if aid not in by_agent:
+            by_agent[aid] = []
+        by_agent[aid].append(row)
+
+    results["agents_processed"] = len(by_agent)
+
+    for agent_id, items in by_agent.items():
+        policy = items[0]["kb_expiration_policy"] or "remind_only"
+
+        if policy == "auto_remove":
+            with get_db_connection() as conn:
+                for item in items:
+                    conn.execute(
+                        "DELETE FROM embeddings WHERE agent_id = %s AND source_id = %s",
+                        [str(item["agent_id"]), str(item["source_id"])],
+                    )
+                    title = item["title"] or f"{item['source_type']}/{item['source_id']}"
+                    logger.info(
+                        f"KB auto-remove: deleted expired embeddings for '{title}' "
+                        f"(agent {agent_id}, source_type={item['source_type']})"
+                    )
+                    results["auto_removed"] += 1
+                conn.commit()
+        else:
+            # remind_only: just log (UI shows expired badge)
+            for item in items:
+                title = item["title"] or f"{item['source_type']}/{item['source_id']}"
+                logger.warning(
+                    f"KB expired (remind_only): '{title}' has expired "
+                    f"(agent {agent_id}, source_type={item['source_type']})"
+                )
+                results["remind_only"] += 1
+
+    logger.info(
+        f"KB expiration scan complete: {results['auto_removed']} auto-removed, "
+        f"{results['remind_only']} remind-only, {results['agents_processed']} agents"
+    )
+    return results
 
 
 # ============================================================

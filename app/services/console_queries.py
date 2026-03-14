@@ -1648,3 +1648,270 @@ async def async_deactivate_agent(agent_id: str) -> None:
             await conn.commit()
     except Exception as e:
         logger.error(f"Async deactivate agent failed: {e}")
+
+
+# ============================================================
+# Messages Tab (Customer Detail — Conversations by Contact)
+# ============================================================
+
+async def async_get_conversations_by_contact(
+    agent_id: str,
+    limit: int = 25,
+    offset: int = 0,
+) -> list[dict]:
+    """Conversations grouped by contact for the Messages tab.
+
+    For NULL contact_id, groups under 'Unknown Contact'.
+    Returns: contact name, phone, channel, message count, last message
+    preview, last message timestamp. Ordered by most recent activity.
+    """
+    try:
+        async with get_async_db_connection() as conn:
+            cur = await conn.execute(
+                """SELECT
+                       COALESCE(c.id::text, 'unknown') AS contact_id,
+                       COALESCE(c.name, 'Unknown Contact') AS contact_name,
+                       COALESCE(c.phone, '') AS phone,
+                       array_agg(DISTINCT cv.channel) AS channels,
+                       SUM(sub.msg_count)::int AS message_count,
+                       MAX(sub.last_msg_at) AS last_message_at,
+                       (SELECT m2.body
+                        FROM messages m2
+                        JOIN conversations cv2 ON m2.conversation_id = cv2.id
+                        WHERE cv2.agent_id = %s
+                          AND (cv2.contact_id = c.id OR (cv2.contact_id IS NULL AND c.id IS NULL))
+                        ORDER BY m2.created_at DESC LIMIT 1
+                       ) AS last_message_preview
+                   FROM conversations cv
+                   LEFT JOIN contacts c ON cv.contact_id = c.id
+                   JOIN LATERAL (
+                       SELECT COUNT(*) AS msg_count, MAX(m.created_at) AS last_msg_at
+                       FROM messages m WHERE m.conversation_id = cv.id
+                   ) sub ON true
+                   WHERE cv.agent_id = %s
+                     AND sub.msg_count > 0
+                   GROUP BY c.id, c.name, c.phone
+                   ORDER BY MAX(sub.last_msg_at) DESC NULLS LAST
+                   LIMIT %s OFFSET %s""",
+                [agent_id, agent_id, limit, offset],
+            )
+            rows = await cur.fetchall()
+        return rows or []
+    except Exception as e:
+        logger.error(f"Conversations by contact query failed: {e}")
+        return []
+
+
+async def async_get_conversation_thread(
+    agent_id: str,
+    contact_id: str,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    """Full conversation thread for a contact with tool execution details.
+
+    Returns messages and correlated tool executions (within 5 seconds of
+    message timestamp).
+    """
+    try:
+        async with get_async_db_connection() as conn:
+            # Handle 'unknown' placeholder for NULL contact_id
+            if contact_id == "unknown":
+                contact_filter = "cv.contact_id IS NULL"
+                params_msgs = [agent_id, limit, offset]
+                params_tools = [agent_id]
+            else:
+                contact_filter = "cv.contact_id = %s"
+                params_msgs = [contact_id, agent_id, limit, offset]
+                params_tools = [contact_id, agent_id]
+
+            # Messages
+            if contact_id == "unknown":
+                msg_sql = f"""
+                    SELECT m.id, m.sender_type, m.body, m.created_at, m.model_used,
+                           m.delivery_status, m.failure_reason, m.intent, m.tokens_used,
+                           cv.channel, cv.id AS conversation_id
+                    FROM messages m
+                    JOIN conversations cv ON m.conversation_id = cv.id
+                    WHERE cv.contact_id IS NULL AND cv.agent_id = %s
+                    ORDER BY m.created_at DESC
+                    LIMIT %s OFFSET %s"""
+            else:
+                msg_sql = f"""
+                    SELECT m.id, m.sender_type, m.body, m.created_at, m.model_used,
+                           m.delivery_status, m.failure_reason, m.intent, m.tokens_used,
+                           cv.channel, cv.id AS conversation_id
+                    FROM messages m
+                    JOIN conversations cv ON m.conversation_id = cv.id
+                    WHERE cv.contact_id = %s AND cv.agent_id = %s
+                    ORDER BY m.created_at DESC
+                    LIMIT %s OFFSET %s"""
+
+            cur = await conn.execute(msg_sql, params_msgs)
+            messages = await cur.fetchall()
+
+            # Tool executions for these conversations
+            if contact_id == "unknown":
+                tool_sql = """
+                    SELECT te.id, te.tool_name, te.input_json, te.output_json,
+                           te.status, te.error_message, te.latency_ms, te.created_at,
+                           te.conversation_id
+                    FROM tool_executions te
+                    JOIN conversations cv ON te.conversation_id = cv.id
+                    WHERE cv.contact_id IS NULL AND cv.agent_id = %s
+                    ORDER BY te.created_at"""
+            else:
+                tool_sql = """
+                    SELECT te.id, te.tool_name, te.input_json, te.output_json,
+                           te.status, te.error_message, te.latency_ms, te.created_at,
+                           te.conversation_id
+                    FROM tool_executions te
+                    JOIN conversations cv ON te.conversation_id = cv.id
+                    WHERE cv.contact_id = %s AND cv.agent_id = %s
+                    ORDER BY te.created_at"""
+
+            cur = await conn.execute(tool_sql, params_tools)
+            tool_execs = await cur.fetchall()
+
+        # Correlate tool executions to messages by timestamp proximity (5 seconds)
+        messages_list = list(messages) if messages else []
+        for msg in messages_list:
+            msg["tool_executions"] = []
+
+        if tool_execs and messages_list:
+            for te in tool_execs:
+                te_time = te["created_at"]
+                best_msg = None
+                best_delta = None
+                for msg in messages_list:
+                    if msg["conversation_id"] != te["conversation_id"]:
+                        continue
+                    if msg["sender_type"] not in ("ai", "system"):
+                        continue
+                    delta = abs((msg["created_at"] - te_time).total_seconds())
+                    if delta <= 5 and (best_delta is None or delta < best_delta):
+                        best_delta = delta
+                        best_msg = msg
+                if best_msg is not None:
+                    best_msg["tool_executions"].append(te)
+
+        return {
+            "messages": messages_list,
+            "total_tool_executions": len(tool_execs) if tool_execs else 0,
+        }
+    except Exception as e:
+        logger.error(f"Conversation thread query failed: {e}")
+        return {"messages": [], "total_tool_executions": 0}
+
+
+# ============================================================
+# Knowledge Base Tab (Customer Detail)
+# ============================================================
+
+async def async_get_knowledge_base_items(agent_id: str) -> list[dict]:
+    """All embeddings for an agent grouped by source_type/source_id.
+
+    Returns: source_id, title, source_type, chunk count, indexed date,
+    expires_at, and computed status (active/expiring_soon/expired).
+    """
+    try:
+        async with get_async_db_connection() as conn:
+            cur = await conn.execute(
+                """SELECT source_type,
+                       source_id,
+                       MAX(title) AS title,
+                       COUNT(*) AS chunk_count,
+                       MIN(created_at) AS indexed_date,
+                       MAX(expires_at) AS expires_at,
+                       CASE
+                           WHEN MAX(expires_at) IS NULL THEN 'active'
+                           WHEN MAX(expires_at) < now() THEN 'expired'
+                           WHEN MAX(expires_at) < now() + interval '7 days' THEN 'expiring_soon'
+                           ELSE 'active'
+                       END AS status
+                   FROM embeddings
+                   WHERE agent_id = %s
+                   GROUP BY source_type, source_id
+                   ORDER BY source_type, MAX(updated_at) DESC""",
+                [agent_id],
+            )
+            rows = await cur.fetchall()
+        return rows or []
+    except Exception as e:
+        logger.error(f"Knowledge base items query failed: {e}")
+        return []
+
+
+async def async_get_kb_settings(agent_id: str) -> dict:
+    """Return the agent's KB expiration policy and default TTL."""
+    try:
+        async with get_async_db_connection() as conn:
+            cur = await conn.execute(
+                "SELECT kb_expiration_policy, kb_default_ttl_days FROM agents WHERE id = %s",
+                [agent_id],
+            )
+            row = await cur.fetchone()
+        if row:
+            return {
+                "kb_expiration_policy": row["kb_expiration_policy"] or "remind_only",
+                "kb_default_ttl_days": row["kb_default_ttl_days"],
+            }
+        return {"kb_expiration_policy": "remind_only", "kb_default_ttl_days": None}
+    except Exception as e:
+        logger.error(f"KB settings query failed: {e}")
+        return {"kb_expiration_policy": "remind_only", "kb_default_ttl_days": None}
+
+
+async def async_update_kb_settings(
+    agent_id: str, policy: str, default_ttl: int | None = None,
+) -> None:
+    """Update the agent's KB expiration policy and default TTL."""
+    if policy not in ("auto_remove", "remind_only"):
+        raise ValueError(f"Invalid KB policy: {policy}")
+    try:
+        async with get_async_db_connection() as conn:
+            await conn.execute(
+                """UPDATE agents
+                   SET kb_expiration_policy = %s, kb_default_ttl_days = %s
+                   WHERE id = %s""",
+                [policy, default_ttl, agent_id],
+            )
+            await conn.commit()
+    except Exception as e:
+        logger.error(f"KB settings update failed: {e}")
+        raise
+
+
+async def async_remove_kb_item(agent_id: str, source_type: str, source_id: str) -> int:
+    """Delete all embedding chunks for a given source. Returns count deleted."""
+    try:
+        async with get_async_db_connection() as conn:
+            cur = await conn.execute(
+                """DELETE FROM embeddings
+                   WHERE agent_id = %s AND source_type = %s AND source_id = %s
+                   RETURNING id""",
+                [agent_id, source_type, source_id],
+            )
+            deleted = await cur.fetchall()
+            await conn.commit()
+        return len(deleted) if deleted else 0
+    except Exception as e:
+        logger.error(f"KB item removal failed: {e}")
+        raise
+
+
+async def async_set_kb_item_expiration(
+    agent_id: str, source_type: str, source_id: str, expires_at: str | None,
+) -> None:
+    """Set or clear the expiration date for all chunks of a KB source item."""
+    try:
+        async with get_async_db_connection() as conn:
+            await conn.execute(
+                """UPDATE embeddings SET expires_at = %s
+                   WHERE agent_id = %s AND source_type = %s AND source_id = %s""",
+                [expires_at, agent_id, source_type, source_id],
+            )
+            await conn.commit()
+    except Exception as e:
+        logger.error(f"KB item expiration update failed: {e}")
+        raise

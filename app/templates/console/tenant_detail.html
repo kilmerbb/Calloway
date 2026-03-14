@@ -20,112 +20,397 @@
     </div>
 </div>
 
-<div class="detail-grid">
-    <div>
-        <!-- Profile -->
-        <div class="section">
-            <div class="section-title">Profile</div>
-            <table>
-                <tr><td style="width:150px; color: var(--text-muted);">Name</td><td>{{ agent.name }}</td></tr>
-                <tr><td style="color: var(--text-muted);">Email</td><td>{{ agent.email }}</td></tr>
-                <tr><td style="color: var(--text-muted);">Phone</td><td>{{ agent.phone }}</td></tr>
-                <tr><td style="color: var(--text-muted);">Brokerage</td><td>{{ agent.brokerage or '—' }}</td></tr>
-                <tr><td style="color: var(--text-muted);">Market</td><td>{{ agent.market or '—' }}</td></tr>
-                <tr><td style="color: var(--text-muted);">Timezone</td><td>{{ agent.timezone }}</td></tr>
-                <tr><td style="color: var(--text-muted);" title="The Twilio number contacts text to reach this agent">Twilio #</td><td>{{ agent.twilio_number }}</td></tr>
-            </table>
-        </div>
+<!-- Tab Bar -->
+<div class="tab-bar" role="tablist" aria-label="Customer sections">
+    <button class="tab-btn active" role="tab" aria-selected="true"
+            aria-controls="panel-profile" id="tab-profile"
+            data-tab="profile">Profile</button>
+    <button class="tab-btn" role="tab" aria-selected="false"
+            aria-controls="panel-messages" id="tab-messages"
+            data-tab="messages">Messages</button>
+    <button class="tab-btn" role="tab" aria-selected="false"
+            aria-controls="panel-kb" id="tab-kb"
+            data-tab="knowledge-base"
+            hx-get="/console/tenants/{{ agent.id }}/tab/knowledge-base"
+            hx-target="#panel-kb-content"
+            hx-trigger="click once"
+            hx-swap="innerHTML">Knowledge Base</button>
+    <button class="tab-btn" role="tab" aria-selected="false"
+            aria-controls="panel-contacts" id="tab-contacts"
+            data-tab="contacts">Contacts</button>
+    <button class="tab-btn" role="tab" aria-selected="false"
+            aria-controls="panel-listings" id="tab-listings"
+            data-tab="listings">Listings</button>
+    <button class="tab-btn" role="tab" aria-selected="false"
+            aria-controls="panel-automations" id="tab-automations"
+            data-tab="automations">Automations</button>
+</div>
 
-        <!-- Configuration -->
-        <div class="section">
-            <div class="section-title" title="Click each section to expand and view the raw configuration">Configuration</div>
-            <details>
-                <summary title="Tone, emoji, and communication style settings">Style Profile</summary>
-                <pre style="font-size:12px; padding:0.5rem;">{{ agent.style_profile }}</pre>
-            </details>
-            <details>
-                <summary title="Rules governing what the AI can do autonomously vs. requiring approval">Autonomy Rules</summary>
-                <pre style="font-size:12px; padding:0.5rem;">{{ agent.autonomy_rules }}</pre>
-            </details>
-            <details>
-                <summary title="Preferred showing times, buffer windows, and availability">Scheduling Prefs</summary>
-                <pre style="font-size:12px; padding:0.5rem;">{{ agent.scheduling_prefs }}</pre>
-            </details>
-            <details>
-                <summary title="Complete database record for debugging">Raw Agent Record (JSON)</summary>
-                <pre style="font-size:11px; padding:0.5rem; max-height:300px; overflow:auto;">{{ agent }}</pre>
-            </details>
+<!-- ============================================================
+     Tab Panel: Profile
+     ============================================================ -->
+<div id="panel-profile" class="tab-panel active" role="tabpanel" aria-labelledby="tab-profile">
+    <!-- Stats Row -->
+    <div class="card-grid" style="grid-template-columns: repeat(3, 1fr); max-width: 600px; margin-bottom: 1.5rem;">
+        <div class="card" title="Estimated AI cost for this customer this month">
+            <div class="card-label">Cost</div>
+            <div class="card-value">${{ detail.cost_this_month_dollars }}</div>
         </div>
-
-        <!-- Recent Messages -->
-        <div class="section">
-            <div class="section-title" title="The 20 most recent messages for this customer">Recent Messages ({{ detail.recent_messages|length }})</div>
-            {% for m in detail.recent_messages[:20] %}
-            <div class="feed-item">
-                <span class="feed-time">{{ m.created_at.strftime('%b %d %H:%M') if m.created_at else '' }}</span>
-                {% if m.sender_type == 'client' %}
-                <span class="badge badge-green" title="Inbound message from the contact">{{ m.contact_name or 'client' }}</span>
-                {% elif m.sender_type == 'ai' %}
-                <span class="badge badge-blue" title="AI-generated response{% if m.model_used %} using {{ m.model_used }}{% endif %}">ai{% if m.model_used %}/{{ m.model_used }}{% endif %}</span>
-                {% else %}
-                <span class="badge badge-gray" title="System or operator message">{{ m.sender_type }}</span>
-                {% endif %}
-                {{ (m.body or '')[:100] }}{% if m.body and m.body|length > 100 %}...{% endif %}
-            </div>
-            {% endfor %}
+        <div class="card" title="Total messages sent and received this month">
+            <div class="card-label">Messages</div>
+            <div class="card-value">{{ detail.messages_this_month }}</div>
+        </div>
+        <div class="card" title="Errors in the last 24 hours for this customer">
+            <div class="card-label">Errors 24h</div>
+            <div class="card-value" {% if detail.errors_24h > 0 %}style="color:var(--red)"{% endif %}>{{ detail.errors_24h }}</div>
         </div>
     </div>
 
-    <div class="detail-sidebar">
-        <!-- Stats -->
-        <div class="section">
-            <div class="section-title" title="Usage statistics for the current calendar month">This Month</div>
-            <div class="card" style="margin-bottom:0.5rem;" title="Estimated AI cost for this customer this month">
-                <div class="card-label">Cost</div>
-                <div class="card-value">${{ detail.cost_this_month_dollars }}</div>
-            </div>
-            <div class="card" style="margin-bottom:0.5rem;" title="Total messages sent and received this month">
-                <div class="card-label">Messages</div>
-                <div class="card-value">{{ detail.messages_this_month }}</div>
-            </div>
-            <div class="card" title="Errors in the last 24 hours for this customer">
-                <div class="card-label">Errors 24h</div>
-                <div class="card-value" {% if detail.errors_24h > 0 %}style="color:var(--red)"{% endif %}>{{ detail.errors_24h }}</div>
+    <!-- Profile + Configuration two-column layout -->
+    <div class="profile-two-col">
+        <div>
+            <!-- Profile -->
+            <div class="section">
+                <div class="section-title">Profile</div>
+                <table>
+                    <tr><td style="width:150px; color: var(--text-muted);">Name</td><td>{{ agent.name }}</td></tr>
+                    <tr><td style="color: var(--text-muted);">Email</td><td>{{ agent.email }}</td></tr>
+                    <tr><td style="color: var(--text-muted);">Phone</td><td>{{ agent.phone }}</td></tr>
+                    <tr><td style="color: var(--text-muted);">Brokerage</td><td>{{ agent.brokerage or '—' }}</td></tr>
+                    <tr><td style="color: var(--text-muted);">Market</td><td>{{ agent.market or '—' }}</td></tr>
+                    <tr><td style="color: var(--text-muted);">Timezone</td><td>{{ agent.timezone }}</td></tr>
+                    <tr><td style="color: var(--text-muted);" title="The Twilio number contacts text to reach this agent">Twilio #</td><td>{{ agent.twilio_number }}</td></tr>
+                </table>
             </div>
         </div>
-
-        <!-- Contacts -->
-        <div class="section">
-            <div class="section-title" title="People this customer has communicated with">Contacts ({{ detail.contacts|length }})</div>
-            {% for c in detail.contacts[:15] %}
-            <div class="feed-item" style="font-size:13px;">
-                {{ c.name }} <span class="badge badge-gray" title="CRM lifecycle stage">{{ c.lifecycle_stage }}</span>
-                {% if c.consent_status == 'revoked' %}<span class="badge badge-red" title="This contact has revoked TCPA consent — no automated messages allowed">revoked</span>{% endif %}
+        <div>
+            <!-- Configuration -->
+            <div class="section">
+                <div class="section-title" title="Click each section to expand and view the raw configuration">Configuration</div>
+                <details>
+                    <summary title="Tone, emoji, and communication style settings">Style Profile</summary>
+                    <pre style="font-size:12px; padding:0.5rem;">{{ agent.style_profile }}</pre>
+                </details>
+                <details>
+                    <summary title="Rules governing what the AI can do autonomously vs. requiring approval">Autonomy Rules</summary>
+                    <pre style="font-size:12px; padding:0.5rem;">{{ agent.autonomy_rules }}</pre>
+                </details>
+                <details>
+                    <summary title="Preferred showing times, buffer windows, and availability">Scheduling Prefs</summary>
+                    <pre style="font-size:12px; padding:0.5rem;">{{ agent.scheduling_prefs }}</pre>
+                </details>
+                <details>
+                    <summary title="Complete database record for debugging">Raw Agent Record (JSON)</summary>
+                    <pre style="font-size:11px; padding:0.5rem; max-height:300px; overflow:auto;">{{ agent }}</pre>
+                </details>
             </div>
-            {% endfor %}
-        </div>
-
-        <!-- Listings -->
-        <div class="section">
-            <div class="section-title" title="Real estate listings associated with this customer">Listings ({{ detail.listings|length }})</div>
-            {% for l in detail.listings[:10] %}
-            <div class="feed-item" style="font-size:13px;">
-                {{ l.address }} — ${{ "{:,}".format(l.price) }}
-                <span class="badge {% if l.status == 'active' %}badge-green{% else %}badge-gray{% endif %}" title="Listing status">{{ l.status }}</span>
-            </div>
-            {% endfor %}
-        </div>
-
-        <!-- Pending Triggers -->
-        <div class="section">
-            <div class="section-title" title="Scheduled actions waiting to run — manage on the Automations page">Scheduled Automations ({{ detail.pending_triggers|length }})</div>
-            {% for t in detail.pending_triggers %}
-            <div class="feed-item" style="font-size:13px;">
-                {{ t.trigger_type }} — {{ t.scheduled_at.strftime('%b %d %H:%M') if t.scheduled_at else '' }}
-                <span class="badge badge-blue" title="The action that will be taken when this trigger fires">{{ t.action_type }}</span>
-            </div>
-            {% endfor %}
         </div>
     </div>
 </div>
+
+<!-- ============================================================
+     Tab Panel: Messages
+     ============================================================ -->
+<div id="panel-messages" class="tab-panel" role="tabpanel" aria-labelledby="tab-messages">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div class="section-title" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">Messages</div>
+        <button class="btn btn-outline btn-sm"
+                hx-get="/console/tenants/{{ agent.id }}/tab/messages"
+                hx-target="#messages-container"
+                hx-swap="innerHTML"
+                hx-indicator="#messages-refresh-spinner"
+                title="Reload the contact list with latest messages"
+                aria-label="Refresh messages">
+            <span id="messages-refresh-spinner" class="htmx-indicator" aria-hidden="true">Loading...</span>
+            <span class="refresh-label">&#8635; Refresh</span>
+        </button>
+    </div>
+    <div id="messages-container"
+         hx-get="/console/tenants/{{ agent.id }}/tab/messages"
+         hx-trigger="intersect once"
+         hx-swap="innerHTML">
+        <!-- Loading skeleton -->
+        <div class="loading-skeleton" aria-label="Loading messages">
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     Tab Panel: Knowledge Base
+     ============================================================ -->
+<div id="panel-kb" class="tab-panel" role="tabpanel" aria-labelledby="tab-kb">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div class="section-title" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">Knowledge Base</div>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('kb-add-form').toggleAttribute('hidden')" title="Add a new document to the knowledge base" aria-label="Add document">+ Add Document</button>
+    </div>
+    <!-- Add Document Form (hidden by default) -->
+    <div id="kb-add-form" hidden class="kb-add-form" style="margin-bottom: 1.5rem;">
+        <form hx-post="/console/tenants/{{ agent.id }}/knowledge-base/add"
+              hx-target="#panel-kb-content"
+              hx-swap="innerHTML"
+              class="wizard-card" style="padding: 1rem;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="form-group">
+                <label for="kb-doc-title">Title <span class="required">*</span></label>
+                <input type="text" id="kb-doc-title" name="title" required placeholder="e.g. Agent vacation schedule Q2 2026">
+            </div>
+            <div class="form-group">
+                <label for="kb-doc-content">Content <span class="required">*</span></label>
+                <textarea id="kb-doc-content" name="content" required placeholder="Paste the document text here..." style="min-height: 120px;"></textarea>
+                <span class="form-hint">Maximum 50,000 characters. The text will be chunked and embedded for AI retrieval.</span>
+            </div>
+            <div class="form-group">
+                <label for="kb-doc-expires">Expiration (optional)</label>
+                <input type="date" id="kb-doc-expires" name="expires_at" style="width: auto;">
+            </div>
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('kb-add-form').setAttribute('hidden','')">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Add Document</button>
+            </div>
+        </form>
+    </div>
+    <div id="panel-kb-content">
+        <!-- Loaded via HTMX when Knowledge Base tab is clicked -->
+        <div class="loading-skeleton" aria-label="Loading knowledge base">
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     Tab Panel: Contacts
+     ============================================================ -->
+<div id="panel-contacts" class="tab-panel" role="tabpanel" aria-labelledby="tab-contacts">
+    <div class="section">
+        <div class="section-title">Contacts ({{ detail.contacts|length }})</div>
+        {% if detail.contacts %}
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Stage</th>
+                        <th title="TCPA consent status">Consent</th>
+                        <th>Last Contact</th>
+                        <th title="Whether automated messaging is paused for this contact">Silent</th>
+                        <th>Interactions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in detail.contacts %}
+                    <tr>
+                        <td>{{ c.name or '—' }}</td>
+                        <td style="white-space: nowrap;">{{ c.phone or '—' }}</td>
+                        <td>{{ c.email or '—' }}</td>
+                        <td>{{ c.role or '—' }}</td>
+                        <td><span class="badge badge-gray">{{ c.lifecycle_stage or '—' }}</span></td>
+                        <td>
+                            {% if c.consent_status == 'revoked' %}
+                            <span class="badge badge-red" title="TCPA consent revoked — no automated messages allowed">revoked</span>
+                            {% elif c.consent_status == 'granted' %}
+                            <span class="badge badge-green">granted</span>
+                            {% elif c.consent_status == 'pending' %}
+                            <span class="badge badge-yellow">pending</span>
+                            {% else %}
+                            <span class="badge badge-gray">{{ c.consent_status or '—' }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size: 12px;">{{ c.last_contact.strftime('%b %d %H:%M') if c.last_contact else '—' }}</td>
+                        <td>{{ 'Yes' if c.silent_mode else 'No' }}</td>
+                        <td>{{ c.interaction_count or 0 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="color: var(--text-muted); text-align: center; padding: 2rem;">No contacts yet.</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ============================================================
+     Tab Panel: Listings
+     ============================================================ -->
+<div id="panel-listings" class="tab-panel" role="tabpanel" aria-labelledby="tab-listings">
+    <div class="section">
+        <div class="section-title">Listings ({{ detail.listings|length }})</div>
+        {% if detail.listings %}
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Address</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                        <th>Beds</th>
+                        <th>Baths</th>
+                        <th>Sqft</th>
+                        <th>List Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in detail.listings %}
+                    <tr>
+                        <td>{{ l.address }}</td>
+                        <td style="white-space: nowrap;">${{ "{:,}".format(l.price) }}</td>
+                        <td>
+                            <span class="badge {% if l.status == 'active' %}badge-green{% else %}badge-gray{% endif %}">{{ l.status }}</span>
+                        </td>
+                        <td>{{ l.beds or '—' }}</td>
+                        <td>{{ l.baths or '—' }}</td>
+                        <td>{{ "{:,}".format(l.sqft) if l.sqft else '—' }}</td>
+                        <td style="font-size: 12px;">{{ l.list_date.strftime('%b %d, %Y') if l.list_date else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="color: var(--text-muted); text-align: center; padding: 2rem;">No listings yet.</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ============================================================
+     Tab Panel: Automations
+     ============================================================ -->
+<div id="panel-automations" class="tab-panel" role="tabpanel" aria-labelledby="tab-automations">
+    <div class="section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">
+            <span style="font-size: 16px; font-weight: 600; letter-spacing: -0.3px;">Automations ({{ detail.pending_triggers|length }})</span>
+            <div class="automations-filter" style="display: flex; gap: 0.5rem; align-items: center;">
+                <label for="automation-status-filter" class="sr-only">Filter by status</label>
+                <select id="automation-status-filter" class="btn-sm" style="padding: 0.25rem 0.5rem; font-size: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text);" onchange="filterAutomations(this.value)" title="Filter automations by status">
+                    <option value="all">All</option>
+                    <option value="pending" selected>Pending</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+        </div>
+        {% if detail.pending_triggers %}
+        <div style="overflow-x: auto;">
+            <table id="automations-table">
+                <thead>
+                    <tr>
+                        <th>Trigger Type</th>
+                        <th>Scheduled At</th>
+                        <th>Action Type</th>
+                        <th>Entity Type</th>
+                        <th>Status</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in detail.pending_triggers %}
+                    <tr data-status="{{ t.status|default('pending') }}">
+                        <td>{{ t.trigger_type }}</td>
+                        <td style="font-size: 12px; white-space: nowrap;">{{ t.scheduled_at.strftime('%b %d %H:%M') if t.scheduled_at else '—' }}</td>
+                        <td><span class="badge badge-blue">{{ t.action_type }}</span></td>
+                        <td>{{ t.entity_type or '—' }}</td>
+                        <td>
+                            {% set status = t.status|default('pending') %}
+                            {% if status == 'pending' %}
+                            <span class="badge badge-blue">pending</span>
+                            {% elif status == 'completed' %}
+                            <span class="badge badge-green">completed</span>
+                            {% elif status == 'cancelled' %}
+                            <span class="badge badge-gray">cancelled</span>
+                            {% else %}
+                            <span class="badge badge-yellow">{{ status }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size: 12px;">{{ t.created_at.strftime('%b %d %H:%M') if t.created_at else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="color: var(--text-muted); text-align: center; padding: 2rem;">No scheduled automations.</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ============================================================
+     Tab Switching JavaScript
+     ============================================================ -->
+<script>
+// Tab switching logic (reuses pattern from System Health page)
+document.querySelectorAll('.tab-bar .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tabId = btn.dataset.tab;
+        // Deactivate all tabs and panels
+        btn.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('active');
+            b.setAttribute('aria-selected', 'false');
+        });
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        // Activate clicked tab and its panel
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        const panelId = btn.getAttribute('aria-controls');
+        const panel = document.getElementById(panelId);
+        if (panel) panel.classList.add('active');
+        // Update URL hash
+        history.replaceState(null, '', '#' + tabId);
+    });
+});
+
+// Activate tab from URL hash on page load
+(function() {
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+        const tabBtn = document.querySelector('[data-tab="' + hash + '"]');
+        if (tabBtn) tabBtn.click();
+    }
+})();
+
+// Update hash on tab click (already handled in the main listener above via history.replaceState)
+
+// Keyboard navigation for tabs (arrow keys)
+document.querySelectorAll('.tab-bar').forEach(tabbar => {
+    tabbar.addEventListener('keydown', (e) => {
+        const tabs = Array.from(tabbar.querySelectorAll('.tab-btn'));
+        const current = tabs.indexOf(document.activeElement);
+        if (current === -1) return;
+        let next = -1;
+        if (e.key === 'ArrowRight') {
+            next = (current + 1) % tabs.length;
+        } else if (e.key === 'ArrowLeft') {
+            next = (current - 1 + tabs.length) % tabs.length;
+        } else if (e.key === 'Home') {
+            next = 0;
+        } else if (e.key === 'End') {
+            next = tabs.length - 1;
+        }
+        if (next >= 0) {
+            e.preventDefault();
+            tabs[next].focus();
+            tabs[next].click();
+        }
+    });
+});
+
+// Automations status filter
+function filterAutomations(status) {
+    var rows = document.querySelectorAll('#automations-table tbody tr');
+    rows.forEach(function(row) {
+        if (status === 'all' || row.getAttribute('data-status') === status) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+</script>
 {% endblock %}

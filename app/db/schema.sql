@@ -28,6 +28,8 @@ CREATE TABLE agents (
     current_status  TEXT DEFAULT 'available',
     status_until    TIMESTAMPTZ,
     voice_daily_cap_minutes INT DEFAULT 30,
+    kb_expiration_policy TEXT DEFAULT 'remind_only',
+    kb_default_ttl_days INTEGER,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
@@ -317,11 +319,13 @@ CREATE INDEX idx_tool_executions_errors ON tool_executions(status) WHERE status 
 CREATE TABLE embeddings (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_id        UUID NOT NULL REFERENCES agents(id),
-    source_type     TEXT NOT NULL,  -- 'conversation', 'contact', 'listing', 'note'
+    source_type     TEXT NOT NULL,  -- 'conversation', 'contact', 'listing', 'note', 'document'
     source_id       UUID NOT NULL,
     chunk_index     INT NOT NULL DEFAULT 0,
     content         TEXT NOT NULL,
     embedding       vector(512),  -- voyage-3-lite outputs 512 dims
+    title           TEXT,          -- human-readable label for UI display
+    expires_at      TIMESTAMPTZ,   -- when this embedding set should expire (NULL = no expiration)
     metadata        JSONB DEFAULT '{}',
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
@@ -331,6 +335,8 @@ CREATE TABLE embeddings (
 CREATE INDEX idx_embeddings_vector ON embeddings USING hnsw (embedding vector_cosine_ops);
 CREATE INDEX idx_embeddings_agent_source ON embeddings(agent_id, source_type);
 CREATE UNIQUE INDEX idx_embeddings_source_chunk ON embeddings(source_id, chunk_index);
+CREATE INDEX idx_embeddings_expires_at ON embeddings(expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX idx_embeddings_agent_source_type_source_id ON embeddings(agent_id, source_type, source_id);
 
 -- ============================================================
 -- 12. usage_metrics
