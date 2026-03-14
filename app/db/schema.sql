@@ -142,6 +142,8 @@ CREATE TABLE conversations (
 );
 
 CREATE INDEX idx_conversations_agent_contact ON conversations(agent_id, contact_id);
+CREATE INDEX idx_conversations_last_message_at ON conversations(last_message_at DESC NULLS LAST);
+CREATE INDEX idx_conversations_agent_last_message ON conversations(agent_id, last_message_at DESC NULLS LAST);
 
 -- ============================================================
 -- 6. messages
@@ -210,6 +212,7 @@ CREATE TABLE triggers (
 );
 
 CREATE INDEX idx_triggers_status_scheduled ON triggers(status, scheduled_at);
+CREATE INDEX idx_triggers_status_agent_scheduled ON triggers(status, agent_id, scheduled_at);
 CREATE INDEX idx_triggers_agent_entity ON triggers(agent_id, entity_type, entity_id);
 
 -- ============================================================
@@ -311,6 +314,7 @@ CREATE TABLE tool_executions (
 );
 
 CREATE INDEX idx_tool_executions_agent_created ON tool_executions(agent_id, created_at);
+CREATE INDEX idx_tool_executions_conversation_created ON tool_executions(conversation_id, created_at);
 CREATE INDEX idx_tool_executions_errors ON tool_executions(status) WHERE status != 'success';
 
 -- ============================================================
@@ -360,6 +364,7 @@ CREATE TABLE usage_metrics (
 );
 
 CREATE UNIQUE INDEX idx_usage_metrics_agent_date ON usage_metrics(agent_id, date);
+CREATE INDEX idx_usage_metrics_date ON usage_metrics(date);
 
 -- ============================================================
 -- 12A. conversation_summaries
