@@ -19,6 +19,7 @@ from app.api.agent_portal import router as agent_portal_router
 from app.db.connection import init_pool, close_pool, init_async_pool, close_async_pool
 from app.services.redis_pool import get_redis_pool
 from app.pipeline.structured_logging import configure_logging, set_correlation_id
+from app.services.console_queries import AuthorizationError, clear_console_context
 
 # Configure structured JSON logging before anything else logs
 configure_logging()
@@ -95,7 +96,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class ConsoleContextCleanupMiddleware(BaseHTTPMiddleware):
+    """Clear console auth context after every request to prevent leakage."""
+
+    async def dispatch(self, request: Request, call_next):
+        try:
+            response = await call_next(request)
+            return response
+        finally:
+            clear_console_context()
+
+
 app.add_middleware(CorrelationMiddleware)
+app.add_middleware(ConsoleContextCleanupMiddleware)
+
+
+@app.exception_handler(AuthorizationError)
+async def authorization_error_handler(request: Request, exc: AuthorizationError):
+    """Return 403 for unauthenticated console query access."""
+    from fastapi.responses import JSONResponse
+    logger.warning(f"AuthorizationError on {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=403,
+        content={"detail": "Access denied. Authentication required."},
+    )
+
 
 app.include_router(webhooks_router)
 app.include_router(health_router)

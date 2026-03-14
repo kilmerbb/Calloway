@@ -1,14 +1,19 @@
-"""Console authentication — password-based session auth with CSRF protection."""
+"""Console authentication — per-user accounts with hashed passwords, role-based
+sessions, legacy single-password fallback, CSRF protection, and audit logging."""
 import hashlib
 import hmac
+import json
 import logging
 import secrets
 import time
+from typing import Optional
 
 from fastapi import Request, Response
+
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from app.config import get_settings
+from app.services.redis_pool import get_redis_pool
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +21,70 @@ SESSION_COOKIE = "console_session"
 CSRF_COOKIE = "console_csrf"
 SESSION_MAX_AGE = 86400  # 24 hours
 
+
+# ── Password hashing (scrypt via hashlib — no external dep) ─────────
+
+def hash_password(password: str) -> str:
+    """Hash a password using scrypt with a random salt.
+
+    Returns a string in the format: salt$hash  (both hex-encoded).
+    """
+    salt = secrets.token_bytes(32)
+    dk = hashlib.scrypt(
+        password.encode(), salt=salt, n=16384, r=8, p=1, dklen=64,
+    )
+    return salt.hex() + "$" + dk.hex()
+
+
+def verify_password_hash(password: str, stored_hash: str) -> bool:
+    """Verify a password against a stored scrypt hash (salt$hash)."""
+    try:
+        salt_hex, hash_hex = stored_hash.split("$", 1)
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(hash_hex)
+    except (ValueError, AttributeError):
+        return False
+    dk = hashlib.scrypt(
+        password.encode(), salt=salt, n=16384, r=8, p=1, dklen=64,
+    )
+    return hmac.compare_digest(dk, expected)
+
+
+# ── Legacy single-password verification ─────────────────────────────
+
+def _verify_legacy_password(password: str) -> bool:
+    """Check password against the shared CONSOLE_PASSWORD setting."""
+    settings = get_settings()
+    return hmac.compare_digest(password, settings.CONSOLE_PASSWORD)
+
+
+# ── User lookup ─────────────────────────────────────────────────────
+
+def _lookup_user_by_email(email: str) -> Optional[dict]:
+    """Look up a console user by email. Returns dict or None."""
+    from app.db.connection import get_db_connection
+    try:
+        with get_db_connection() as conn:
+            row = conn.execute(
+                "SELECT id, email, password_hash, display_name, role, active "
+                "FROM console_users WHERE email = %s",
+                [email],
+            ).fetchone()
+            if row:
+                return {
+                    "id": str(row[0]),
+                    "email": row[1],
+                    "password_hash": row[2],
+                    "display_name": row[3],
+                    "role": row[4],
+                    "active": row[5],
+                }
+    except Exception:
+        logger.exception("Failed to look up console user by email")
+    return None
+
+
+# ── Serializer ───────────────────────────────────────────────────────
 
 def _get_serializer() -> URLSafeTimedSerializer:
     settings = get_settings()
@@ -26,16 +95,62 @@ def _is_production() -> bool:
     return get_settings().ENVIRONMENT != "development"
 
 
-def verify_password(password: str) -> bool:
-    """Check password against CONSOLE_PASSWORD setting."""
+# ── Authentication entry point ──────────────────────────────────────
+
+def verify_password(password: str, email: str | None = None) -> Optional[dict]:
+    """Authenticate a user. Returns session payload dict on success, None on failure.
+
+    Per-user mode (email provided):
+      Look up user → verify hash → return user info.
+    Legacy mode (no email, LEGACY_AUTH_MODE=True):
+      Verify against CONSOLE_PASSWORD → return legacy session.
+    """
     settings = get_settings()
-    return hmac.compare_digest(password, settings.CONSOLE_PASSWORD)
+
+    # Per-user authentication
+    if email:
+        user = _lookup_user_by_email(email)
+        if not user:
+            return None
+        if not user["active"]:
+            return None
+        if not verify_password_hash(password, user["password_hash"]):
+            return None
+        return {
+            "authenticated": True,
+            "user_id": user["id"],
+            "email": user["email"],
+            "display_name": user["display_name"],
+            "role": user["role"],
+        }
+
+    # Legacy single-password mode
+    if settings.LEGACY_AUTH_MODE and _verify_legacy_password(password):
+        return {
+            "authenticated": True,
+            "user_id": None,
+            "email": None,
+            "display_name": "Operator (legacy)",
+            "role": "admin",
+        }
+
+    return None
 
 
-def create_session(response: Response) -> None:
-    """Create a session cookie on the response."""
+# ── Session management ──────────────────────────────────────────────
+
+def create_session(response: Response, user_info: dict) -> None:
+    """Create a session cookie containing user identity and role."""
     s = _get_serializer()
-    token = s.dumps({"authenticated": True, "ts": int(time.time())})
+    payload = {
+        "authenticated": True,
+        "user_id": user_info.get("user_id"),
+        "email": user_info.get("email"),
+        "display_name": user_info.get("display_name"),
+        "role": user_info.get("role", "viewer"),
+        "ts": int(time.time()),
+    }
+    token = s.dumps(payload)
     response.set_cookie(
         SESSION_COOKIE,
         token,
@@ -46,17 +161,31 @@ def create_session(response: Response) -> None:
     )
 
 
-def check_session(request: Request) -> bool:
-    """Check if the request has a valid session cookie."""
+def check_session(request: Request) -> Optional[dict]:
+    """Check if the request has a valid session cookie.
+
+    Returns a dict with user info on success:
+      {"authenticated": True, "user_id": str|None, "email": str|None,
+       "display_name": str, "role": str}
+    Returns None if not authenticated.
+    """
     token = request.cookies.get(SESSION_COOKIE)
     if not token:
-        return False
+        return None
     s = _get_serializer()
     try:
         data = s.loads(token, max_age=SESSION_MAX_AGE)
-        return data.get("authenticated", False)
+        if not data.get("authenticated"):
+            return None
+        return {
+            "authenticated": True,
+            "user_id": data.get("user_id"),
+            "email": data.get("email"),
+            "display_name": data.get("display_name", "Unknown"),
+            "role": data.get("role", "viewer"),
+        }
     except (BadSignature, SignatureExpired):
-        return False
+        return None
 
 
 def clear_session(response: Response) -> None:
@@ -65,7 +194,7 @@ def clear_session(response: Response) -> None:
     response.delete_cookie(CSRF_COOKIE)
 
 
-# ── CSRF protection ──────────────────────────────────────────
+# ── CSRF protection ─────────────────────────────────────────────────
 
 def generate_csrf_token(request: Request, response: Response) -> str:
     """Return a CSRF token, setting a cookie if one doesn't already exist."""
@@ -76,7 +205,7 @@ def generate_csrf_token(request: Request, response: Response) -> str:
             CSRF_COOKIE,
             token,
             max_age=SESSION_MAX_AGE,
-            httponly=False,  # JS needs to read this for HTMX if needed
+            httponly=False,  # JS needs to read this for HTMX
             samesite="lax",
             secure=_is_production(),
         )
@@ -89,3 +218,121 @@ def validate_csrf_token(request: Request, form_token: str | None) -> bool:
     if not cookie_token or not form_token:
         return False
     return hmac.compare_digest(cookie_token, form_token)
+
+
+# ── Login rate limiting ─────────────────────────────────────────────
+
+_RATE_LIMIT_MAX_ATTEMPTS = 5
+_RATE_LIMIT_WINDOW = 900  # 15 minutes
+
+
+def check_rate_limit(ip: str) -> tuple[bool, int]:
+    """Check if an IP is rate-limited. Returns (allowed, retry_after_seconds)."""
+    try:
+        r = get_redis_pool()
+        key = f"login_attempts:{ip}"
+        attempts = r.get(key)
+        if attempts and int(attempts) >= _RATE_LIMIT_MAX_ATTEMPTS:
+            ttl = r.ttl(key)
+            return False, max(ttl, 60)
+        return True, 0
+    except Exception:
+        logger.warning("Redis unavailable for rate limiting — failing open")
+        return True, 0
+
+
+def record_failed_attempt(ip: str) -> None:
+    """Increment the failed login counter for an IP.
+
+    Uses SET NX on expire so the TTL is only set once (on key creation),
+    preventing attackers from extending the window with repeated attempts.
+    """
+    try:
+        r = get_redis_pool()
+        key = f"login_attempts:{ip}"
+        count = r.incr(key)
+        if count == 1:
+            # Only set expiry when the key is first created
+            r.expire(key, _RATE_LIMIT_WINDOW)
+    except Exception:
+        logger.warning("Redis unavailable — failed attempt not recorded")
+
+
+def reset_rate_limit(ip: str) -> None:
+    """Clear the failed login counter for an IP after successful login."""
+    try:
+        r = get_redis_pool()
+        r.delete(f"login_attempts:{ip}")
+    except Exception:
+        pass
+
+
+# ── Audit logging ───────────────────────────────────────────────────
+
+def log_audit(
+    user_id: str | None,
+    action: str,
+    target_entity: str | None = None,
+    target_id: str | None = None,
+    ip_address: str | None = None,
+    metadata: dict | None = None,
+) -> None:
+    """Write an audit log entry. Fire-and-forget — never raises."""
+    try:
+        from app.db.connection import get_db_connection
+        with get_db_connection() as conn:
+            conn.execute(
+                "INSERT INTO audit_log (user_id, action, target_entity, target_id, ip_address, metadata) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                [
+                    user_id,
+                    action,
+                    target_entity,
+                    target_id,
+                    ip_address,
+                    json.dumps(metadata) if metadata else None,
+                ],
+            )
+            conn.commit()
+    except Exception:
+        logger.exception("Failed to write audit log entry")
+
+
+# ── User management helpers ─────────────────────────────────────────
+
+def create_console_user(
+    email: str,
+    password: str,
+    display_name: str,
+    role: str = "viewer",
+) -> dict:
+    """Create a new console user. Returns the created user dict.
+
+    Raises ValueError if email already exists or role is invalid.
+    """
+    if role not in ("admin", "viewer"):
+        raise ValueError(f"Invalid role: {role}. Must be 'admin' or 'viewer'.")
+
+    from app.db.connection import get_db_connection
+    pw_hash = hash_password(password)
+    with get_db_connection() as conn:
+        try:
+            row = conn.execute(
+                "INSERT INTO console_users (email, password_hash, display_name, role) "
+                "VALUES (%s, %s, %s, %s) RETURNING id, email, display_name, role, active, created_at",
+                [email, pw_hash, display_name, role],
+            ).fetchone()
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            if "idx_console_users_email" in str(e) or "unique" in str(e).lower():
+                raise ValueError(f"A user with email '{email}' already exists.") from e
+            raise
+    return {
+        "id": str(row[0]),
+        "email": row[1],
+        "display_name": row[2],
+        "role": row[3],
+        "active": row[4],
+        "created_at": str(row[5]),
+    }

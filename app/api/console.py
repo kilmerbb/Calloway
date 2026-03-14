@@ -9,7 +9,10 @@ from fastapi.templating import Jinja2Templates
 from app.api.console_auth import (
     verify_password, create_session, check_session, clear_session,
     generate_csrf_token, validate_csrf_token,
+    check_rate_limit, record_failed_attempt, reset_rate_limit,
+    log_audit,
 )
+from app.services.console_queries import set_console_context
 
 logger = logging.getLogger(__name__)
 
@@ -21,23 +24,36 @@ templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
 def _render(request: Request, template: str, response: Response | None = None, **ctx):
     """Render a template with CSRF token injected."""
-    # Generate the CSRF token first (may set cookie via response object).
-    # We use a temporary Response to capture any Set-Cookie header, then
-    # transfer it to the final TemplateResponse so the cookie reaches the browser.
     tmp = Response()
     csrf = generate_csrf_token(request, tmp)
     ctx["csrf_token"] = csrf
+    # Inject current user info from session for templates (e.g. display name, role)
+    if "current_user" not in ctx:
+        user_info = check_session(request)
+        ctx["current_user"] = user_info
     resp = templates.TemplateResponse(request, template, ctx)
-    # Copy Set-Cookie headers from the temp response to the real one
     for header_value in tmp.headers.getlist("set-cookie"):
         resp.headers.append("set-cookie", header_value)
     return resp
 
 
-def _require_auth(request: Request) -> RedirectResponse | None:
-    """Return a redirect if not authenticated, else None."""
-    if not check_session(request):
+def _require_auth(request: Request) -> dict | RedirectResponse:
+    """Return user info dict if authenticated, or a redirect to login.
+
+    On success, sets the console auth context so that downstream query
+    functions (guarded by ``@console_authorized``) can execute.
+    """
+    user_info = check_session(request)
+    if not user_info:
         return RedirectResponse("/console/login", status_code=303)
+    set_console_context({"source": "console", "ip": request.client.host, **user_info})
+    return user_info
+
+
+def _require_admin(user_info: dict) -> Response | None:
+    """Return 403 if user is not an admin. Returns None if OK."""
+    if user_info.get("role") != "admin":
+        return Response("Forbidden — admin role required", status_code=403)
     return None
 
 
@@ -46,6 +62,11 @@ def _check_csrf(request: Request, csrf_token: str | None) -> Response | None:
     if not validate_csrf_token(request, csrf_token):
         return Response("CSRF validation failed", status_code=403)
     return None
+
+
+def _client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    return request.client.host if request.client else "unknown"
 
 
 # ============================================================
@@ -58,18 +79,52 @@ async def login_page(request: Request):
 
 
 @router.post("/login")
-async def login_submit(request: Request, password: str = Form(...)):
-    # No CSRF on login — the password itself is the auth factor,
-    # and this may be the first page visited (no CSRF cookie yet).
-    if verify_password(password):
+async def login_submit(
+    request: Request,
+    password: str = Form(...),
+    email: str = Form(default=None),
+):
+    ip = _client_ip(request)
+    allowed, retry_after = check_rate_limit(ip)
+    if not allowed:
+        return Response(
+            "Too many login attempts. Please try again later.",
+            status_code=429,
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    user_info = verify_password(password, email=email if email else None)
+    if user_info:
+        reset_rate_limit(ip)
         response = RedirectResponse("/console/dashboard", status_code=303)
-        create_session(response)
+        create_session(response, user_info)
+        log_audit(
+            user_id=user_info.get("user_id"),
+            action="login",
+            ip_address=ip,
+            metadata={"email": user_info.get("email"), "mode": "per_user" if user_info.get("user_id") else "legacy"},
+        )
         return response
-    return _render(request, "login.html", error="Invalid password.")
+
+    record_failed_attempt(ip)
+    log_audit(
+        user_id=None,
+        action="login_failed",
+        ip_address=ip,
+        metadata={"email": email},
+    )
+    return _render(request, "login.html", error="Invalid credentials.")
 
 
 @router.get("/logout")
 async def logout(request: Request):
+    user_info = check_session(request)
+    if user_info:
+        log_audit(
+            user_id=user_info.get("user_id"),
+            action="logout",
+            ip_address=_client_ip(request),
+        )
     response = RedirectResponse("/console/login", status_code=303)
     clear_session(response)
     return response
@@ -86,9 +141,9 @@ async def console_root(request: Request):
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.console_queries import (
         async_get_system_pulse, async_get_recent_activity, async_get_agents_needing_attention,
@@ -105,9 +160,9 @@ async def dashboard(request: Request):
 @router.get("/dashboard/activity-feed", response_class=HTMLResponse)
 async def dashboard_activity_feed(request: Request):
     """HTMX partial: refreshable activity feed."""
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.console_queries import async_get_recent_activity
     return _render(request, "partials/activity_feed.html",
@@ -121,9 +176,9 @@ async def dashboard_activity_feed(request: Request):
 
 @router.get("/onboard", response_class=HTMLResponse)
 async def onboard_wizard(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
     return _render(request, "onboard_wizard.html",
         page_title="Onboard New Agent", active_nav="onboard", error=None,
     )
@@ -131,9 +186,13 @@ async def onboard_wizard(request: Request):
 
 @router.post("/onboard")
 async def onboard_submit(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -144,6 +203,13 @@ async def onboard_submit(request: Request):
 
     try:
         result = create_agent_from_wizard(dict(form))
+        log_audit(
+            user_id=auth.get("user_id"),
+            action="onboard_agent",
+            target_entity="agent",
+            target_id=result["agent_id"],
+            ip_address=_client_ip(request),
+        )
         return _render(request, "onboard_success.html",
             page_title="Onboarding Complete", active_nav="onboard",
             agent_id=result["agent_id"],
@@ -162,9 +228,9 @@ async def onboard_submit(request: Request):
 
 @router.get("/tenants", response_class=HTMLResponse)
 async def tenant_list(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.console_queries import async_get_all_agents
     agents = await async_get_all_agents()
@@ -189,9 +255,9 @@ async def tenant_list(request: Request):
 
 @router.get("/tenants/new", response_class=HTMLResponse)
 async def tenant_new_form(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
     return _render(request, "tenant_new.html",
         page_title="New Customer", active_nav="tenants", error=None,
     )
@@ -199,9 +265,13 @@ async def tenant_new_form(request: Request):
 
 @router.post("/tenants/new")
 async def tenant_create(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -212,6 +282,13 @@ async def tenant_create(request: Request):
 
     try:
         agent_id = create_agent_tenant(dict(form))
+        log_audit(
+            user_id=auth.get("user_id"),
+            action="create_tenant",
+            target_entity="agent",
+            target_id=str(agent_id),
+            ip_address=_client_ip(request),
+        )
         return RedirectResponse(f"/console/tenants/{agent_id}", status_code=303)
     except ValueError as e:
         return _render(request, "tenant_new.html",
@@ -221,9 +298,9 @@ async def tenant_create(request: Request):
 
 @router.get("/tenants/{agent_id}", response_class=HTMLResponse)
 async def tenant_detail(request: Request, agent_id: str):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.console_queries import async_get_agent_detail
     detail = await async_get_agent_detail(agent_id)
@@ -238,9 +315,9 @@ async def tenant_detail(request: Request, agent_id: str):
 
 @router.get("/tenants/{agent_id}/edit", response_class=HTMLResponse)
 async def tenant_edit_form(request: Request, agent_id: str):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.console_queries import async_get_agent_detail
     detail = await async_get_agent_detail(agent_id)
@@ -255,9 +332,13 @@ async def tenant_edit_form(request: Request, agent_id: str):
 
 @router.post("/tenants/{agent_id}/edit")
 async def tenant_update(request: Request, agent_id: str):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -268,6 +349,13 @@ async def tenant_update(request: Request, agent_id: str):
 
     try:
         update_agent_tenant(agent_id, dict(form))
+        log_audit(
+            user_id=auth.get("user_id"),
+            action="update_tenant",
+            target_entity="agent",
+            target_id=agent_id,
+            ip_address=_client_ip(request),
+        )
         return RedirectResponse(f"/console/tenants/{agent_id}", status_code=303)
     except ValueError as e:
         from app.services.console_queries import async_get_agent_detail
@@ -280,9 +368,13 @@ async def tenant_update(request: Request, agent_id: str):
 
 @router.post("/tenants/{agent_id}/deactivate")
 async def tenant_deactivate(request: Request, agent_id: str):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -291,14 +383,25 @@ async def tenant_deactivate(request: Request, agent_id: str):
 
     from app.services.console_queries import async_deactivate_agent
     await async_deactivate_agent(agent_id)
+    log_audit(
+        user_id=auth.get("user_id"),
+        action="deactivate_tenant",
+        target_entity="agent",
+        target_id=agent_id,
+        ip_address=_client_ip(request),
+    )
     return RedirectResponse(f"/console/tenants/{agent_id}", status_code=303)
 
 
 @router.post("/tenants/{agent_id}/test-sms")
 async def tenant_test_sms(request: Request, agent_id: str):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -308,6 +411,13 @@ async def tenant_test_sms(request: Request, agent_id: str):
     from app.services.console_queries import send_test_sms
     try:
         send_test_sms(agent_id)
+        log_audit(
+            user_id=auth.get("user_id"),
+            action="send_test_sms",
+            target_entity="agent",
+            target_id=agent_id,
+            ip_address=_client_ip(request),
+        )
     except Exception as e:
         logger.error(f"Test SMS failed: {e}")
     return RedirectResponse(f"/console/tenants/{agent_id}", status_code=303)
@@ -319,9 +429,9 @@ async def tenant_test_sms(request: Request, agent_id: str):
 
 @router.get("/conversations", response_class=HTMLResponse)
 async def conversation_list(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.console_queries import async_get_recent_conversations, async_get_all_agents
 
@@ -343,9 +453,9 @@ async def conversation_list(request: Request):
 
 @router.get("/conversations/{conversation_id}", response_class=HTMLResponse)
 async def conversation_detail(request: Request, conversation_id: str):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.console_queries import async_get_conversation_detail
     detail = await async_get_conversation_detail(conversation_id)
@@ -363,9 +473,9 @@ async def conversation_detail(request: Request, conversation_id: str):
 
 @router.get("/triggers", response_class=HTMLResponse)
 async def trigger_list(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.console_queries import async_get_trigger_queue, async_get_all_agents
 
@@ -385,9 +495,13 @@ async def trigger_list(request: Request):
 
 @router.post("/triggers/{trigger_id}/retry")
 async def trigger_retry(request: Request, trigger_id: str):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -396,14 +510,25 @@ async def trigger_retry(request: Request, trigger_id: str):
 
     from app.services.console_queries import async_retry_trigger
     await async_retry_trigger(trigger_id)
+    log_audit(
+        user_id=auth.get("user_id"),
+        action="retry_trigger",
+        target_entity="trigger",
+        target_id=trigger_id,
+        ip_address=_client_ip(request),
+    )
     return RedirectResponse("/console/triggers", status_code=303)
 
 
 @router.post("/triggers/{trigger_id}/cancel")
 async def trigger_cancel(request: Request, trigger_id: str):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -412,14 +537,25 @@ async def trigger_cancel(request: Request, trigger_id: str):
 
     from app.services.console_queries import async_cancel_trigger
     await async_cancel_trigger(trigger_id)
+    log_audit(
+        user_id=auth.get("user_id"),
+        action="cancel_trigger",
+        target_entity="trigger",
+        target_id=trigger_id,
+        ip_address=_client_ip(request),
+    )
     return RedirectResponse("/console/triggers", status_code=303)
 
 
 @router.post("/triggers/{trigger_id}/fire-now")
 async def trigger_fire_now(request: Request, trigger_id: str):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -428,6 +564,13 @@ async def trigger_fire_now(request: Request, trigger_id: str):
 
     from app.services.console_queries import async_fire_trigger_now
     await async_fire_trigger_now(trigger_id)
+    log_audit(
+        user_id=auth.get("user_id"),
+        action="fire_trigger_now",
+        target_entity="trigger",
+        target_id=trigger_id,
+        ip_address=_client_ip(request),
+    )
     return RedirectResponse("/console/triggers", status_code=303)
 
 
@@ -437,9 +580,9 @@ async def trigger_fire_now(request: Request, trigger_id: str):
 
 @router.get("/errors")
 async def error_list_redirect(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
     return RedirectResponse(url="/console/health?tab=errors", status_code=302)
 
 
@@ -449,9 +592,9 @@ async def error_list_redirect(request: Request):
 
 @router.get("/costs")
 async def cost_dashboard_redirect(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
     return RedirectResponse(url="/console/billing?tab=ai-costs", status_code=302)
 
 
@@ -461,9 +604,9 @@ async def cost_dashboard_redirect(request: Request):
 
 @router.get("/health", response_class=HTMLResponse)
 async def health_overview(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.console_queries import (
         async_get_health_overview, async_get_all_agents, async_get_recent_errors,
@@ -494,9 +637,13 @@ async def health_status_dot(request: Request):
 
 @router.post("/health/run-scan/{agent_id}")
 async def manual_daily_scan(request: Request, agent_id: str):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -505,6 +652,13 @@ async def manual_daily_scan(request: Request, agent_id: str):
 
     from app.services.console_queries import run_manual_scan
     run_manual_scan(agent_id)
+    log_audit(
+        user_id=auth.get("user_id"),
+        action="run_manual_scan",
+        target_entity="agent",
+        target_id=agent_id,
+        ip_address=_client_ip(request),
+    )
     return RedirectResponse("/console/health", status_code=303)
 
 
@@ -514,9 +668,9 @@ async def manual_daily_scan(request: Request, agent_id: str):
 
 @router.get("/billing", response_class=HTMLResponse)
 async def billing_overview(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.billing_service import get_billing_summary, PLAN_TIERS
     from app.services.console_queries import (
@@ -538,9 +692,13 @@ async def billing_overview(request: Request):
 
 @router.post("/billing/{agent_id}/change-plan")
 async def billing_change_plan(request: Request, agent_id: str):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -555,6 +713,14 @@ async def billing_change_plan(request: Request, agent_id: str):
     from app.services.billing_service import change_plan
     try:
         change_plan(UUID(agent_id), new_tier)
+        log_audit(
+            user_id=auth.get("user_id"),
+            action="change_plan",
+            target_entity="agent",
+            target_id=agent_id,
+            ip_address=_client_ip(request),
+            metadata={"new_tier": new_tier},
+        )
     except Exception as e:
         logger.error(f"Plan change failed: {e}")
 
@@ -563,9 +729,13 @@ async def billing_change_plan(request: Request, agent_id: str):
 
 @router.post("/billing/{agent_id}/cancel")
 async def billing_cancel(request: Request, agent_id: str):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -576,6 +746,13 @@ async def billing_cancel(request: Request, agent_id: str):
     from app.services.billing_service import cancel_subscription
     try:
         cancel_subscription(UUID(agent_id))
+        log_audit(
+            user_id=auth.get("user_id"),
+            action="cancel_subscription",
+            target_entity="agent",
+            target_id=agent_id,
+            ip_address=_client_ip(request),
+        )
     except Exception as e:
         logger.error(f"Subscription cancellation failed: {e}")
 
@@ -588,9 +765,9 @@ async def billing_cancel(request: Request, agent_id: str):
 
 @router.get("/manual", response_class=HTMLResponse)
 async def user_manual(request: Request):
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     return _render(request, "manual.html",
         page_title="Help", active_nav="manual",
@@ -604,9 +781,9 @@ async def user_manual(request: Request):
 @router.get("/tenants/{agent_id}/tab/messages", response_class=HTMLResponse)
 async def tenant_messages_tab(request: Request, agent_id: str):
     """HTMX partial: Messages tab — contact list with conversation summaries."""
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.console_queries import async_get_conversations_by_contact
 
@@ -628,9 +805,9 @@ async def tenant_messages_tab(request: Request, agent_id: str):
 @router.get("/tenants/{agent_id}/tab/messages/{contact_id}", response_class=HTMLResponse)
 async def tenant_messages_thread(request: Request, agent_id: str, contact_id: str):
     """HTMX partial: expanded conversation thread for a contact."""
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.console_queries import async_get_conversation_thread
 
@@ -658,9 +835,9 @@ async def tenant_messages_thread(request: Request, agent_id: str, contact_id: st
 @router.get("/tenants/{agent_id}/tab/knowledge-base", response_class=HTMLResponse)
 async def tenant_kb_tab(request: Request, agent_id: str):
     """HTMX partial: Knowledge Base tab — items grouped by source type."""
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
 
     from app.services.console_queries import (
         async_get_knowledge_base_items, async_get_kb_settings,
@@ -691,9 +868,13 @@ async def tenant_kb_tab(request: Request, agent_id: str):
 @router.post("/tenants/{agent_id}/kb/{source_type}/{source_id}/remove")
 async def tenant_kb_remove(request: Request, agent_id: str, source_type: str, source_id: str):
     """Remove a KB item — delete all embedding chunks for the source."""
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -705,6 +886,14 @@ async def tenant_kb_remove(request: Request, agent_id: str, source_type: str, so
     try:
         deleted = await async_remove_kb_item(agent_id, source_type, source_id)
         logger.info(f"Removed {deleted} KB chunks for {source_type}/{source_id} (agent {agent_id})")
+        log_audit(
+            user_id=auth.get("user_id"),
+            action="remove_kb_item",
+            target_entity=source_type,
+            target_id=source_id,
+            ip_address=_client_ip(request),
+            metadata={"agent_id": agent_id},
+        )
     except Exception as e:
         logger.error(f"KB remove failed: {e}")
 
@@ -714,9 +903,13 @@ async def tenant_kb_remove(request: Request, agent_id: str, source_type: str, so
 @router.post("/tenants/{agent_id}/kb/{source_type}/{source_id}/reindex")
 async def tenant_kb_reindex(request: Request, agent_id: str, source_type: str, source_id: str):
     """Re-index a KB item by re-reading the source and re-embedding."""
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -746,6 +939,14 @@ async def tenant_kb_reindex(request: Request, agent_id: str, source_type: str, s
             chunks = 0
 
         logger.info(f"Re-indexed {chunks} chunks for {source_type}/{source_id} (agent {agent_id})")
+        log_audit(
+            user_id=auth.get("user_id"),
+            action="reindex_kb_item",
+            target_entity=source_type,
+            target_id=source_id,
+            ip_address=_client_ip(request),
+            metadata={"agent_id": agent_id, "chunks": chunks},
+        )
     except Exception as e:
         logger.error(f"KB re-index failed: {e}")
 
@@ -755,9 +956,13 @@ async def tenant_kb_reindex(request: Request, agent_id: str, source_type: str, s
 @router.post("/tenants/{agent_id}/kb/{source_type}/{source_id}/expire")
 async def tenant_kb_set_expiration(request: Request, agent_id: str, source_type: str, source_id: str):
     """Set or clear expiration date on a KB item."""
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -782,6 +987,14 @@ async def tenant_kb_set_expiration(request: Request, agent_id: str, source_type:
 
     try:
         await async_set_kb_item_expiration(agent_id, source_type, source_id, expires_at)
+        log_audit(
+            user_id=auth.get("user_id"),
+            action="set_kb_expiration",
+            target_entity=source_type,
+            target_id=source_id,
+            ip_address=_client_ip(request),
+            metadata={"agent_id": agent_id, "expires_at": expires_at},
+        )
     except Exception as e:
         logger.error(f"KB expiration update failed: {e}")
 
@@ -791,9 +1004,13 @@ async def tenant_kb_set_expiration(request: Request, agent_id: str, source_type:
 @router.post("/tenants/{agent_id}/kb/settings")
 async def tenant_kb_update_settings(request: Request, agent_id: str):
     """Update KB expiration policy settings."""
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -808,6 +1025,14 @@ async def tenant_kb_update_settings(request: Request, agent_id: str):
 
     try:
         await async_update_kb_settings(agent_id, policy, default_ttl)
+        log_audit(
+            user_id=auth.get("user_id"),
+            action="update_kb_settings",
+            target_entity="agent",
+            target_id=agent_id,
+            ip_address=_client_ip(request),
+            metadata={"policy": policy, "default_ttl_days": default_ttl},
+        )
     except ValueError as e:
         return Response(str(e), status_code=400)
     except Exception as e:
@@ -819,9 +1044,13 @@ async def tenant_kb_update_settings(request: Request, agent_id: str):
 @router.post("/tenants/{agent_id}/kb/upload")
 async def tenant_kb_upload(request: Request, agent_id: str):
     """Upload a new document to the knowledge base (text content, chunk and embed)."""
-    redirect = _require_auth(request)
-    if redirect:
-        return redirect
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    admin_err = _require_admin(auth)
+    if admin_err:
+        return admin_err
 
     form = await request.form()
     csrf_err = _check_csrf(request, form.get("csrf_token"))
@@ -888,6 +1117,14 @@ async def tenant_kb_upload(request: Request, agent_id: str):
         logger.info(
             f"Uploaded KB document '{title}' with {len(chunks)} chunks "
             f"(agent {agent_id}, source_id {doc_source_id})"
+        )
+        log_audit(
+            user_id=auth.get("user_id"),
+            action="upload_kb_document",
+            target_entity="document",
+            target_id=str(doc_source_id),
+            ip_address=_client_ip(request),
+            metadata={"agent_id": agent_id, "title": title, "chunks": len(chunks)},
         )
     except Exception as e:
         logger.error(f"KB document upload failed: {e}")

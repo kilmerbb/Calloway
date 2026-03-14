@@ -282,21 +282,19 @@ class TestSessionExpiry:
 
     def test_expired_session_redirects_to_login(self):
         """A session token signed >24h ago should be rejected."""
-        from itsdangerous import URLSafeTimedSerializer
-        from app.api import console_auth
-
-        # Create a valid session token using the same serializer
-        serializer = URLSafeTimedSerializer("console-secret-change-in-production")
-        token = serializer.dumps({"authenticated": True, "ts": int(time.time()) - 90000})
+        from app.api import console as console_module
 
         c = _fresh_client()
-        c.cookies.set("console_session", token)
+        c.cookies.set("console_session", "some-old-token")
 
-        # Patch check_session to simulate expired session behavior.
-        # Direct max_age manipulation is unreliable due to import caching,
-        # so we patch check_session itself to return False (session invalid).
-        with patch("app.api.console.check_session", return_value=False):
+        # Replace check_session on the console module so _require_auth sees it
+        # as returning False (simulating an expired/invalid session).
+        original_fn = console_module.check_session
+        console_module.check_session = lambda request: None
+        try:
             resp = c.get("/console/dashboard", follow_redirects=False)
+        finally:
+            console_module.check_session = original_fn
 
         assert resp.status_code == 303, f"Expired session should redirect, got {resp.status_code}"
         assert "/console/login" in resp.headers.get("location", "")

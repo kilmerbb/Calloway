@@ -2,10 +2,18 @@
 
 All queries bypass RLS by using the service key connection directly
 (no set_agent_context). This is operator-level access.
+
+Authorization guard: Every public function requires an active console auth
+context (set via ``set_console_context``). Console routes set this context
+after authenticating the operator session. Background workers that need
+cross-tenant access should call ``set_console_context({"source": "worker",
+"worker": "<worker-name>"})`` at the start of their run loop.
 """
 import json
 import logging
+from contextvars import ContextVar
 from datetime import datetime, timezone
+from functools import wraps
 from uuid import UUID
 
 from app.db.connection import get_db_connection, get_async_db_connection
@@ -14,9 +22,71 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================
+# Authorization guard — context-var approach
+# ============================================================
+
+class AuthorizationError(Exception):
+    """Raised when a console query function is called without auth context."""
+
+
+_console_auth_context: ContextVar[dict | None] = ContextVar(
+    "console_auth", default=None,
+)
+
+
+def set_console_context(user_info: dict) -> None:
+    """Set the console auth context for the current task/request.
+
+    Must be called by console route middleware after verifying the
+    operator session, or by background workers before accessing
+    cross-tenant queries.
+    """
+    _console_auth_context.set(user_info)
+
+
+def clear_console_context() -> None:
+    """Reset the console auth context (used after request completes)."""
+    _console_auth_context.set(None)
+
+
+def require_console_context() -> dict:
+    """Return the current console auth context or raise.
+
+    Returns the context dict so callers can inspect who is making the
+    request if needed for audit logging.
+    """
+    ctx = _console_auth_context.get()
+    if ctx is None:
+        raise AuthorizationError(
+            "Console query called without authentication context. "
+            "Ensure the request is routed through an authenticated console endpoint."
+        )
+    return ctx
+
+
+def console_authorized(func):
+    """Decorator that gates a sync function behind console auth context."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        require_console_context()
+        return func(*args, **kwargs)
+    return wrapper
+
+
+def async_console_authorized(func):
+    """Decorator that gates an async function behind console auth context."""
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        require_console_context()
+        return await func(*args, **kwargs)
+    return wrapper
+
+
+# ============================================================
 # System Pulse (Dashboard)
 # ============================================================
 
+@console_authorized
 def get_system_pulse() -> dict:
     """Top-level system stats for the dashboard."""
     try:
@@ -61,6 +131,7 @@ def get_system_pulse() -> dict:
         }
 
 
+@console_authorized
 def get_recent_activity(limit: int = 20) -> list[dict]:
     """Recent events across the system for the activity feed."""
     try:
@@ -82,6 +153,7 @@ def get_recent_activity(limit: int = 20) -> list[dict]:
         return []
 
 
+@console_authorized
 def get_agents_needing_attention() -> list[dict]:
     """Agents with errors or no recent activity."""
     try:
@@ -120,6 +192,7 @@ def get_agents_needing_attention() -> list[dict]:
 # Agents / Tenants
 # ============================================================
 
+@console_authorized
 def get_all_agents() -> list[dict]:
     """All agents with summary stats."""
     try:
@@ -156,6 +229,7 @@ def get_all_agents() -> list[dict]:
         return []
 
 
+@console_authorized
 def get_agent_detail(agent_id: str) -> dict | None:
     """Full agent record with all related data."""
     try:
@@ -233,6 +307,7 @@ def get_agent_detail(agent_id: str) -> dict | None:
 # Conversations
 # ============================================================
 
+@console_authorized
 def get_recent_conversations(
     agent_id: str | None = None,
     channel: str | None = None,
@@ -277,6 +352,7 @@ def get_recent_conversations(
         return []
 
 
+@console_authorized
 def get_conversation_detail(conversation_id: str) -> dict | None:
     """Full conversation thread with messages and tool executions."""
     try:
@@ -332,6 +408,7 @@ def get_conversation_detail(conversation_id: str) -> dict | None:
 # Triggers
 # ============================================================
 
+@console_authorized
 def get_trigger_queue(
     status: str | None = None,
     agent_id: str | None = None,
@@ -365,6 +442,7 @@ def get_trigger_queue(
         return []
 
 
+@console_authorized
 def retry_trigger(trigger_id: str) -> None:
     """Reset a failed trigger to pending with scheduled_at = now."""
     try:
@@ -379,6 +457,7 @@ def retry_trigger(trigger_id: str) -> None:
         logger.error(f"Retry trigger failed: {e}")
 
 
+@console_authorized
 def cancel_trigger(trigger_id: str) -> None:
     """Cancel a pending trigger."""
     try:
@@ -392,6 +471,7 @@ def cancel_trigger(trigger_id: str) -> None:
         logger.error(f"Cancel trigger failed: {e}")
 
 
+@console_authorized
 def fire_trigger_now(trigger_id: str) -> None:
     """Set a trigger to fire immediately."""
     try:
@@ -409,6 +489,7 @@ def fire_trigger_now(trigger_id: str) -> None:
 # Errors
 # ============================================================
 
+@console_authorized
 def get_recent_errors(
     limit: int = 100,
     agent_id: str | None = None,
@@ -456,6 +537,7 @@ def get_recent_errors(
         return {"tool_errors": [], "app_errors": []}
 
 
+@console_authorized
 def log_error(
     module: str, severity: str, message: str,
     agent_id: str | None = None,
@@ -481,6 +563,7 @@ def log_error(
 # Costs
 # ============================================================
 
+@console_authorized
 def get_cost_summary(days: int = 30) -> dict:
     """System-wide cost summary."""
     try:
@@ -536,6 +619,7 @@ def get_cost_summary(days: int = 30) -> dict:
         }
 
 
+@console_authorized
 def get_cost_by_agent(days: int = 30) -> list[dict]:
     """Per-agent cost breakdown."""
     try:
@@ -576,6 +660,7 @@ def get_cost_by_agent(days: int = 30) -> list[dict]:
         return []
 
 
+@console_authorized
 def get_model_tier_breakdown(days: int = 30) -> dict:
     """Percentage of messages by model tier."""
     try:
@@ -610,6 +695,7 @@ def get_model_tier_breakdown(days: int = 30) -> dict:
 # Health
 # ============================================================
 
+@console_authorized
 def get_health_overview() -> dict:
     """System health combining /health data with operational metrics."""
     services = {}
@@ -684,6 +770,7 @@ def get_health_overview() -> dict:
     }
 
 
+@console_authorized
 def get_health_status_color() -> str:
     """Quick health check returning green/yellow/red."""
     try:
@@ -698,6 +785,7 @@ def get_health_status_color() -> str:
 # Tenant Management (Phase 2)
 # ============================================================
 
+@console_authorized
 def create_agent_from_wizard(form_data: dict) -> dict:
     """Create a new agent from the onboarding wizard, including listings and contacts."""
     required = ["name", "email", "phone", "twilio_number"]
@@ -849,6 +937,7 @@ def create_agent_from_wizard(form_data: dict) -> dict:
         raise ValueError(f"Failed to create agent: {e}")
 
 
+@console_authorized
 def create_agent_tenant(form_data: dict) -> str:
     """Create a new agent from console form data."""
     required = ["name", "email", "phone", "twilio_number"]
@@ -902,6 +991,7 @@ def create_agent_tenant(form_data: dict) -> str:
         raise ValueError(f"Failed to create agent: {e}")
 
 
+@console_authorized
 def update_agent_tenant(agent_id: str, form_data: dict) -> None:
     """Update an existing agent's configuration."""
     try:
@@ -945,6 +1035,7 @@ def update_agent_tenant(agent_id: str, form_data: dict) -> None:
         raise ValueError(f"Failed to update agent: {e}")
 
 
+@console_authorized
 def deactivate_agent(agent_id: str) -> None:
     """Deactivate a tenant — stops triggers, doesn't delete data."""
     try:
@@ -963,6 +1054,7 @@ def deactivate_agent(agent_id: str) -> None:
         logger.error(f"Deactivate agent failed: {e}")
 
 
+@console_authorized
 def send_test_sms(agent_id: str) -> None:
     """Send a test SMS to the agent's phone."""
     try:
@@ -984,6 +1076,7 @@ def send_test_sms(agent_id: str) -> None:
         raise RuntimeError(f"Test SMS failed: {e}")
 
 
+@console_authorized
 def run_manual_scan(agent_id: str) -> None:
     """Manually run the daily scanner for an agent."""
     try:
@@ -1002,6 +1095,7 @@ def run_manual_scan(agent_id: str) -> None:
 # These mirror the sync functions above but use the async pool.
 # Sync versions are kept for workers and backward compatibility.
 
+@async_console_authorized
 async def async_get_system_pulse() -> dict:
     """Top-level system stats for the dashboard (async)."""
     try:
@@ -1051,6 +1145,7 @@ async def async_get_system_pulse() -> dict:
         }
 
 
+@async_console_authorized
 async def async_get_recent_activity(limit: int = 20) -> list[dict]:
     """Recent events across the system for the activity feed (async)."""
     try:
@@ -1073,6 +1168,7 @@ async def async_get_recent_activity(limit: int = 20) -> list[dict]:
         return []
 
 
+@async_console_authorized
 async def async_get_agents_needing_attention() -> dict:
     """Agents with errors or no recent activity (async)."""
     try:
@@ -1107,6 +1203,7 @@ async def async_get_agents_needing_attention() -> dict:
         return {"error_agents": [], "inactive_agents": []}
 
 
+@async_console_authorized
 async def async_get_all_agents() -> list[dict]:
     """All agents with summary stats (async)."""
     try:
@@ -1144,6 +1241,7 @@ async def async_get_all_agents() -> list[dict]:
         return []
 
 
+@async_console_authorized
 async def async_get_agent_detail(agent_id: str) -> dict | None:
     """Full agent record with all related data (async)."""
     try:
@@ -1224,6 +1322,7 @@ async def async_get_agent_detail(agent_id: str) -> dict | None:
         return None
 
 
+@async_console_authorized
 async def async_get_recent_conversations(
     agent_id: str | None = None,
     channel: str | None = None,
@@ -1269,6 +1368,7 @@ async def async_get_recent_conversations(
         return []
 
 
+@async_console_authorized
 async def async_get_conversation_detail(conversation_id: str) -> dict | None:
     """Full conversation thread with messages and tool executions (async)."""
     try:
@@ -1324,6 +1424,7 @@ async def async_get_conversation_detail(conversation_id: str) -> dict | None:
         return None
 
 
+@async_console_authorized
 async def async_get_trigger_queue(
     status: str | None = None,
     agent_id: str | None = None,
@@ -1358,6 +1459,7 @@ async def async_get_trigger_queue(
         return []
 
 
+@async_console_authorized
 async def async_retry_trigger(trigger_id: str) -> None:
     """Reset a failed trigger to pending with scheduled_at = now (async)."""
     try:
@@ -1372,6 +1474,7 @@ async def async_retry_trigger(trigger_id: str) -> None:
         logger.error(f"Async retry trigger failed: {e}")
 
 
+@async_console_authorized
 async def async_cancel_trigger(trigger_id: str) -> None:
     """Cancel a pending trigger (async)."""
     try:
@@ -1385,6 +1488,7 @@ async def async_cancel_trigger(trigger_id: str) -> None:
         logger.error(f"Async cancel trigger failed: {e}")
 
 
+@async_console_authorized
 async def async_fire_trigger_now(trigger_id: str) -> None:
     """Set a trigger to fire immediately (async)."""
     try:
@@ -1398,6 +1502,7 @@ async def async_fire_trigger_now(trigger_id: str) -> None:
         logger.error(f"Async fire trigger now failed: {e}")
 
 
+@async_console_authorized
 async def async_get_recent_errors(
     limit: int = 100,
     agent_id: str | None = None,
@@ -1446,6 +1551,7 @@ async def async_get_recent_errors(
         return {"tool_errors": [], "app_errors": []}
 
 
+@async_console_authorized
 async def async_get_cost_summary(days: int = 30) -> dict:
     """System-wide cost summary (async)."""
     try:
@@ -1503,6 +1609,7 @@ async def async_get_cost_summary(days: int = 30) -> dict:
         }
 
 
+@async_console_authorized
 async def async_get_cost_by_agent(days: int = 30) -> list[dict]:
     """Per-agent cost breakdown (async)."""
     try:
@@ -1544,6 +1651,7 @@ async def async_get_cost_by_agent(days: int = 30) -> list[dict]:
         return []
 
 
+@async_console_authorized
 async def async_get_model_tier_breakdown(days: int = 30) -> dict:
     """Percentage of messages by model tier (async)."""
     try:
@@ -1575,6 +1683,7 @@ async def async_get_model_tier_breakdown(days: int = 30) -> dict:
         return {"_total": 0}
 
 
+@async_console_authorized
 async def async_get_health_overview() -> dict:
     """System health combining /health data with operational metrics (async)."""
     services = {}
@@ -1652,6 +1761,7 @@ async def async_get_health_overview() -> dict:
     }
 
 
+@async_console_authorized
 async def async_get_health_status_color() -> str:
     """Quick health check returning green/yellow/red (async)."""
     try:
@@ -1662,6 +1772,7 @@ async def async_get_health_status_color() -> str:
         return "red"
 
 
+@async_console_authorized
 async def async_deactivate_agent(agent_id: str) -> None:
     """Deactivate a tenant (async)."""
     try:
@@ -1684,6 +1795,7 @@ async def async_deactivate_agent(agent_id: str) -> None:
 # Messages Tab (Customer Detail — Conversations by Contact)
 # ============================================================
 
+@async_console_authorized
 async def async_get_conversations_by_contact(
     agent_id: str,
     limit: int = 25,
@@ -1732,6 +1844,7 @@ async def async_get_conversations_by_contact(
         return []
 
 
+@async_console_authorized
 async def async_get_conversation_thread(
     agent_id: str,
     contact_id: str,
@@ -1838,6 +1951,7 @@ async def async_get_conversation_thread(
 # Knowledge Base Tab (Customer Detail)
 # ============================================================
 
+@async_console_authorized
 async def async_get_knowledge_base_items(agent_id: str) -> list[dict]:
     """All embeddings for an agent grouped by source_type/source_id.
 
@@ -1872,6 +1986,7 @@ async def async_get_knowledge_base_items(agent_id: str) -> list[dict]:
         return []
 
 
+@async_console_authorized
 async def async_get_kb_settings(agent_id: str) -> dict:
     """Return the agent's KB expiration policy and default TTL."""
     try:
@@ -1892,6 +2007,7 @@ async def async_get_kb_settings(agent_id: str) -> dict:
         return {"kb_expiration_policy": "remind_only", "kb_default_ttl_days": None}
 
 
+@async_console_authorized
 async def async_update_kb_settings(
     agent_id: str, policy: str, default_ttl: int | None = None,
 ) -> None:
@@ -1912,6 +2028,7 @@ async def async_update_kb_settings(
         raise
 
 
+@async_console_authorized
 async def async_remove_kb_item(agent_id: str, source_type: str, source_id: str) -> int:
     """Delete all embedding chunks for a given source. Returns count deleted."""
     try:
@@ -1930,6 +2047,7 @@ async def async_remove_kb_item(agent_id: str, source_type: str, source_id: str) 
         raise
 
 
+@async_console_authorized
 async def async_set_kb_item_expiration(
     agent_id: str, source_type: str, source_id: str, expires_at: str | None,
 ) -> None:

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Twilio
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_PHONE_NUMBER: str = ""
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
@@ -57,6 +58,7 @@ class Settings(BaseSettings):
     # Console
     CONSOLE_PASSWORD: str = "changeme"
     CONSOLE_SESSION_SECRET: str = "console-secret-change-in-production"
+    LEGACY_AUTH_MODE: bool = True  # When True, single shared password still works
 
     # CORS — comma-separated allowed origins (e.g. "https://app.calloway.ai,https://admin.calloway.ai")
     CORS_ALLOWED_ORIGINS: str = ""
@@ -64,7 +66,7 @@ class Settings(BaseSettings):
     # Environment
     ENVIRONMENT: str = "development"
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
     def validate_production_secrets(self) -> None:
         """Refuse to start in production with default credentials."""

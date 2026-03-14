@@ -9,10 +9,20 @@ from datetime import datetime, timezone, date, timedelta
 from uuid import uuid4
 from unittest.mock import patch, MagicMock, AsyncMock
 
+from app.services.console_queries import set_console_context, clear_console_context
+
 AGENT_ID = str(uuid4())
 CONV_ID = str(uuid4())
 TRIGGER_ID = str(uuid4())
 CONTACT_ID = str(uuid4())
+
+
+@pytest.fixture(autouse=True)
+def _set_console_auth_context():
+    """Set console auth context for every test so @console_authorized passes."""
+    set_console_context({"source": "test", "test": True})
+    yield
+    clear_console_context()
 
 
 # ============================================================
@@ -735,10 +745,9 @@ def test_get_health_overview_db_green(mock_conn):
     ctx = MagicMock()
     _mock_sync_conn(mock_conn, ctx)
 
-    # Mock multiple get_db_connection calls (DB check, anthropic check, twilio check, pipeline)
-    # Each needs its own context manager
+    # get_settings is imported inside the function body via app.config
     with patch("redis.from_url") as mock_redis, \
-         patch("app.services.console_queries.get_settings") as mock_settings:
+         patch("app.config.get_settings") as mock_settings:
         mock_settings.return_value.REDIS_URL = "redis://localhost"
         mock_redis.return_value.ping.return_value = True
 
@@ -1113,3 +1122,38 @@ async def test_async_deactivate_agent():
         await async_deactivate_agent(AGENT_ID)
         assert mock_conn.execute.call_count == 2
         mock_conn.commit.assert_called_once()
+
+
+# ============================================================
+# Authorization guard tests
+# ============================================================
+
+def test_sync_function_raises_without_context():
+    """Sync query functions raise AuthorizationError without console context."""
+    from app.services.console_queries import get_system_pulse, AuthorizationError
+    clear_console_context()
+    with pytest.raises(AuthorizationError):
+        get_system_pulse()
+
+
+@pytest.mark.asyncio
+async def test_async_function_raises_without_context():
+    """Async query functions raise AuthorizationError without console context."""
+    from app.services.console_queries import async_get_system_pulse, AuthorizationError
+    clear_console_context()
+    with pytest.raises(AuthorizationError):
+        await async_get_system_pulse()
+
+
+def test_context_set_and_cleared():
+    """set_console_context / clear_console_context round-trip works."""
+    from app.services.console_queries import require_console_context, AuthorizationError
+    clear_console_context()
+    with pytest.raises(AuthorizationError):
+        require_console_context()
+    set_console_context({"source": "test"})
+    ctx = require_console_context()
+    assert ctx["source"] == "test"
+    clear_console_context()
+    with pytest.raises(AuthorizationError):
+        require_console_context()
