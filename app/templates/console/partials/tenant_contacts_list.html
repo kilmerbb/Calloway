@@ -1,0 +1,48 @@
+<!-- Contacts Tab: Paginated contact rows -->
+<!-- Loaded via HTMX: GET /console/tenants/:agent_id/tab/contacts?page=N -->
+
+{% if contacts %}
+{% for c in contacts %}
+<tr>
+    <td>{{ c.name or '—' }}</td>
+    <td style="white-space: nowrap;">{{ c.phone or '—' }}</td>
+    <td>{{ c.email or '—' }}</td>
+    <td>{{ c.role or '—' }}</td>
+    <td><span class="badge badge-gray">{{ c.lifecycle_stage or '—' }}</span></td>
+    <td>
+        {% if c.consent_status == 'revoked' %}
+        <span class="badge badge-red" title="TCPA consent revoked — no automated messages allowed">revoked</span>
+        {% elif c.consent_status == 'granted' %}
+        <span class="badge badge-green">granted</span>
+        {% elif c.consent_status == 'pending' %}
+        <span class="badge badge-yellow">pending</span>
+        {% else %}
+        <span class="badge badge-gray">{{ c.consent_status or '—' }}</span>
+        {% endif %}
+    </td>
+    <td style="font-size: 12px;">{{ c.last_contact_at.strftime('%b %d %H:%M') if c.last_contact_at else '—' }}</td>
+    <td>{{ 'Yes' if c.silent_mode else 'No' }}</td>
+    <td>{{ c.interaction_count or 0 }}</td>
+</tr>
+{% endfor %}
+
+{% if has_more %}
+<tr id="contacts-load-more-row">
+    <td colspan="9" style="text-align: center; padding: 1rem;">
+        <button class="btn btn-outline btn-sm"
+                hx-get="/console/tenants/{{ agent_id }}/tab/contacts?page={{ page + 1 }}"
+                hx-target="#contacts-load-more-row"
+                hx-swap="outerHTML"
+                hx-indicator="#contacts-loading"
+                title="Load more contacts">
+            <span id="contacts-loading" class="htmx-indicator">Loading...</span>
+            Load More
+        </button>
+    </td>
+</tr>
+{% endif %}
+{% else %}
+{% if page == 1 %}
+<tr><td colspan="9" style="color: var(--text-muted); text-align: center; padding: 2rem;">No contacts yet.</td></tr>
+{% endif %}
+{% endif %}

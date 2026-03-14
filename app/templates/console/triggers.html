@@ -75,4 +75,21 @@
         {% endif %}
     </tbody>
 </table>
+
+<!-- Pagination -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+    <div style="color: var(--text-muted); font-size: 13px;">
+        Page {{ page }}{% if has_more %} — showing {{ per_page }} per page{% endif %}
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+        {% if page > 1 %}
+        <a href="?status={{ status_filter }}&agent={{ agent_filter }}&page={{ page - 1 }}&per_page={{ per_page }}"
+           class="btn btn-outline btn-sm">Previous</a>
+        {% endif %}
+        {% if has_more %}
+        <a href="?status={{ status_filter }}&agent={{ agent_filter }}&page={{ page + 1 }}&per_page={{ per_page }}"
+           class="btn btn-outline btn-sm">Next</a>
+        {% endif %}
+    </div>
+</div>
 {% endblock %}

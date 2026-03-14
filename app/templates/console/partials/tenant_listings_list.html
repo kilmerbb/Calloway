@@ -1,0 +1,38 @@
+<!-- Listings Tab: Paginated listing rows -->
+<!-- Loaded via HTMX: GET /console/tenants/:agent_id/tab/listings?page=N -->
+
+{% if listings %}
+{% for l in listings %}
+<tr>
+    <td>{{ l.address }}</td>
+    <td style="white-space: nowrap;">${{ "{:,}".format(l.price) }}</td>
+    <td>
+        <span class="badge {% if l.status == 'active' %}badge-green{% else %}badge-gray{% endif %}">{{ l.status }}</span>
+    </td>
+    <td>{{ l.beds or '—' }}</td>
+    <td>{{ l.baths or '—' }}</td>
+    <td>{{ "{:,}".format(l.sqft) if l.sqft else '—' }}</td>
+    <td style="font-size: 12px;">{{ l.list_date.strftime('%b %d, %Y') if l.list_date else '—' }}</td>
+</tr>
+{% endfor %}
+
+{% if has_more %}
+<tr id="listings-load-more-row">
+    <td colspan="7" style="text-align: center; padding: 1rem;">
+        <button class="btn btn-outline btn-sm"
+                hx-get="/console/tenants/{{ agent_id }}/tab/listings?page={{ page + 1 }}"
+                hx-target="#listings-load-more-row"
+                hx-swap="outerHTML"
+                hx-indicator="#listings-loading"
+                title="Load more listings">
+            <span id="listings-loading" class="htmx-indicator">Loading...</span>
+            Load More
+        </button>
+    </td>
+</tr>
+{% endif %}
+{% else %}
+{% if page == 1 %}
+<tr><td colspan="7" style="color: var(--text-muted); text-align: center; padding: 2rem;">No listings yet.</td></tr>
+{% endif %}
+{% endif %}

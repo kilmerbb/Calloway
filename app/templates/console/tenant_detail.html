@@ -188,8 +188,7 @@
      ============================================================ -->
 <div id="panel-contacts" class="tab-panel" role="tabpanel" aria-labelledby="tab-contacts">
     <div class="section">
-        <div class="section-title">Contacts ({{ detail.contacts|length }})</div>
-        {% if detail.contacts %}
+        <div class="section-title">Contacts</div>
         <div style="overflow-x: auto;">
             <table>
                 <thead>
@@ -205,7 +204,7 @@
                         <th>Interactions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="contacts-tbody">
                     {% for c in detail.contacts %}
                     <tr>
                         <td>{{ c.name or '—' }}</td>
@@ -224,17 +223,30 @@
                             <span class="badge badge-gray">{{ c.consent_status or '—' }}</span>
                             {% endif %}
                         </td>
-                        <td style="font-size: 12px;">{{ c.last_contact.strftime('%b %d %H:%M') if c.last_contact else '—' }}</td>
+                        <td style="font-size: 12px;">{{ c.last_contact_at.strftime('%b %d %H:%M') if c.last_contact_at else '—' }}</td>
                         <td>{{ 'Yes' if c.silent_mode else 'No' }}</td>
                         <td>{{ c.interaction_count or 0 }}</td>
                     </tr>
                     {% endfor %}
+                    {% if detail.contacts|length == 25 %}
+                    <tr id="contacts-load-more-row">
+                        <td colspan="9" style="text-align: center; padding: 1rem;">
+                            <button class="btn btn-outline btn-sm"
+                                    hx-get="/console/tenants/{{ agent.id }}/tab/contacts?page=2"
+                                    hx-target="#contacts-load-more-row"
+                                    hx-swap="outerHTML"
+                                    title="Load more contacts">
+                                Load More
+                            </button>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% if not detail.contacts %}
+                    <tr><td colspan="9" style="color: var(--text-muted); text-align: center; padding: 2rem;">No contacts yet.</td></tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
-        {% else %}
-        <div style="color: var(--text-muted); text-align: center; padding: 2rem;">No contacts yet.</div>
-        {% endif %}
     </div>
 </div>
 
@@ -243,8 +255,7 @@
      ============================================================ -->
 <div id="panel-listings" class="tab-panel" role="tabpanel" aria-labelledby="tab-listings">
     <div class="section">
-        <div class="section-title">Listings ({{ detail.listings|length }})</div>
-        {% if detail.listings %}
+        <div class="section-title">Listings</div>
         <div style="overflow-x: auto;">
             <table>
                 <thead>
@@ -258,7 +269,7 @@
                         <th>List Date</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="listings-tbody">
                     {% for l in detail.listings %}
                     <tr>
                         <td>{{ l.address }}</td>
@@ -272,12 +283,25 @@
                         <td style="font-size: 12px;">{{ l.list_date.strftime('%b %d, %Y') if l.list_date else '—' }}</td>
                     </tr>
                     {% endfor %}
+                    {% if detail.listings|length == 25 %}
+                    <tr id="listings-load-more-row">
+                        <td colspan="7" style="text-align: center; padding: 1rem;">
+                            <button class="btn btn-outline btn-sm"
+                                    hx-get="/console/tenants/{{ agent.id }}/tab/listings?page=2"
+                                    hx-target="#listings-load-more-row"
+                                    hx-swap="outerHTML"
+                                    title="Load more listings">
+                                Load More
+                            </button>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% if not detail.listings %}
+                    <tr><td colspan="7" style="color: var(--text-muted); text-align: center; padding: 2rem;">No listings yet.</td></tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
-        {% else %}
-        <div style="color: var(--text-muted); text-align: center; padding: 2rem;">No listings yet.</div>
-        {% endif %}
     </div>
 </div>
 

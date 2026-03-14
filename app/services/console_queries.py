@@ -23,6 +23,7 @@ import psycopg
 import redis
 
 from app.db.connection import get_db_connection, get_async_db_connection
+from app.services.cache import cache_get, cache_set, cache_invalidate
 from app.models.responses import (
     ActivityEntry,
     AgentDetail,
@@ -219,6 +220,12 @@ async def get_agents_needing_attention() -> dict:
 @console_authorized
 async def get_all_agents() -> list[AgentSummary]:
     """All agents with summary stats."""
+    cache_key = "console:agents:all"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        logger.debug("cache hit for %s", cache_key)
+        return json.loads(cached)
+
     try:
         async with get_async_db_connection() as conn:
             cur = await conn.execute(
@@ -248,15 +255,61 @@ async def get_all_agents() -> list[AgentSummary]:
                    ORDER BY a.name"""
             )
             rows = await cur.fetchall()
-        return rows or []
+        result = rows or []
+        cache_set(cache_key, json.dumps(result, default=str), ttl=60)
+        return result
     except psycopg.Error as e:
         logger.error(f"Get all agents failed: {e}")
         return []
 
 
 @console_authorized
+async def get_agent_options() -> list[dict]:
+    """Lightweight agent list (id + name only) for dropdown filters."""
+    cache_key = "console:agents:options"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        logger.debug("cache hit for %s", cache_key)
+        return json.loads(cached)
+
+    try:
+        async with get_async_db_connection() as conn:
+            cur = await conn.execute(
+                "SELECT id, name FROM agents ORDER BY name"
+            )
+            rows = await cur.fetchall()
+        result = [dict(r) for r in rows] if rows else []
+        cache_set(cache_key, json.dumps(result, default=str), ttl=300)
+        return result
+    except psycopg.Error as e:
+        logger.error(f"Get agent options failed: {e}")
+        return []
+
+
+@console_authorized
+async def get_agent_basic(agent_id: str) -> dict | None:
+    """Lightweight agent record — just the agent row for edit forms."""
+    try:
+        async with get_async_db_connection() as conn:
+            cur = await conn.execute(
+                "SELECT * FROM agents WHERE id = %s", [agent_id]
+            )
+            agent = await cur.fetchone()
+            return dict(agent) if agent else None
+    except psycopg.Error as e:
+        logger.error(f"Agent basic query failed: {e}")
+        return None
+
+
+@console_authorized
 async def get_agent_detail(agent_id: str) -> AgentDetail | None:
-    """Full agent record with all related data."""
+    """Full agent record with all related data.
+
+    Step 1: fetch agent (gate check).
+    Step 2: run remaining queries in parallel via asyncio.gather(),
+    grouped into 3 pairs to limit connection usage.
+    """
+    # Step 1: gate check — fetch agent record
     try:
         async with get_async_db_connection() as conn:
             cur = await conn.execute(
@@ -265,23 +318,37 @@ async def get_agent_detail(agent_id: str) -> AgentDetail | None:
             agent = await cur.fetchone()
             if not agent:
                 return None
+    except psycopg.Error as e:
+        logger.error(f"Agent detail gate-check failed: {e}")
+        return None
 
+    # Step 2: parallel queries grouped into 3 pairs
+    async def _fetch_contacts_and_listings():
+        async with get_async_db_connection() as conn:
             cur = await conn.execute(
-                """SELECT id, name, phone, role, lifecycle_stage, consent_status,
-                          last_contact_at, silent_mode
+                """SELECT id, name, phone, email, role, lifecycle_stage,
+                          consent_status, last_contact_at, silent_mode,
+                          interaction_count
                    FROM contacts WHERE agent_id = %s
-                   ORDER BY last_contact_at DESC NULLS LAST""",
+                   ORDER BY last_contact_at DESC NULLS LAST
+                   LIMIT 25""",
                 [agent_id],
             )
             contacts = await cur.fetchall()
 
             cur = await conn.execute(
-                """SELECT id, address, price, status, list_date
-                   FROM listings WHERE agent_id = %s ORDER BY created_at DESC""",
+                """SELECT id, address, price, status, beds, baths, sqft,
+                          list_date
+                   FROM listings WHERE agent_id = %s
+                   ORDER BY created_at DESC
+                   LIMIT 25""",
                 [agent_id],
             )
             listings = await cur.fetchall()
+        return contacts or [], listings or []
 
+    async def _fetch_messages_and_triggers():
+        async with get_async_db_connection() as conn:
             cur = await conn.execute(
                 """SELECT m.body, m.sender_type, m.created_at, m.model_used,
                           c.name as contact_name
@@ -301,7 +368,10 @@ async def get_agent_detail(agent_id: str) -> AgentDetail | None:
                 [agent_id],
             )
             triggers = await cur.fetchall()
+        return recent_msgs or [], triggers or []
 
+    async def _fetch_costs_and_errors():
+        async with get_async_db_connection() as conn:
             cur = await conn.execute(
                 """SELECT COALESCE(SUM(llm_cost_cents), 0) as cost,
                           COALESCE(SUM(messages_sent), 0) as msgs
@@ -319,20 +389,44 @@ async def get_agent_detail(agent_id: str) -> AgentDetail | None:
                 [agent_id],
             )
             errors = await cur.fetchone()
+        return cost_month, errors
 
-        return {
-            "agent": agent,
-            "contacts": contacts or [],
-            "listings": listings or [],
-            "recent_messages": recent_msgs or [],
-            "pending_triggers": triggers or [],
-            "cost_this_month_dollars": round((cost_month["cost"] if cost_month else 0) / 100, 2),
-            "messages_this_month": cost_month["msgs"] if cost_month else 0,
-            "errors_24h": errors["cnt"] if errors else 0,
-        }
-    except psycopg.Error as e:
-        logger.error(f"Agent detail query failed: {e}")
-        return None
+    results = await asyncio.gather(
+        _fetch_contacts_and_listings(),
+        _fetch_messages_and_triggers(),
+        _fetch_costs_and_errors(),
+        return_exceptions=True,
+    )
+
+    # Unpack with safe defaults if any group raised
+    if isinstance(results[0], Exception):
+        logger.error(f"Agent detail contacts/listings query failed: {results[0]}")
+        contacts, listings = [], []
+    else:
+        contacts, listings = results[0]
+
+    if isinstance(results[1], Exception):
+        logger.error(f"Agent detail messages/triggers query failed: {results[1]}")
+        recent_msgs, triggers = [], []
+    else:
+        recent_msgs, triggers = results[1]
+
+    if isinstance(results[2], Exception):
+        logger.error(f"Agent detail costs/errors query failed: {results[2]}")
+        cost_month, errors = None, None
+    else:
+        cost_month, errors = results[2]
+
+    return {
+        "agent": agent,
+        "contacts": contacts,
+        "listings": listings,
+        "recent_messages": recent_msgs,
+        "pending_triggers": triggers,
+        "cost_this_month_dollars": round((cost_month["cost"] if cost_month else 0) / 100, 2),
+        "messages_this_month": cost_month["msgs"] if cost_month else 0,
+        "errors_24h": errors["cnt"] if errors else 0,
+    }
 
 
 # ============================================================
@@ -344,9 +438,10 @@ async def get_recent_conversations(
     agent_id: str | None = None,
     channel: str | None = None,
     search: str | None = None,
-    limit: int = 100,
+    limit: int = 25,
+    offset: int = 0,
 ) -> list[ConversationRow]:
-    """Recent conversations with filtering."""
+    """Recent conversations with filtering and pagination."""
     try:
         conditions = []
         params = []
@@ -375,8 +470,8 @@ async def get_recent_conversations(
                     LEFT JOIN contacts c ON cv.contact_id = c.id
                     {where}
                     ORDER BY cv.last_message_at DESC NULLS LAST
-                    LIMIT %s""",
-                params + [limit],
+                    LIMIT %s OFFSET %s""",
+                params + [limit, offset],
             )
             rows = await cur.fetchall()
         return rows or []
@@ -449,8 +544,13 @@ async def get_conversation_detail(conversation_id: str) -> ConversationDetail | 
 async def get_trigger_queue(
     status: str | None = None,
     agent_id: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[TriggerRow]:
-    """All triggers with optional filtering."""
+    """Triggers with optional filtering and pagination."""
+    # Safety cap to prevent unbounded queries
+    limit = min(limit, 500)
+
     try:
         conditions = []
         params = []
@@ -470,8 +570,9 @@ async def get_trigger_queue(
                     FROM triggers t
                     JOIN agents a ON t.agent_id = a.id
                     {where}
-                    ORDER BY t.scheduled_at""",
-                params,
+                    ORDER BY t.scheduled_at
+                    LIMIT %s OFFSET %s""",
+                params + [limit, offset],
             )
             rows = await cur.fetchall()
         return rows or []
@@ -605,7 +706,13 @@ def log_error(
 
 @console_authorized
 async def get_cost_summary(days: int = 30) -> CostSummary:
-    """System-wide cost summary."""
+    """System-wide cost summary (cached 300s)."""
+    cache_key = f"console:costs:summary:{days}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        logger.debug("cache hit for %s", cache_key)
+        return json.loads(cached)
+
     try:
         async with get_async_db_connection() as conn:
             cur = await conn.execute(
@@ -638,7 +745,7 @@ async def get_cost_summary(days: int = 30) -> CostSummary:
             daily = await cur.fetchall()
 
         total_cost = (row["total_llm_cost"] + row["total_sms_cost"] + row["total_voice_cost"]) if row else 0
-        return {
+        result = {
             "total_cost_dollars": round(total_cost / 100, 2),
             "llm_cost_dollars": round((row["total_llm_cost"] if row else 0) / 100, 2),
             "sms_cost_dollars": round((row["total_sms_cost"] if row else 0) / 100, 2),
@@ -650,6 +757,8 @@ async def get_cost_summary(days: int = 30) -> CostSummary:
             "total_llm_calls": row["total_llm_calls"] if row else 0,
             "daily": daily or [],
         }
+        cache_set(cache_key, json.dumps(result, default=str), ttl=300)
+        return result
     except psycopg.Error as e:
         logger.error(f"Cost summary query failed: {e}")
         return {
@@ -663,7 +772,13 @@ async def get_cost_summary(days: int = 30) -> CostSummary:
 
 @console_authorized
 async def get_cost_by_agent(days: int = 30) -> list[dict]:
-    """Per-agent cost breakdown."""
+    """Per-agent cost breakdown (cached 300s)."""
+    cache_key = f"console:costs:by_agent:{days}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        logger.debug("cache hit for %s", cache_key)
+        return json.loads(cached)
+
     try:
         async with get_async_db_connection() as conn:
             cur = await conn.execute(
@@ -697,6 +812,7 @@ async def get_cost_by_agent(days: int = 30) -> list[dict]:
                 "voice_cost_dollars": round((r["voice_cost_cents"] or 0) / 100, 2),
                 "cost_per_message": round(total_cost / max(msgs, 1) / 100, 4),
             })
+        cache_set(cache_key, json.dumps(result, default=str), ttl=300)
         return result
     except psycopg.Error as e:
         logger.error(f"Cost by agent query failed: {e}")
@@ -705,7 +821,13 @@ async def get_cost_by_agent(days: int = 30) -> list[dict]:
 
 @console_authorized
 async def get_model_tier_breakdown(days: int = 30) -> dict:
-    """Percentage of messages by model tier."""
+    """Percentage of messages by model tier (cached 300s)."""
+    cache_key = f"console:costs:model_tier:{days}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        logger.debug("cache hit for %s", cache_key)
+        return json.loads(cached)
+
     try:
         async with get_async_db_connection() as conn:
             cur = await conn.execute(
@@ -729,6 +851,7 @@ async def get_model_tier_breakdown(days: int = 30) -> dict:
                 "pct": round(r["cnt"] / max(total, 1) * 100, 1),
             }
         breakdown["_total"] = total
+        cache_set(cache_key, json.dumps(breakdown, default=str), ttl=300)
         return breakdown
     except psycopg.Error as e:
         logger.error(f"Model tier breakdown query failed: {e}")
@@ -979,6 +1102,9 @@ def create_agent_from_wizard(form_data: dict) -> dict:
             {"label": "Send test message", "done": False, "hint": "Verify Twilio channel works"},
         ]
 
+        cache_invalidate("console:agents:all")
+        cache_invalidate("console:agents:options")
+
         logger.info(f"Wizard onboarded agent: {form_data['name']} ({agent_id}) — {listings_added} listings, {contacts_added} contacts")
         return {
             "agent_id": agent_id,
@@ -1039,6 +1165,8 @@ def create_agent_tenant(form_data: dict) -> str:
                 ],
             ).fetchone()
             conn.commit()
+            cache_invalidate("console:agents:all")
+            cache_invalidate("console:agents:options")
             return str(row["id"])
     except ValueError:
         raise
@@ -1081,6 +1209,8 @@ def update_agent_tenant(agent_id: str, form_data: dict) -> None:
             conn.commit()
 
         # Invalidate Redis cache
+        cache_invalidate("console:agents:all")
+        cache_invalidate("console:agents:options")
         try:
             from app.services.agent_config import invalidate_agent_cache
             invalidate_agent_cache(UUID(agent_id))
@@ -1105,6 +1235,8 @@ async def deactivate_agent(agent_id: str) -> None:
                 [agent_id],
             )
             await conn.commit()
+        cache_invalidate("console:agents:all")
+        cache_invalidate("console:agents:options")
     except psycopg.Error as e:
         logger.error(f"Deactivate agent failed: {e}")
 
@@ -1163,29 +1295,33 @@ async def get_conversations_by_contact(
     try:
         async with get_async_db_connection() as conn:
             cur = await conn.execute(
-                """SELECT
+                """WITH latest_msg AS (
+                       SELECT DISTINCT ON (cv.contact_id)
+                              cv.contact_id,
+                              m.body AS last_message_preview
+                       FROM messages m
+                       JOIN conversations cv ON m.conversation_id = cv.id
+                       WHERE cv.agent_id = %s
+                       ORDER BY cv.contact_id, m.created_at DESC
+                   )
+                   SELECT
                        COALESCE(c.id::text, 'unknown') AS contact_id,
                        COALESCE(c.name, 'Unknown Contact') AS contact_name,
                        COALESCE(c.phone, '') AS phone,
                        array_agg(DISTINCT cv.channel) AS channels,
                        SUM(sub.msg_count)::int AS message_count,
                        MAX(sub.last_msg_at) AS last_message_at,
-                       (SELECT m2.body
-                        FROM messages m2
-                        JOIN conversations cv2 ON m2.conversation_id = cv2.id
-                        WHERE cv2.agent_id = %s
-                          AND (cv2.contact_id = c.id OR (cv2.contact_id IS NULL AND c.id IS NULL))
-                        ORDER BY m2.created_at DESC LIMIT 1
-                       ) AS last_message_preview
+                       lm.last_message_preview
                    FROM conversations cv
                    LEFT JOIN contacts c ON cv.contact_id = c.id
                    JOIN LATERAL (
                        SELECT COUNT(*) AS msg_count, MAX(m.created_at) AS last_msg_at
                        FROM messages m WHERE m.conversation_id = cv.id
                    ) sub ON true
+                   LEFT JOIN latest_msg lm ON lm.contact_id IS NOT DISTINCT FROM c.id
                    WHERE cv.agent_id = %s
                      AND sub.msg_count > 0
-                   GROUP BY c.id, c.name, c.phone
+                   GROUP BY c.id, c.name, c.phone, lm.last_message_preview
                    ORDER BY MAX(sub.last_msg_at) DESC NULLS LAST
                    LIMIT %s OFFSET %s""",
                 [agent_id, agent_id, limit, offset],
@@ -1246,48 +1382,85 @@ async def get_conversation_thread(
             cur = await conn.execute(msg_sql, params_msgs)
             messages = await cur.fetchall()
 
-            # Tool executions for these conversations
-            if contact_id == "unknown":
-                tool_sql = """
-                    SELECT te.id, te.tool_name, te.input_json, te.output_json,
-                           te.status, te.error_message, te.latency_ms, te.created_at,
-                           te.conversation_id
-                    FROM tool_executions te
-                    JOIN conversations cv ON te.conversation_id = cv.id
-                    WHERE cv.contact_id IS NULL AND cv.agent_id = %s
-                    ORDER BY te.created_at"""
-            else:
-                tool_sql = """
-                    SELECT te.id, te.tool_name, te.input_json, te.output_json,
-                           te.status, te.error_message, te.latency_ms, te.created_at,
-                           te.conversation_id
-                    FROM tool_executions te
-                    JOIN conversations cv ON te.conversation_id = cv.id
-                    WHERE cv.contact_id = %s AND cv.agent_id = %s
-                    ORDER BY te.created_at"""
+            # Tool executions — bounded to the message time window
+            from datetime import timedelta
+            tool_execs = []
+            if messages:
+                timestamps = [m["created_at"] for m in messages if m["created_at"]]
+                if timestamps:
+                    earliest = min(timestamps) - timedelta(seconds=5)
+                    latest = max(timestamps) + timedelta(seconds=5)
 
-            cur = await conn.execute(tool_sql, params_tools)
-            tool_execs = await cur.fetchall()
+                    if contact_id == "unknown":
+                        tool_sql = """
+                            SELECT te.id, te.tool_name, te.input_json, te.output_json,
+                                   te.status, te.error_message, te.latency_ms, te.created_at,
+                                   te.conversation_id
+                            FROM tool_executions te
+                            JOIN conversations cv ON te.conversation_id = cv.id
+                            WHERE cv.contact_id IS NULL AND cv.agent_id = %s
+                              AND te.created_at >= %s AND te.created_at <= %s
+                            ORDER BY te.created_at"""
+                        tool_params = [agent_id, earliest, latest]
+                    else:
+                        tool_sql = """
+                            SELECT te.id, te.tool_name, te.input_json, te.output_json,
+                                   te.status, te.error_message, te.latency_ms, te.created_at,
+                                   te.conversation_id
+                            FROM tool_executions te
+                            JOIN conversations cv ON te.conversation_id = cv.id
+                            WHERE cv.contact_id = %s AND cv.agent_id = %s
+                              AND te.created_at >= %s AND te.created_at <= %s
+                            ORDER BY te.created_at"""
+                        tool_params = [contact_id, agent_id, earliest, latest]
 
-        # Correlate tool executions to messages by timestamp proximity (5 seconds)
+                    cur = await conn.execute(tool_sql, tool_params)
+                    tool_execs = await cur.fetchall()
+
+        # Correlate tool executions to messages using O(n log n) bisect approach
+        from bisect import bisect_left
+        from collections import defaultdict
+
         messages_list = list(messages) if messages else []
         for msg in messages_list:
             msg["tool_executions"] = []
 
         if tool_execs and messages_list:
+            # Group AI/system messages by conversation_id, sorted by timestamp
+            conv_msgs: dict[str, list] = defaultdict(list)
+            for msg in messages_list:
+                if msg["sender_type"] in ("ai", "system") and msg["created_at"]:
+                    conv_msgs[msg["conversation_id"]].append(msg)
+
+            # Sort each group by timestamp for binary search
+            conv_timestamps: dict[str, list[float]] = {}
+            for conv_id, msgs in conv_msgs.items():
+                msgs.sort(key=lambda m: m["created_at"])
+                conv_timestamps[conv_id] = [
+                    m["created_at"].timestamp() for m in msgs
+                ]
+
             for te in tool_execs:
-                te_time = te["created_at"]
+                conv_id = te["conversation_id"]
+                if conv_id not in conv_msgs:
+                    continue
+                te_ts = te["created_at"].timestamp()
+                ts_list = conv_timestamps[conv_id]
+                msg_list = conv_msgs[conv_id]
+
+                # Binary search for closest message within 5-second window
+                idx = bisect_left(ts_list, te_ts)
                 best_msg = None
                 best_delta = None
-                for msg in messages_list:
-                    if msg["conversation_id"] != te["conversation_id"]:
-                        continue
-                    if msg["sender_type"] not in ("ai", "system"):
-                        continue
-                    delta = abs((msg["created_at"] - te_time).total_seconds())
-                    if delta <= 5 and (best_delta is None or delta < best_delta):
-                        best_delta = delta
-                        best_msg = msg
+
+                # Check the candidate at idx and idx-1 (the two nearest)
+                for candidate_idx in (idx - 1, idx):
+                    if 0 <= candidate_idx < len(ts_list):
+                        delta = abs(ts_list[candidate_idx] - te_ts)
+                        if delta <= 5 and (best_delta is None or delta < best_delta):
+                            best_delta = delta
+                            best_msg = msg_list[candidate_idx]
+
                 if best_msg is not None:
                     best_msg["tool_executions"].append(te)
 
@@ -1450,6 +1623,55 @@ def get_stream_info() -> dict:
     except psycopg.Error as e:
         logger.error("Failed to read stream info from Redis: %s", e)
         return {"inbound_stream_length": -1, "dlq_length": -1}
+
+
+# ============================================================
+# Paginated Contacts & Listings (PERF-008)
+# ============================================================
+
+@console_authorized
+async def get_agent_contacts_paginated(
+    agent_id: str, limit: int = 25, offset: int = 0,
+) -> list[dict]:
+    """Paginated contacts for a single agent."""
+    try:
+        async with get_async_db_connection() as conn:
+            cur = await conn.execute(
+                """SELECT id, name, phone, email, role, lifecycle_stage,
+                          consent_status, last_contact_at, silent_mode,
+                          interaction_count
+                   FROM contacts WHERE agent_id = %s
+                   ORDER BY last_contact_at DESC NULLS LAST
+                   LIMIT %s OFFSET %s""",
+                [agent_id, limit, offset],
+            )
+            rows = await cur.fetchall()
+        return rows or []
+    except psycopg.Error as e:
+        logger.error(f"Agent contacts paginated query failed: {e}")
+        return []
+
+
+@console_authorized
+async def get_agent_listings_paginated(
+    agent_id: str, limit: int = 25, offset: int = 0,
+) -> list[dict]:
+    """Paginated listings for a single agent."""
+    try:
+        async with get_async_db_connection() as conn:
+            cur = await conn.execute(
+                """SELECT id, address, price, status, beds, baths, sqft,
+                          list_date
+                   FROM listings WHERE agent_id = %s
+                   ORDER BY created_at DESC
+                   LIMIT %s OFFSET %s""",
+                [agent_id, limit, offset],
+            )
+            rows = await cur.fetchall()
+        return rows or []
+    except psycopg.Error as e:
+        logger.error(f"Agent listings paginated query failed: {e}")
+        return []
 
 
 # ============================================================

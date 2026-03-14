@@ -55,4 +55,18 @@
         {% endif %}
     </tbody>
 </table>
+
+<div class="pagination" style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem;">
+    <div>
+        {% if page > 1 %}
+        <a href="?page={{ page - 1 }}{% if per_page != 25 %}&per_page={{ per_page }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if channel_filter %}&channel={{ channel_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}" class="btn btn-outline btn-sm">&laquo; Previous</a>
+        {% endif %}
+    </div>
+    <span style="color:var(--text-muted); font-size:13px;">Page {{ page }}</span>
+    <div>
+        {% if has_more %}
+        <a href="?page={{ page + 1 }}{% if per_page != 25 %}&per_page={{ per_page }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if channel_filter %}&channel={{ channel_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}" class="btn btn-outline btn-sm">Next &raquo;</a>
+        {% endif %}
+    </div>
+</div>
 {% endblock %}
