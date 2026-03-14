@@ -610,6 +610,7 @@ async def health_overview(request: Request):
     if isinstance(auth, RedirectResponse):
         return auth
 
+    import asyncio
     from app.services.console_queries import (
         get_health_overview, get_all_agents, get_recent_errors,
     )
@@ -617,11 +618,15 @@ async def health_overview(request: Request):
     agent_filter = request.query_params.get("agent", "")
     active_tab = request.query_params.get("tab", "services")
 
+    health, agents, errors = await asyncio.gather(
+        get_health_overview(),
+        get_all_agents(),
+        get_recent_errors(limit=100, agent_id=agent_filter or None),
+    )
+
     return _render(request, "health.html",
         page_title="System Health", active_nav="health",
-        health=await get_health_overview(),
-        agents=await get_all_agents(),
-        errors=await get_recent_errors(limit=100, agent_id=agent_filter or None),
+        health=health, agents=agents, errors=errors,
         agent_filter=agent_filter,
         active_tab=active_tab,
     )

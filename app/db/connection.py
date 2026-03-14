@@ -151,7 +151,8 @@ async def close_async_pool() -> None:
 async def _fallback_async_connection():
     """Fallback async context manager when the pool is not initialized."""
     conn = await psycopg.AsyncConnection.connect(
-        get_connection_string(), row_factory=dict_row
+        get_connection_string(), row_factory=dict_row,
+        connect_timeout=10,
     )
     await register_vector_async(conn)
     try:

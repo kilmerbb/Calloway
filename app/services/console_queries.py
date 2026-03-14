@@ -742,74 +742,82 @@ async def get_model_tier_breakdown(days: int = 30) -> dict:
 @console_authorized
 async def get_health_overview() -> HealthOverview:
     """System health combining /health data with operational metrics."""
-    services = {}
 
-    # Database
-    try:
-        async with get_async_db_connection() as conn:
-            await conn.execute("SELECT 1")
-        services["database"] = "green"
-    except psycopg.Error:
-        services["database"] = "red"
+    async def _check_database() -> tuple[str, str]:
+        try:
+            async with get_async_db_connection() as conn:
+                await conn.execute("SELECT 1")
+            return ("database", "green")
+        except psycopg.Error:
+            return ("database", "red")
 
-    # Redis
-    try:
-        import redis
-        from app.config import get_settings
-        settings = get_settings()
-        r = redis.from_url(settings.REDIS_URL, socket_timeout=2)
-        r.ping()
-        services["redis"] = "green"
-    except (redis.RedisError, ConnectionError):
-        services["redis"] = "red"
+    async def _check_redis() -> tuple[str, str]:
+        try:
+            import redis
+            from app.config import get_settings
+            settings = get_settings()
+            r = redis.from_url(settings.REDIS_URL, socket_timeout=2, socket_connect_timeout=2)
+            r.ping()
+            return ("redis", "green")
+        except Exception:
+            return ("redis", "red")
 
-    # Check Anthropic (recent successful LLM call)
-    try:
-        async with get_async_db_connection() as conn:
-            cur = await conn.execute(
-                """SELECT COUNT(*) as cnt FROM messages
-                   WHERE ai_generated = true AND model_used IS NOT NULL
-                   AND created_at > now() - interval '1 hour'"""
-            )
-            recent_llm = await cur.fetchone()
-        services["anthropic"] = "green" if (recent_llm and recent_llm["cnt"] > 0) else "yellow"
-    except psycopg.Error:
-        services["anthropic"] = "red"
+    async def _check_anthropic() -> tuple[str, str]:
+        try:
+            async with get_async_db_connection() as conn:
+                cur = await conn.execute(
+                    """SELECT COUNT(*) as cnt FROM messages
+                       WHERE ai_generated = true AND model_used IS NOT NULL
+                       AND created_at > now() - interval '1 hour'"""
+                )
+                recent_llm = await cur.fetchone()
+            return ("anthropic", "green" if (recent_llm and recent_llm["cnt"] > 0) else "yellow")
+        except psycopg.Error:
+            return ("anthropic", "red")
 
-    # Check Twilio (recent sent message)
-    try:
-        async with get_async_db_connection() as conn:
-            cur = await conn.execute(
-                """SELECT COUNT(*) as cnt FROM messages
-                   WHERE sender_type = 'ai'
-                   AND created_at > now() - interval '1 hour'"""
-            )
-            recent_sms = await cur.fetchone()
-        services["twilio"] = "green" if (recent_sms and recent_sms["cnt"] > 0) else "yellow"
-    except psycopg.Error:
-        services["twilio"] = "red"
+    async def _check_twilio() -> tuple[str, str]:
+        try:
+            async with get_async_db_connection() as conn:
+                cur = await conn.execute(
+                    """SELECT COUNT(*) as cnt FROM messages
+                       WHERE sender_type = 'ai'
+                       AND created_at > now() - interval '1 hour'"""
+                )
+                recent_sms = await cur.fetchone()
+            return ("twilio", "green" if (recent_sms and recent_sms["cnt"] > 0) else "yellow")
+        except psycopg.Error:
+            return ("twilio", "red")
 
-    # Pipeline performance
-    pipeline_stats = {}
-    try:
-        async with get_async_db_connection() as conn:
-            cur = await conn.execute(
-                """SELECT
-                    AVG(latency_ms) as avg_latency,
-                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY latency_ms) as p50,
-                    PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms) as p95
-                   FROM tool_executions
-                   WHERE created_at > now() - interval '24 hours'
-                   AND latency_ms IS NOT NULL"""
-            )
-            perf = await cur.fetchone()
-            pipeline_stats = {
-                "avg_latency_ms": round(perf["avg_latency"] or 0),
-                "p50_ms": round(perf["p50"] or 0),
-                "p95_ms": round(perf["p95"] or 0),
-            }
-    except psycopg.Error:
-        pipeline_stats = {"avg_latency_ms": 0, "p50_ms": 0, "p95_ms": 0}
+    async def _check_pipeline() -> dict:
+        try:
+            async with get_async_db_connection() as conn:
+                cur = await conn.execute(
+                    """SELECT
+                        AVG(latency_ms) as avg_latency,
+                        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY latency_ms) as p50,
+                        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms) as p95
+                       FROM tool_executions
+                       WHERE created_at > now() - interval '24 hours'
+                       AND latency_ms IS NOT NULL"""
+                )
+                perf = await cur.fetchone()
+                return {
+                    "avg_latency_ms": round(perf["avg_latency"] or 0),
+                    "p50_ms": round(perf["p50"] or 0),
+                    "p95_ms": round(perf["p95"] or 0),
+                }
+        except psycopg.Error:
+            return {"avg_latency_ms": 0, "p50_ms": 0, "p95_ms": 0}
+
+    # Run all checks concurrently
+    db_result, redis_result, anthropic_result, twilio_result, pipeline_stats = (
+        await asyncio.gather(
+            _check_database(), _check_redis(), _check_anthropic(),
+            _check_twilio(), _check_pipeline(),
+        )
+    )
+
+    services = dict([db_result, redis_result, anthropic_result, twilio_result])
 
     return {
         "services": services,
