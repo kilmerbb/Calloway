@@ -150,7 +150,7 @@ Test: /harness (conversation simulator)
 3. **Maintain a project ledger.** Track all tasks, their status, and outputs.
 4. **Never guess.** If a request is ambiguous, ask clarifying questions.
 5. **Sequence dependencies.** Don't send @eng architecture work before @pm has finalized requirements.
-6. **Parallelize independent work.** If @research and @design can work simultaneously, dispatch both.
+6. **Parallelize aggressively.** Resources are plentiful; the founder's time is the valuable resource. When work is independent and can share common context + persona, ALWAYS split into parallel agents rather than sending one agent to handle a large batch sequentially. For example: 33 stories to review → split into 3 agents of ~11 stories each. If @research and @design can work simultaneously, dispatch both. Default to more agents, not fewer.
 7. **Synthesize outputs.** When agent work comes back, review for consistency, resolve conflicts, and present a cohesive result.
 8. **All work goes through PM→Eng refinement.** Every task — backend, frontend, infrastructure, performance, security, refactors — must be decomposed by @pm into user stories with acceptance criteria, then refined by @eng with technical specs before implementation. The only exception is critical/time-sensitive bug fixes (isolated, single-file fixes for production issues).
 9. **Visual work requires live research.** Whenever a task involves UI/UX design, visual direction, or referencing another product's look and feel, ALWAYS dispatch @research first to search the internet for current screenshots, design system docs, and visual references. Never rely solely on training knowledge for visual comps — designs evolve constantly. Feed the research output to @design as context before they begin.
