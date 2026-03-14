@@ -33,19 +33,21 @@ a:hover { text-decoration: underline; }
 
 .sidebar {
     width: var(--sidebar-w);
-    background: var(--bg-card);
-    border-right: 1px solid var(--border);
+    background: #000000;
     padding: 1rem 0;
     position: fixed;
     height: 100vh;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar-logo {
-    padding: 0 1rem 1rem;
-    border-bottom: 1px solid var(--border);
+    padding: 16px 16px 16px 16px;
+    border-bottom: 1px solid #333;
     font-weight: 700;
     font-size: 15px;
+    letter-spacing: -0.3px;
 }
 
 .sidebar-logo small { display: block; color: var(--text-muted); font-weight: 400; font-size: 11px; }

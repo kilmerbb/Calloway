@@ -95,7 +95,7 @@ async def dashboard(request: Request):
     )
 
     return _render(request, "dashboard.html",
-        page_title="Dashboard", active_nav="dashboard",
+        page_title="Home", active_nav="dashboard",
         pulse=await async_get_system_pulse(),
         activity=await async_get_recent_activity(limit=20),
         attention=await async_get_agents_needing_attention(),
