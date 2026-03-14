@@ -53,11 +53,29 @@ async def lifespan(app: FastAPI):
 
 settings = get_settings()
 
+OPENAPI_TAGS = [
+    {"name": "health", "description": "Service health checks and operational metrics."},
+    {"name": "webhooks", "description": "Inbound message and voice webhooks (Twilio, Vapi, SendGrid)."},
+    {"name": "billing", "description": "Stripe payment webhooks."},
+    {"name": "onboarding", "description": "Agent provisioning and onboarding checklist."},
+    {"name": "console", "description": "Operator console -- admin dashboard, customers, messages, automations, billing, health, and knowledge base."},
+    {"name": "conversations", "description": "Token-authenticated conversation deep-link views."},
+    {"name": "agent-portal", "description": "Agent-facing mobile portal -- dashboard, contacts, conversations, schedule, triggers, transactions, scores, and campaigns."},
+    {"name": "harness", "description": "Testing harness -- message injection, trace history, scenario runner."},
+]
+
 app = FastAPI(
-    title="Calloway",
-    description="AI operational assistant for solo real estate agents",
+    title="Calloway API",
+    description=(
+        "AI operational assistant for solo real estate agents. "
+        "Automates client communication, lead management, scheduling, "
+        "and business intelligence.\n\n"
+        "**Swagger UI:** `/docs`  |  **ReDoc:** `/redoc`  |  "
+        "**OpenAPI JSON:** `/openapi.json`"
+    ),
     version="1.0.0",
     lifespan=lifespan,
+    openapi_tags=OPENAPI_TAGS,
 )
 
 # CORS — explicit origins in production, permissive in development
