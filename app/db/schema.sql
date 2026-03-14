@@ -553,3 +553,42 @@ CREATE TABLE IF NOT EXISTS audit_log (
 CREATE INDEX idx_audit_log_created ON audit_log(created_at);
 CREATE INDEX idx_audit_log_user ON audit_log(user_id);
 CREATE INDEX idx_audit_log_action ON audit_log(action);
+
+-- ── Subscriptions (Stripe billing) ──────────────────────────
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+    agent_id                UUID PRIMARY KEY REFERENCES agents(id),
+    stripe_customer_id      TEXT NOT NULL,
+    stripe_subscription_id  TEXT NOT NULL,
+    plan_tier               TEXT NOT NULL DEFAULT 'starter',
+    status                  TEXT NOT NULL DEFAULT 'trialing',
+    trial_ends_at           TIMESTAMPTZ,
+    current_period_start    TIMESTAMPTZ,
+    current_period_end      TIMESTAMPTZ,
+    monthly_price_cents     INTEGER NOT NULL DEFAULT 0,
+    message_limit           INTEGER NOT NULL DEFAULT 200,
+    contact_limit           INTEGER NOT NULL DEFAULT 50,
+    cancel_at_period_end    BOOLEAN NOT NULL DEFAULT false,
+    created_at              TIMESTAMPTZ DEFAULT now(),
+    updated_at              TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_subscriptions_status ON subscriptions(status);
+
+-- ── Invoices (Stripe billing) ───────────────────────────────
+
+CREATE TABLE IF NOT EXISTS invoices (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id            UUID NOT NULL REFERENCES agents(id),
+    stripe_invoice_id   TEXT NOT NULL UNIQUE,
+    amount_cents        INTEGER NOT NULL DEFAULT 0,
+    status              TEXT NOT NULL DEFAULT 'pending',
+    period_start        TIMESTAMPTZ,
+    period_end          TIMESTAMPTZ,
+    paid_at             TIMESTAMPTZ,
+    invoice_url         TEXT,
+    created_at          TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_invoices_agent ON invoices(agent_id);
+CREATE INDEX idx_invoices_stripe_id ON invoices(stripe_invoice_id);

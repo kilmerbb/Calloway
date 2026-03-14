@@ -52,3 +52,25 @@ def test_console_billing_requires_auth(client):
     """Console billing page requires authentication."""
     response = client.get("/console/billing", follow_redirects=False)
     assert response.status_code in (303, 307)
+
+
+def test_console_billing_renders_with_db_errors(client):
+    """Billing page renders 200 even when DB queries fail (graceful degradation)."""
+    with patch("app.api.console.check_session", return_value={
+        "authenticated": True, "user_id": "test", "email": "t@t.com",
+        "display_name": "Test", "role": "admin",
+    }), \
+    patch("app.services.billing_service.get_billing_summary", return_value=[]), \
+    patch("app.services.console_queries.get_cost_summary", return_value={
+        "total_cost_dollars": 0, "llm_cost_dollars": 0,
+        "sms_cost_dollars": 0, "voice_cost_dollars": 0,
+        "total_sms_segments": 0, "total_messages": 0,
+        "total_voice_minutes": 0, "total_showings": 0,
+        "total_llm_calls": 0, "daily": [],
+    }), \
+    patch("app.services.console_queries.get_cost_by_agent", return_value=[]), \
+    patch("app.services.console_queries.get_model_tier_breakdown", return_value={"_total": 0}):
+        response = client.get("/console/billing")
+        assert response.status_code == 200
+        assert "Subscriptions" in response.text
+        assert "AI Costs" in response.text

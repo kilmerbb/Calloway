@@ -399,17 +399,21 @@ def check_message_quota(agent_id: UUID) -> dict:
 
 def get_billing_summary() -> list[dict]:
     """Get billing summary for all agents (operator console)."""
-    with get_db_connection() as conn:
-        return conn.execute(
-            """SELECT s.*, a.name as agent_name, a.email as agent_email,
-                      (SELECT COALESCE(SUM(messages_sent), 0) FROM usage_metrics
-                       WHERE agent_id = s.agent_id
-                       AND date >= s.current_period_start
-                       AND date <= COALESCE(s.current_period_end, CURRENT_DATE)) as messages_used
-               FROM subscriptions s
-               JOIN agents a ON a.id = s.agent_id
-               ORDER BY s.created_at DESC""",
-        ).fetchall()
+    try:
+        with get_db_connection() as conn:
+            return conn.execute(
+                """SELECT s.*, a.name as agent_name, a.email as agent_email,
+                          (SELECT COALESCE(SUM(messages_sent), 0) FROM usage_metrics
+                           WHERE agent_id = s.agent_id
+                           AND date >= s.current_period_start
+                           AND date <= COALESCE(s.current_period_end, CURRENT_DATE)) as messages_used
+                   FROM subscriptions s
+                   JOIN agents a ON a.id = s.agent_id
+                   ORDER BY s.created_at DESC""",
+            ).fetchall()
+    except (psycopg.Error, Exception) as e:
+        logger.error("Billing summary query failed: %s", e)
+        return []
 
 
 def get_agent_invoices(agent_id: UUID, limit: int = 12) -> list[dict]:
