@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from fastapi import APIRouter, Request, Response, BackgroundTasks
 
@@ -20,7 +21,16 @@ def validate_twilio_signature(request_url: str, params: dict, signature: str) ->
 
 
 async def process_inbound_message(agent_id: str, payload: dict):
-    """Process an inbound message through the full pipeline."""
+    """Process an inbound message through the full pipeline.
+
+    Runs the synchronous pipeline in a separate thread to avoid blocking
+    the async event loop (C-3 fix).
+    """
+    await asyncio.to_thread(_process_inbound_message_sync, agent_id, payload)
+
+
+def _process_inbound_message_sync(agent_id: str, payload: dict):
+    """Synchronous implementation of inbound message processing."""
     from uuid import UUID
     from app.pipeline.normalizer import normalize_twilio_event
     from app.pipeline.resolver import resolve_contact

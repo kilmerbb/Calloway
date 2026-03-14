@@ -32,19 +32,33 @@ def run_trigger_worker():
 
 
 def process_due_triggers() -> int:
-    """Find and fire all pending triggers that are due."""
+    """Find and fire all pending triggers that are due.
+
+    Uses SELECT ... FOR UPDATE SKIP LOCKED to prevent double-firing when
+    multiple worker instances run concurrently (C-1 fix). Each trigger is
+    atomically claimed by setting status = 'in_progress' before processing.
+    """
     now = datetime.now(timezone.utc)
     fired = 0
 
+    # Claim triggers atomically: lock rows and mark in_progress in one transaction.
+    # SKIP LOCKED ensures concurrent workers don't block each other or grab the same rows.
     with get_db_connection() as conn:
         rows = conn.execute(
-            """SELECT * FROM triggers
-               WHERE status = 'pending'
-               AND scheduled_at <= %s
-               ORDER BY scheduled_at
-               LIMIT 50""",
+            """UPDATE triggers
+               SET status = 'in_progress'
+               WHERE id IN (
+                   SELECT id FROM triggers
+                   WHERE status = 'pending'
+                   AND scheduled_at <= %s
+                   ORDER BY scheduled_at
+                   LIMIT 50
+                   FOR UPDATE SKIP LOCKED
+               )
+               RETURNING *""",
             [now],
         ).fetchall()
+        conn.commit()
 
     for row in rows:
         trigger = Trigger(**row)

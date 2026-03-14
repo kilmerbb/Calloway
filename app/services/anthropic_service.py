@@ -27,29 +27,53 @@ class AnthropicClient:
     def __init__(self, api_key: str | None = None):
         settings = get_settings()
         self.client = anthropic.Anthropic(api_key=api_key or settings.ANTHROPIC_API_KEY)
-        self._token_usage: dict[str, dict] = {}  # agent_id -> {date -> {input, output, cost}}
 
     def _track_usage(self, agent_id: UUID, model: str, input_tokens: int, output_tokens: int):
-        """Track token usage per agent per day."""
-        key = str(agent_id)
-        today = str(date.today())
+        """Persist token usage to the usage_metrics table (C-2 fix).
 
-        if key not in self._token_usage:
-            self._token_usage[key] = {}
-        if today not in self._token_usage[key]:
-            self._token_usage[key][today] = {"input": 0, "output": 0, "cost_cents": 0}
+        Previously tracked in an in-memory dict that was lost on restart.
+        Now writes directly to the DB, which is the single source of truth.
+        """
+        from app.db.connection import get_db_connection
 
-        self._token_usage[key][today]["input"] += input_tokens
-        self._token_usage[key][today]["output"] += output_tokens
-
-        # Calculate cost in cents
         costs = MODEL_COSTS.get(model, MODEL_COSTS[HAIKU_MODEL])
-        cost = (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000
-        self._token_usage[key][today]["cost_cents"] += int(cost)
+        cost_cents = int(
+            (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000
+        )
+        total_tokens = input_tokens + output_tokens
+
+        try:
+            with get_db_connection() as conn:
+                conn.execute(
+                    """INSERT INTO usage_metrics (agent_id, date, llm_calls, llm_tokens_used, llm_cost_cents)
+                       VALUES (%s, CURRENT_DATE, 1, %s, %s)
+                       ON CONFLICT (agent_id, date)
+                       DO UPDATE SET llm_calls = usage_metrics.llm_calls + 1,
+                                     llm_tokens_used = usage_metrics.llm_tokens_used + %s,
+                                     llm_cost_cents = usage_metrics.llm_cost_cents + %s""",
+                    [str(agent_id), total_tokens, cost_cents, total_tokens, cost_cents],
+                )
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to persist token usage: {e}")
 
     def get_usage(self, agent_id: UUID) -> dict:
-        """Get token usage for an agent."""
-        return self._token_usage.get(str(agent_id), {})
+        """Get token usage for an agent from the database."""
+        from app.db.connection import get_db_connection
+
+        try:
+            with get_db_connection() as conn:
+                row = conn.execute(
+                    """SELECT date, llm_tokens_used as tokens, llm_cost_cents as cost_cents
+                       FROM usage_metrics
+                       WHERE agent_id = %s AND date = CURRENT_DATE""",
+                    [str(agent_id)],
+                ).fetchone()
+            if row:
+                return {str(row["date"]): {"tokens": row["tokens"], "cost_cents": row["cost_cents"]}}
+        except Exception as e:
+            logger.error(f"Failed to read token usage: {e}")
+        return {}
 
     def _call_with_retry(self, func, max_retries=1):
         """Call a function with retry on rate limit."""
