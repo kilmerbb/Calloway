@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.docs-api-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.docs-api-toolbar a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    transition: background 0.15s;
+}
+.docs-api-toolbar a:hover {
+    background: var(--bg-hover);
+}
+.docs-api-iframe {
+    width: 100%;
+    height: 85vh;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+}
+</style>
+
+<div class="docs-api-toolbar">
+    <a href="/docs" target="_blank" rel="noopener">Open Swagger UI in new tab &#8599;</a>
+    <a href="/redoc" target="_blank" rel="noopener">Open ReDoc in new tab &#8599;</a>
+</div>
+
+<iframe src="/docs" class="docs-api-iframe" title="API Documentation (Swagger UI)"></iframe>
+{% endblock %}

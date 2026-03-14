@@ -2,6 +2,7 @@
 import logging
 from pathlib import Path
 
+import markdown
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
@@ -22,6 +23,8 @@ router = APIRouter(prefix="/console", tags=["console"])
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "console"
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def _render(request: Request, template: str, response: Response | None = None, **ctx):
@@ -69,6 +72,14 @@ def _check_csrf(request: Request, csrf_token: str | None) -> Response | None:
 def _client_ip(request: Request) -> str:
     """Extract client IP from request."""
     return request.client.host if request.client else "unknown"
+
+
+def _render_markdown(filepath: Path) -> str | None:
+    """Read a markdown file and convert to HTML. Returns None if file missing."""
+    if not filepath.is_file():
+        return None
+    text = filepath.read_text(encoding="utf-8")
+    return markdown.markdown(text, extensions=["fenced_code", "tables", "toc"])
 
 
 # ============================================================
@@ -321,14 +332,14 @@ async def tenant_edit_form(request: Request, agent_id: str):
     if isinstance(auth, RedirectResponse):
         return auth
 
-    from app.services.console_queries import get_agent_detail
-    detail = await get_agent_detail(agent_id)
-    if not detail:
+    from app.services.console_queries import get_agent_basic
+    agent = await get_agent_basic(agent_id)
+    if not agent:
         return RedirectResponse("/console/tenants", status_code=303)
 
     return _render(request, "tenant_edit.html",
-        page_title=f"Edit Customer: {detail['agent']['name']}",
-        active_nav="tenants", agent=detail["agent"], error=None,
+        page_title=f"Edit Customer: {agent['name']}",
+        active_nav="tenants", agent=agent, error=None,
     )
 
 
@@ -360,11 +371,11 @@ async def tenant_update(request: Request, agent_id: str):
         )
         return RedirectResponse(f"/console/tenants/{agent_id}", status_code=303)
     except ValueError as e:
-        from app.services.console_queries import get_agent_detail
-        detail = await get_agent_detail(agent_id)
+        from app.services.console_queries import get_agent_basic
+        agent = await get_agent_basic(agent_id)
         return _render(request, "tenant_edit.html",
-            page_title=f"Edit Customer: {detail['agent']['name']}",
-            active_nav="tenants", agent=detail["agent"], error=str(e),
+            page_title=f"Edit Customer: {agent['name']}",
+            active_nav="tenants", agent=agent, error=str(e),
         )
 
 
@@ -435,21 +446,30 @@ async def conversation_list(request: Request):
     if isinstance(auth, RedirectResponse):
         return auth
 
-    from app.services.console_queries import get_recent_conversations, get_all_agents
+    from app.services.console_queries import get_recent_conversations, get_agent_options
 
     agent_filter = request.query_params.get("agent", "")
     channel_filter = request.query_params.get("channel", "")
     search = request.query_params.get("search", "")
+    page = int(request.query_params.get("page", "1"))
+    per_page = int(request.query_params.get("per_page", "25"))
+    offset = (page - 1) * per_page
+
+    conversations = await get_recent_conversations(
+        agent_id=agent_filter or None,
+        channel=channel_filter or None,
+        search=search or None,
+        limit=per_page,
+        offset=offset,
+    )
 
     return _render(request, "conversations.html",
         page_title="Messages", active_nav="conversations",
-        conversations=await get_recent_conversations(
-            agent_id=agent_filter or None,
-            channel=channel_filter or None,
-            search=search or None, limit=100,
-        ),
-        agents=await get_all_agents(),
+        conversations=conversations,
+        agents=await get_agent_options(),
         agent_filter=agent_filter, channel_filter=channel_filter, search=search,
+        page=page, per_page=per_page,
+        has_more=len(conversations) == per_page,
     )
 
 
@@ -479,19 +499,28 @@ async def trigger_list(request: Request):
     if isinstance(auth, RedirectResponse):
         return auth
 
-    from app.services.console_queries import get_trigger_queue, get_all_agents
+    from app.services.console_queries import get_trigger_queue, get_agent_options
 
     status_filter = request.query_params.get("status", "pending")
     agent_filter = request.query_params.get("agent", "")
+    page = int(request.query_params.get("page", "1"))
+    per_page = int(request.query_params.get("per_page", "50"))
+    offset = (page - 1) * per_page
+
+    triggers = await get_trigger_queue(
+        status=status_filter if status_filter != "all" else None,
+        agent_id=agent_filter or None,
+        limit=per_page,
+        offset=offset,
+    )
 
     return _render(request, "triggers.html",
         page_title="Automations", active_nav="triggers",
-        triggers=await get_trigger_queue(
-            status=status_filter if status_filter != "all" else None,
-            agent_id=agent_filter or None,
-        ),
-        agents=await get_all_agents(),
+        triggers=triggers,
+        agents=await get_agent_options(),
         status_filter=status_filter, agent_filter=agent_filter,
+        page=page, per_page=per_page,
+        has_more=len(triggers) == per_page,
     )
 
 
@@ -612,7 +641,7 @@ async def health_overview(request: Request):
 
     import asyncio
     from app.services.console_queries import (
-        get_health_overview, get_all_agents, get_recent_errors,
+        get_health_overview, get_agent_options, get_recent_errors,
     )
 
     agent_filter = request.query_params.get("agent", "")
@@ -620,7 +649,7 @@ async def health_overview(request: Request):
 
     health, agents, errors = await asyncio.gather(
         get_health_overview(),
-        get_all_agents(),
+        get_agent_options(),
         get_recent_errors(limit=100, agent_id=agent_filter or None),
     )
 
@@ -836,6 +865,62 @@ async def tenant_messages_thread(request: Request, agent_id: str, contact_id: st
         total_tool_executions=thread["total_tool_executions"],
         page=page, per_page=per_page,
         has_more=len(thread["messages"]) == per_page,
+    )
+
+
+# ============================================================
+# Customer Detail — Contacts Tab (PERF-008)
+# ============================================================
+
+@router.get("/tenants/{agent_id}/tab/contacts", response_class=HTMLResponse)
+async def tenant_contacts_tab(request: Request, agent_id: str):
+    """HTMX partial: paginated contacts list."""
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    from app.services.console_queries import get_agent_contacts_paginated
+
+    page = int(request.query_params.get("page", "1"))
+    per_page = 25
+    offset = (page - 1) * per_page
+
+    contacts = await get_agent_contacts_paginated(
+        agent_id, limit=per_page, offset=offset,
+    )
+
+    return _render(request, "partials/tenant_contacts_list.html",
+        agent_id=agent_id, contacts=contacts,
+        page=page, per_page=per_page,
+        has_more=len(contacts) == per_page,
+    )
+
+
+# ============================================================
+# Customer Detail — Listings Tab (PERF-008)
+# ============================================================
+
+@router.get("/tenants/{agent_id}/tab/listings", response_class=HTMLResponse)
+async def tenant_listings_tab(request: Request, agent_id: str):
+    """HTMX partial: paginated listings list."""
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    from app.services.console_queries import get_agent_listings_paginated
+
+    page = int(request.query_params.get("page", "1"))
+    per_page = 25
+    offset = (page - 1) * per_page
+
+    listings = await get_agent_listings_paginated(
+        agent_id, limit=per_page, offset=offset,
+    )
+
+    return _render(request, "partials/tenant_listings_list.html",
+        agent_id=agent_id, listings=listings,
+        page=page, per_page=per_page,
+        has_more=len(listings) == per_page,
     )
 
 
@@ -1142,3 +1227,125 @@ async def tenant_kb_upload(request: Request, agent_id: str):
         return Response(f"Upload failed: {e}", status_code=500)
 
     return RedirectResponse(f"/console/tenants/{agent_id}?tab=knowledge-base", status_code=303)
+
+
+# ============================================================
+# Documentation Hub
+# ============================================================
+
+@router.get("/docs/research", response_class=HTMLResponse)
+async def docs_research(request: Request):
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    docs_map: dict[str, tuple[str, str]] = {
+        "competitive-landscape-2026-03": ("Competitive Landscape (Mar 2026)", "docs/research/competitive-landscape-2026-03.md"),
+        "htmx-jinja2-css-a11y-reference": ("HTMX / Jinja2 / CSS / A11y Reference", "docs/research/htmx-jinja2-css-a11y-reference.md"),
+        "postgres-stack-reference-2025": ("PostgreSQL Stack Reference (2025)", "docs/research/postgres-stack-reference-2025.md"),
+        "spotify-design-reference-brief": ("Spotify Design Reference Brief", "docs/research/spotify-design-reference-brief.md"),
+    }
+
+    selected = request.query_params.get("doc", "competitive-landscape-2026-03")
+    if selected not in docs_map:
+        selected = "competitive-landscape-2026-03"
+
+    title, filepath = docs_map[selected]
+    doc_html = _render_markdown(PROJECT_ROOT / filepath)
+
+    return _render(request, "docs.html",
+        page_title="Research", active_nav="docs-research",
+        doc_html=doc_html or "<p>Document not found.</p>",
+        doc_title=title,
+        docs_map=docs_map,
+        selected=selected,
+        section="research",
+    )
+
+
+@router.get("/docs/api", response_class=HTMLResponse)
+async def docs_api(request: Request):
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    return _render(request, "docs_api.html",
+        page_title="API Documentation", active_nav="docs-api",
+    )
+
+
+@router.get("/docs/architecture", response_class=HTMLResponse)
+async def docs_architecture(request: Request):
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    docs_map: dict[str, tuple[str, str]] = {
+        "architecture-diagram": ("Architecture Diagram", "docs/architecture-diagram.md"),
+        "architecture-audit": ("Architecture Audit", "docs/architecture-audit.md"),
+        "engineering-standards": ("Engineering Standards", "docs/engineering-standards.md"),
+    }
+
+    selected = request.query_params.get("doc", "architecture-diagram")
+    if selected not in docs_map:
+        selected = "architecture-diagram"
+
+    title, filepath = docs_map[selected]
+    doc_html = _render_markdown(PROJECT_ROOT / filepath)
+
+    return _render(request, "docs.html",
+        page_title="Architecture", active_nav="docs-architecture",
+        doc_html=doc_html or "<p>Document not found.</p>",
+        doc_title=title,
+        docs_map=docs_map,
+        selected=selected,
+        section="architecture",
+    )
+
+
+@router.get("/docs/changelog", response_class=HTMLResponse)
+async def docs_changelog(request: Request):
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    changelog_path = PROJECT_ROOT / "docs" / "changelog.md"
+    doc_html = _render_markdown(changelog_path)
+
+    return _render(request, "docs.html",
+        page_title="Changelog", active_nav="docs-changelog",
+        doc_html=doc_html or "<p>Changelog has not been generated yet. Run <code>scripts/generate_changelog.sh</code> to generate it.</p>",
+        doc_title="Changelog",
+        docs_map={},
+        selected="",
+        section="changelog",
+    )
+
+
+@router.get("/docs/product", response_class=HTMLResponse)
+async def docs_product(request: Request):
+    auth = _require_auth(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
+
+    docs_map: dict[str, tuple[str, str]] = {
+        "prd-customer-detail-redesign": ("PRD: Customer Detail Redesign", "docs/prd-customer-detail-redesign.md"),
+        "ux-audit": ("UX Audit", "docs/ux-audit.md"),
+        "audit-2026-03-11": ("Audit (2026-03-11)", "docs/audit-2026-03-11.md"),
+    }
+
+    selected = request.query_params.get("doc", "prd-customer-detail-redesign")
+    if selected not in docs_map:
+        selected = "prd-customer-detail-redesign"
+
+    title, filepath = docs_map[selected]
+    doc_html = _render_markdown(PROJECT_ROOT / filepath)
+
+    return _render(request, "docs.html",
+        page_title="Product", active_nav="docs-product",
+        doc_html=doc_html or "<p>Document not found.</p>",
+        doc_title=title,
+        docs_map=docs_map,
+        selected=selected,
+        section="product",
+    )

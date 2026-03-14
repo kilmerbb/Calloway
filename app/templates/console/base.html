@@ -76,6 +76,36 @@
             </a>
         </div>
 
+        <div class="nav-divider"></div>
+
+        <div class="nav-group" role="group" aria-label="Documentation">
+            <a href="/console/docs/research" class="nav-item {% if active_nav == 'docs-research' %}active{% endif %}"
+               {% if active_nav == 'docs-research' %}aria-current="page"{% endif %}
+               title="Market and competitive research reports">
+                <span class="nav-icon" aria-hidden="true">◈</span> Research
+            </a>
+            <a href="/console/docs/api" class="nav-item {% if active_nav == 'docs-api' %}active{% endif %}"
+               {% if active_nav == 'docs-api' %}aria-current="page"{% endif %}
+               title="Interactive API documentation (Swagger / ReDoc)">
+                <span class="nav-icon" aria-hidden="true">⟡</span> API Docs
+            </a>
+            <a href="/console/docs/architecture" class="nav-item {% if active_nav == 'docs-architecture' %}active{% endif %}"
+               {% if active_nav == 'docs-architecture' %}aria-current="page"{% endif %}
+               title="System architecture diagrams and engineering standards">
+                <span class="nav-icon" aria-hidden="true">△</span> Architecture
+            </a>
+            <a href="/console/docs/changelog" class="nav-item {% if active_nav == 'docs-changelog' %}active{% endif %}"
+               {% if active_nav == 'docs-changelog' %}aria-current="page"{% endif %}
+               title="Recent changes and release history">
+                <span class="nav-icon" aria-hidden="true">☰</span> Changelog
+            </a>
+            <a href="/console/docs/product" class="nav-item {% if active_nav == 'docs-product' %}active{% endif %}"
+               {% if active_nav == 'docs-product' %}aria-current="page"{% endif %}
+               title="Product requirements, audits, and design documents">
+                <span class="nav-icon" aria-hidden="true">▣</span> Product
+            </a>
+        </div>
+
         <div class="nav-bottom">
             <a href="/console/logout" class="nav-item"
                title="End your session and return to the login screen">
