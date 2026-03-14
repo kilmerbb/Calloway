@@ -29,7 +29,7 @@ def handle_listing_command(
             model_used="haiku",
             tokens_used=parsed.get("_tokens", 0),
         )
-    except Exception as e:
+    except Exception as e:  # Broad catch: mixed LLM parsing + DB operations
         logger.error("Listing ingestion failed: %s", e, exc_info=True)
         return AgentDecision(
             response_text=f"Couldn't process that listing: {e}",

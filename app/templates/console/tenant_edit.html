@@ -8,13 +8,13 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="section">
         <div class="section-title">Agent Profile</div>
-        <div class="form-group"><label>Name</label><input type="text" name="name" value="{{ agent.name }}" title="Full name of the real estate agent"></div>
-        <div class="form-group"><label>Email</label><input type="email" name="email" value="{{ agent.email }}" title="Agent's email address for notifications"></div>
-        <div class="form-group"><label>Phone</label><input type="tel" name="phone" value="{{ agent.phone }}" title="Agent's personal phone in E.164 format"></div>
-        <div class="form-group"><label>Brokerage</label><input type="text" name="brokerage" value="{{ agent.brokerage or '' }}" title="The agent's real estate brokerage firm"></div>
-        <div class="form-group"><label>Market</label><input type="text" name="market" value="{{ agent.market or '' }}" title="Primary geographic market area"></div>
-        <div class="form-group"><label>Timezone</label>
-            <select name="timezone" title="Used for scheduling automations and daily briefings">
+        <div class="form-group"><label for="edit-name">Name</label><input type="text" name="name" id="edit-name" value="{{ agent.name }}" title="Full name of the real estate agent"></div>
+        <div class="form-group"><label for="edit-email">Email</label><input type="email" name="email" id="edit-email" value="{{ agent.email }}" title="Agent's email address for notifications"></div>
+        <div class="form-group"><label for="edit-phone">Phone</label><input type="tel" name="phone" id="edit-phone" value="{{ agent.phone }}" title="Agent's personal phone in E.164 format"></div>
+        <div class="form-group"><label for="edit-brokerage">Brokerage</label><input type="text" name="brokerage" id="edit-brokerage" value="{{ agent.brokerage or '' }}" title="The agent's real estate brokerage firm"></div>
+        <div class="form-group"><label for="edit-market">Market</label><input type="text" name="market" id="edit-market" value="{{ agent.market or '' }}" title="Primary geographic market area"></div>
+        <div class="form-group"><label for="edit-timezone">Timezone</label>
+            <select name="timezone" id="edit-timezone" title="Used for scheduling automations and daily briefings">
                 {% for tz in ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'] %}
                 <option value="{{ tz }}" {% if agent.timezone == tz %}selected{% endif %}>{{ tz.split('/')[-1] }}</option>
                 {% endfor %}
@@ -24,15 +24,15 @@
 
     <div class="section">
         <div class="section-title">Style & Autonomy</div>
-        <div class="form-group"><label>Tone</label>
-            <select name="tone" title="Controls the AI's communication style in messages">
+        <div class="form-group"><label for="edit-tone">Tone</label>
+            <select name="tone" id="edit-tone" title="Controls the AI's communication style in messages">
                 {% for t in ['professional', 'friendly', 'casual'] %}
                 <option value="{{ t }}" {% if agent.style_profile and agent.style_profile.get('tone') == t %}selected{% endif %}>{{ t|capitalize }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="form-group"><label>Autonomy Level</label>
-            <select name="autonomy_level" title="Supervised = AI drafts, agent approves. Autonomous = AI sends directly. Manual = AI only responds when prompted.">
+        <div class="form-group"><label for="edit-autonomy">Autonomy Level</label>
+            <select name="autonomy_level" id="edit-autonomy" title="Supervised = AI drafts, agent approves. Autonomous = AI sends directly. Manual = AI only responds when prompted.">
                 {% for l in ['supervised', 'autonomous', 'manual'] %}
                 <option value="{{ l }}" {% if agent.autonomy_rules and agent.autonomy_rules.get('level') == l %}selected{% endif %}>{{ l|capitalize }}</option>
                 {% endfor %}
@@ -42,9 +42,9 @@
 
     <div class="section">
         <div class="section-title">Optional</div>
-        <div class="form-group"><label>Google Review Link</label><input type="text" name="google_review_link" value="{{ agent.google_review_link or '' }}" title="URL to the agent's Google Business review page"></div>
-        <div class="form-group"><label>Briefing Time</label><input type="time" name="briefing_time" value="{{ agent.briefing_time or '07:30' }}" title="Time of day for the daily briefing summary"></div>
-        <div class="form-group"><label>System Prompt Override</label><textarea name="system_prompt" title="Custom system prompt that overrides the default AI instructions">{{ agent.system_prompt or '' }}</textarea></div>
+        <div class="form-group"><label for="edit-google-review">Google Review Link</label><input type="text" name="google_review_link" id="edit-google-review" value="{{ agent.google_review_link or '' }}" title="URL to the agent's Google Business review page"></div>
+        <div class="form-group"><label for="edit-briefing-time">Briefing Time</label><input type="time" name="briefing_time" id="edit-briefing-time" value="{{ agent.briefing_time or '07:30' }}" title="Time of day for the daily briefing summary"></div>
+        <div class="form-group"><label for="edit-system-prompt">System Prompt Override</label><textarea name="system_prompt" id="edit-system-prompt" title="Custom system prompt that overrides the default AI instructions">{{ agent.system_prompt or '' }}</textarea></div>
     </div>
 
     <button type="submit" class="btn btn-primary" title="Save all changes to this customer's configuration">Save Changes</button>

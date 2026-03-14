@@ -12,6 +12,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+import psycopg
+
 from app.api.console_auth import check_session
 from app.models.trace import PipelineTrace, StageTrace, ToolCallTrace
 
@@ -102,7 +104,7 @@ def _run_traced_pipeline(req: InjectRequest) -> PipelineTrace:
             full_input=raw_payload,
             full_output=event.model_dump(mode="json"),
         ))
-    except Exception as e:
+    except Exception as e:  # Broad catch: harness must capture all pipeline stage errors
         trace.stages.append(StageTrace(
             stage_name="normalizer", status="error", error_message=str(e),
             duration_ms=int((time.monotonic() - stage_start) * 1000),
@@ -132,7 +134,7 @@ def _run_traced_pipeline(req: InjectRequest) -> PipelineTrace:
                 "is_agent_command": is_agent_command,
             },
         ))
-    except Exception as e:
+    except Exception as e:  # Broad catch: harness must capture all pipeline stage errors
         trace.stages.append(StageTrace(
             stage_name="resolver", status="error", error_message=str(e),
             duration_ms=int((time.monotonic() - stage_start) * 1000),
@@ -167,7 +169,7 @@ def _run_traced_pipeline(req: InjectRequest) -> PipelineTrace:
                     full_input={"body": event.body},
                     full_output={"passed": True},
                 ))
-        except Exception as e:
+        except Exception as e:  # Broad catch: harness must capture all pipeline stage errors
             trace.stages.append(StageTrace(
                 stage_name="tcpa_check", status="error", error_message=str(e),
                 duration_ms=int((time.monotonic() - stage_start) * 1000),
@@ -195,7 +197,7 @@ def _run_traced_pipeline(req: InjectRequest) -> PipelineTrace:
                     output_summary={"action": "passed"},
                     full_output={"passed": True},
                 ))
-        except Exception as e:
+        except Exception as e:  # Broad catch: harness must capture all pipeline stage errors
             trace.stages.append(StageTrace(
                 stage_name="rate_limiter", status="error", error_message=str(e),
                 duration_ms=int((time.monotonic() - stage_start) * 1000),
@@ -230,7 +232,7 @@ def _run_traced_pipeline(req: InjectRequest) -> PipelineTrace:
             full_output=intent.model_dump(mode="json"),
         ))
         trace.intent_detected = intent.intent
-    except Exception as e:
+    except Exception as e:  # Broad catch: harness must capture all pipeline stage errors
         trace.stages.append(StageTrace(
             stage_name="classifier", status="error", error_message=str(e),
             duration_ms=int((time.monotonic() - stage_start) * 1000),
@@ -320,7 +322,7 @@ def _run_traced_pipeline(req: InjectRequest) -> PipelineTrace:
         trace.model_used = decision.model_used
         trace.tokens_used = decision.tokens_used
         trace.response_text = decision.response_text
-    except Exception as e:
+    except Exception as e:  # Broad catch: harness must capture all pipeline stage errors
         trace.stages.append(StageTrace(
             stage_name="handler", status="error", error_message=str(e),
             duration_ms=int((time.monotonic() - stage_start) * 1000),
@@ -379,7 +381,7 @@ def _run_traced_pipeline(req: InjectRequest) -> PipelineTrace:
             ))
 
         trace.outbound_actions = outbound_actions
-    except Exception as e:
+    except Exception as e:  # Broad catch: harness must capture all pipeline stage errors
         trace.stages.append(StageTrace(
             stage_name="dispatcher", status="error", error_message=str(e),
             duration_ms=int((time.monotonic() - stage_start) * 1000),
@@ -438,7 +440,7 @@ async def agent_contacts(request: Request, agent_id: str):
                 [agent_id],
             ).fetchall()
         return _json_response([dict(r) for r in (rows or [])])
-    except Exception as e:
+    except psycopg.Error as e:
         return _json_response([])
 
 

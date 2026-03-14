@@ -15,6 +15,9 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from app.config import get_settings
 from app.services.redis_pool import get_redis_pool
 
+import psycopg
+import redis
+
 logger = logging.getLogger(__name__)
 
 SESSION_COOKIE = "console_session"
@@ -79,7 +82,7 @@ def _lookup_user_by_email(email: str) -> Optional[dict]:
                     "role": row[4],
                     "active": row[5],
                 }
-    except Exception:
+    except psycopg.Error:
         logger.exception("Failed to look up console user by email")
     return None
 
@@ -236,7 +239,7 @@ def check_rate_limit(ip: str) -> tuple[bool, int]:
             ttl = r.ttl(key)
             return False, max(ttl, 60)
         return True, 0
-    except Exception:
+    except redis.RedisError:
         logger.warning("Redis unavailable for rate limiting — failing open")
         return True, 0
 
@@ -254,7 +257,7 @@ def record_failed_attempt(ip: str) -> None:
         if count == 1:
             # Only set expiry when the key is first created
             r.expire(key, _RATE_LIMIT_WINDOW)
-    except Exception:
+    except redis.RedisError:
         logger.warning("Redis unavailable — failed attempt not recorded")
 
 
@@ -263,7 +266,7 @@ def reset_rate_limit(ip: str) -> None:
     try:
         r = get_redis_pool()
         r.delete(f"login_attempts:{ip}")
-    except Exception:
+    except redis.RedisError:
         pass
 
 
@@ -300,7 +303,7 @@ def log_audit(
                     ],
                 )
                 conn.commit()
-        except Exception:
+        except psycopg.Error:
             logger.warning("Failed to write audit log entry for action=%s", action)
 
     t = threading.Thread(target=_write, daemon=True)
@@ -332,7 +335,7 @@ def create_console_user(
                 [email, pw_hash, display_name, role],
             ).fetchone()
             conn.commit()
-        except Exception as e:
+        except psycopg.Error as e:
             conn.rollback()
             if "idx_console_users_email" in str(e) or "unique" in str(e).lower():
                 raise ValueError(f"A user with email '{email}' already exists.") from e

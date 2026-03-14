@@ -3,6 +3,8 @@ import logging
 from uuid import UUID
 
 from app.db.connection import get_db_connection
+
+import psycopg
 from app.models.schemas import (
     NormalizedEvent, Contact, AgentConfig,
     IntentClassification, AgentDecision,
@@ -25,7 +27,7 @@ def get_agent_status(agent_id: UUID) -> str:
                 [str(agent_id)],
             ).fetchone()
         return row["current_status"] if row else "available"
-    except Exception:
+    except psycopg.Error:
         return "available"
 
 

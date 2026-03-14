@@ -79,7 +79,7 @@ class EmbeddingService:
                     texts, model=EMBEDDING_MODEL, input_type="document"
                 )
                 return result.embeddings
-            except Exception as e:
+            except Exception as e:  # Broad catch: Voyage API errors for retry logic
                 if attempt < max_retries:
                     wait = 2 ** (attempt + 1)
                     logger.warning(
@@ -107,7 +107,7 @@ class EmbeddingService:
                     [query], model=EMBEDDING_MODEL, input_type="query"
                 )
                 return result.embeddings[0]
-            except Exception as e:
+            except Exception as e:  # Broad catch: Voyage API errors for retry logic
                 if attempt < max_retries:
                     wait = 2 ** (attempt + 1)
                     logger.warning(

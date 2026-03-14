@@ -5,6 +5,8 @@ from uuid import UUID
 
 from app.db.connection import get_db_connection
 
+import psycopg
+
 logger = logging.getLogger(__name__)
 
 MAX_TRACES = 1000
@@ -41,7 +43,7 @@ def store_trace(trace, sender_phone: str, message_body: str) -> None:
                 [MAX_TRACES],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to store trace: {e}")
 
 
@@ -78,7 +80,7 @@ def get_trace_history(
                 params + [limit],
             ).fetchall()
         return rows or []
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Trace history query failed: {e}")
         return []
 
@@ -95,6 +97,6 @@ def get_trace_by_id(trace_id: str) -> dict | None:
             if isinstance(row["trace_json"], str):
                 row["trace_json"] = json.loads(row["trace_json"])
         return row
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Trace lookup failed: {e}")
         return None

@@ -5,6 +5,8 @@ from fastapi import APIRouter
 from app.db.connection import get_db_connection
 from app.config import get_settings
 
+import psycopg
+
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
 
@@ -30,7 +32,7 @@ async def detailed_health_check():
         with get_db_connection() as conn:
             conn.execute("SELECT 1").fetchone()
         checks["database"] = "ok"
-    except Exception as e:
+    except psycopg.Error as e:
         checks["database"] = f"error: {str(e)[:100]}"
         checks["status"] = "degraded"
 
@@ -44,7 +46,7 @@ async def detailed_health_check():
             checks["redis"] = "ok"
         else:
             checks["redis"] = "not_configured"
-    except Exception as e:
+    except (redis.RedisError, ConnectionError) as e:
         checks["redis"] = f"error: {str(e)[:100]}"
         # Redis is optional, don't degrade
 
@@ -56,7 +58,7 @@ async def detailed_health_check():
         else:
             checks["anthropic"] = "not_configured"
             checks["status"] = "degraded"
-    except Exception as e:
+    except Exception as e:  # Broad catch: config check
         checks["anthropic"] = f"error: {str(e)[:100]}"
 
     return checks
@@ -82,5 +84,5 @@ async def health_metrics():
             "messages_today": messages_today["cnt"] if messages_today else 0,
             "pending_triggers": pending_triggers["cnt"] if pending_triggers else 0,
         }
-    except Exception as e:
+    except psycopg.Error as e:
         return {"error": str(e)[:200]}

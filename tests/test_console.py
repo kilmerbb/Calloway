@@ -207,7 +207,8 @@ def test_query_layer_functions_exist():
 async def test_system_pulse_returns_defaults_on_error(mock_conn):
     """System pulse returns zeros when DB is unavailable."""
     from app.services.console_queries import get_system_pulse
-    mock_conn.side_effect = Exception("DB down")
+    import psycopg
+    mock_conn.side_effect = psycopg.Error("DB down")
     result = await get_system_pulse()
     assert result["total_agents"] == 0
     assert result["messages_today"] == 0

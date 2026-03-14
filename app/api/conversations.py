@@ -9,6 +9,8 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from app.config import get_settings
 from app.db.connection import get_db_connection
 
+import psycopg
+
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["conversations"])
 
@@ -55,7 +57,7 @@ async def view_conversation(contact_id: str, token: str = ""):
                    ORDER BY m.created_at ASC LIMIT 100""",
                 [contact_id, agent_id],
             ).fetchall()
-    except Exception as e:
+    except psycopg.Error as e:
         raise HTTPException(status_code=500, detail=str(e))
 
     if not contact:

@@ -52,7 +52,7 @@ async def stripe_webhook(request: Request):
         try:
             handler(event_data)
             logger.info(f"Handled Stripe event: {event_type}")
-        except Exception as e:
+        except Exception as e:  # Broad catch: webhook must return 200 to prevent provider retries
             logger.error(f"Error handling Stripe event {event_type}: {e}", exc_info=True)
     else:
         logger.debug(f"Unhandled Stripe event type: {event_type}")

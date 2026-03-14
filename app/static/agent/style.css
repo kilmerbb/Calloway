@@ -32,6 +32,13 @@
     /* Transitions */
     --transition-fast: 0.15s ease;
     --transition-normal: 0.2s ease;
+
+    /* Utility colors */
+    --color-white: #ffffff;
+    --color-score-warm: #f59e0b;
+    --color-score-cold: #9ca3af;
+    --color-success-hover: #1a8754;
+    --color-error-hover: #c82333;
 }
 
 /* ---------- Light Theme (default) ---------- */
@@ -699,12 +706,12 @@ input:focus {
     border-radius: var(--radius-circle);
     font-weight: 700;
     font-size: 13px;
-    color: #fff;
+    color: var(--color-white);
 }
 .score-hot { background: var(--color-error); }
-.score-warm { background: #f59e0b; }
+.score-warm { background: var(--color-score-warm); }
 .score-cool { background: var(--color-accent); }
-.score-cold { background: #9ca3af; }
+.score-cold { background: var(--color-score-cold); }
 
 /* Stats grid */
 .stats-grid {
@@ -863,7 +870,7 @@ input:focus {
     color: white;
 }
 .btn-green:hover {
-    background: #1a8754;
+    background: var(--color-success-hover);
     color: white;
 }
 
@@ -872,7 +879,7 @@ input:focus {
     color: white;
 }
 .btn-red:hover {
-    background: #c82333;
+    background: var(--color-error-hover);
     color: white;
 }
 

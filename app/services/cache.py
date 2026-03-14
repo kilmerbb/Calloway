@@ -17,6 +17,8 @@ import logging
 
 from app.services.redis_pool import get_redis_pool
 
+import redis
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,7 +31,7 @@ def cache_get(key: str) -> bytes | None:
     try:
         r = get_redis_pool()
         return r.get(key)
-    except Exception as e:
+    except Exception as e:  # Broad catch: cache is fail-safe by design
         logger.warning("cache_get failed for key=%s: %s", key, e)
         return None
 
@@ -42,7 +44,7 @@ def cache_set(key: str, value: str | bytes, ttl: int = 300) -> None:
     try:
         r = get_redis_pool()
         r.setex(key, ttl, value)
-    except Exception as e:
+    except Exception as e:  # Broad catch: cache is fail-safe by design
         logger.warning("cache_set failed for key=%s: %s", key, e)
 
 
@@ -54,7 +56,7 @@ def cache_invalidate(key: str) -> None:
     try:
         r = get_redis_pool()
         r.delete(key)
-    except Exception as e:
+    except Exception as e:  # Broad catch: cache is fail-safe by design
         logger.warning("cache_invalidate failed for key=%s: %s", key, e)
 
 
@@ -73,5 +75,5 @@ def cache_invalidate_pattern(pattern: str) -> None:
                 r.delete(*keys)
             if cursor == 0:
                 break
-    except Exception as e:
+    except Exception as e:  # Broad catch: cache is fail-safe by design
         logger.warning("cache_invalidate_pattern failed for pattern=%s: %s", pattern, e)

@@ -3,6 +3,9 @@ import logging
 from uuid import UUID
 
 from app.db.connection import get_db_connection
+
+import psycopg
+import redis
 from app.models.schemas import NormalizedEvent, Contact, AgentConfig
 
 logger = logging.getLogger(__name__)
@@ -59,7 +62,7 @@ def check_cost_cap(agent_id: UUID) -> bool:
             )
             return True
         return False
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Cost cap check failed: {e}")
         return False
 
@@ -103,7 +106,7 @@ def _check_contact_rate(phone: str) -> dict | None:
             }
         return None
 
-    except Exception as e:
+    except redis.RedisError as e:
         # Redis unavailable — fail open
         logger.debug(f"Rate limit check skipped (Redis unavailable): {e}")
         return None
@@ -136,6 +139,6 @@ def _check_unknown_rate(phone: str, agent: AgentConfig) -> dict | None:
             }
         return None
 
-    except Exception as e:
+    except redis.RedisError as e:
         logger.debug(f"Unknown rate limit check skipped (Redis unavailable): {e}")
         return None

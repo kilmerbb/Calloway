@@ -12,6 +12,8 @@ import uuid
 
 from app.services.redis_pool import get_redis_pool
 
+import redis
+
 logger = logging.getLogger(__name__)
 
 STREAM = "calloway:inbound"
@@ -28,7 +30,7 @@ def _ensure_consumer_group(r) -> None:
     try:
         r.xgroup_create(STREAM, GROUP, id="0", mkstream=True)
         logger.info("Created consumer group %s on stream %s", GROUP, STREAM)
-    except Exception as e:
+    except redis.RedisError as e:
         # BUSYGROUP = group already exists — that's fine
         if "BUSYGROUP" in str(e):
             pass
@@ -100,7 +102,7 @@ def _move_to_dlq(r, entry_id: str, fields: dict, error: str) -> None:
     try:
         r.xadd(DLQ_STREAM, dlq_fields, maxlen=10000, approximate=True)
         logger.warning("Moved entry %s to DLQ: %s", entry_id, error)
-    except Exception as dlq_err:
+    except redis.RedisError as dlq_err:
         logger.critical("Failed to write to DLQ: %s (original entry: %s)", dlq_err, entry_id)
 
 
@@ -111,7 +113,7 @@ def run_consumer_loop(shutdown_event: threading.Event) -> None:
     try:
         r = get_redis_pool()
         _ensure_consumer_group(r)
-    except Exception as e:
+    except redis.RedisError as e:
         logger.critical("Cannot initialize Redis Streams consumer: %s", e)
         return
 
@@ -157,7 +159,7 @@ def run_consumer_loop(shutdown_event: threading.Event) -> None:
                         r.xack(STREAM, GROUP, entry_id)
                         retry_counts.pop(entry_id, None)
 
-                    except Exception as proc_err:
+                    except Exception as proc_err:  # Broad catch: worker loop must survive transient errors
                         retries = retry_counts.get(entry_id, 0) + 1
                         retry_counts[entry_id] = retries
 
@@ -173,7 +175,7 @@ def run_consumer_loop(shutdown_event: threading.Event) -> None:
                             retry_counts.pop(entry_id, None)
                         # else: message stays pending, will be re-read on next claim cycle
 
-        except Exception as loop_err:
+        except Exception as loop_err:  # Broad catch: worker loop must survive transient errors
             logger.error("Consumer loop error: %s", loop_err, exc_info=True)
             # Back off before retrying the loop
             shutdown_event.wait(timeout=2)

@@ -6,6 +6,8 @@ from uuid import UUID
 from app.config import get_settings
 from app.db.connection import get_db_connection
 
+import psycopg
+
 logger = logging.getLogger(__name__)
 
 
@@ -56,7 +58,7 @@ def send_email(
         )
         return {"message_id": message_id, "status": "sent"}
 
-    except Exception as e:
+    except Exception as e:  # Broad catch: SendGrid SDK errors (lazy-imported)
         logger.error("Failed to send email to %s: %s", to, e, exc_info=True)
         return {"message_id": None, "status": "error", "error": str(e)}
 
@@ -114,7 +116,7 @@ def send_client_email(
                 [str(conv["id"])],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error("Failed to log email message: %s", e, exc_info=True)
 
     return result

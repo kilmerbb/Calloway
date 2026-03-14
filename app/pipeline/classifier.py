@@ -151,7 +151,7 @@ def classify_intent(
             try:
                 from app.tools.contacts import update_contact
                 update_contact(contact.id, language_detected=language_code)
-            except Exception:
+            except Exception:  # Broad catch: language update is non-critical
                 pass
 
         return IntentClassification(
@@ -162,7 +162,7 @@ def classify_intent(
             language_code=language_code,
         )
 
-    except Exception as e:
+    except Exception as e:  # Broad catch: LLM failure must fall back to keyword classifier
         logger.warning(f"LLM classification failed, using keyword fallback: {e}")
         intent = _keyword_classify(event.body)
         return IntentClassification(

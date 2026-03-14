@@ -113,7 +113,12 @@ def test_unknown_command_type_handled(mock_get_client):
 def test_command_parse_failure_handled(mock_get_client):
     """When LLM parsing fails, return a friendly error."""
     mock_client = mock_get_client.return_value
-    mock_client.classify.side_effect = Exception("API timeout")
+    import anthropic
+    mock_client.classify.side_effect = anthropic.APIError(
+        message="API timeout",
+        request=None,
+        body=None,
+    )
 
     result = handle_agent_command(_event("garbled text"), AGENT)
     assert "didn't understand" in result.response_text.lower()

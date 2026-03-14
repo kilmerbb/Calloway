@@ -40,7 +40,7 @@ def run_trigger_loop():
     while not _shutdown.is_set():
         try:
             run_trigger_worker_once()
-        except Exception as e:
+        except Exception as e:  # Broad catch: worker loop must survive transient errors
             logger.error(f"Trigger worker error: {e}")
         _touch_healthcheck()
         # Sleep in small increments so we can respond to shutdown quickly
@@ -67,11 +67,11 @@ def run_daily_scan_loop():
                 for agent in agents:
                     try:
                         send_morning_briefing(agent)
-                    except Exception as e:
+                    except Exception as e:  # Broad catch: worker loop must survive transient errors
                         logger.error(f"Failed briefing for {agent.name}: {e}")
 
                 last_scan_date = today
-            except Exception as e:
+            except Exception as e:  # Broad catch: worker loop must survive transient errors
                 logger.error(f"Daily scan failed: {e}")
 
         _touch_healthcheck()

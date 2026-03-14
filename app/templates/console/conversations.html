@@ -2,8 +2,8 @@
 {% block content %}
 <form method="get" class="filters">
     <div class="form-group">
-        <label>Customer</label>
-        <select name="agent" title="Filter conversations by customer">
+        <label for="conv-agent-filter">Customer</label>
+        <select name="agent" id="conv-agent-filter" title="Filter conversations by customer">
             <option value="">All</option>
             {% for a in agents %}
             <option value="{{ a.id }}" {% if agent_filter == a.id|string %}selected{% endif %}>{{ a.name }}</option>
@@ -11,8 +11,8 @@
         </select>
     </div>
     <div class="form-group">
-        <label>Channel</label>
-        <select name="channel" title="Filter by communication channel: SMS, RCS, Voice (Vapi), or Email">
+        <label for="conv-channel-filter">Channel</label>
+        <select name="channel" id="conv-channel-filter" title="Filter by communication channel: SMS, RCS, Voice (Vapi), or Email">
             <option value="">All</option>
             {% for ch in ['sms', 'rcs', 'vapi', 'email'] %}
             <option value="{{ ch }}" {% if channel_filter == ch %}selected{% endif %}>{{ ch }}</option>
@@ -20,8 +20,8 @@
         </select>
     </div>
     <div class="form-group">
-        <label>Search</label>
-        <input type="text" name="search" value="{{ search }}" placeholder="Contact name or phone..." title="Search by contact name or phone number">
+        <label for="conv-search">Search</label>
+        <input type="text" name="search" id="conv-search" value="{{ search }}" placeholder="Contact name or phone..." title="Search by contact name or phone number">
     </div>
     <button type="submit" class="btn btn-outline btn-sm" title="Apply filters">Filter</button>
 </form>

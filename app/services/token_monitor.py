@@ -254,5 +254,5 @@ def send_monthly_value_report(agent_id: UUID) -> None:
                  f"booked {report['showings_booked']} showings, "
                  f"saved ~{report['estimated_hours_saved']} hours.",
         )
-    except Exception as e:
+    except Exception as e:  # Broad catch: Firebase SDK errors
         logger.error(f"Failed to send monthly value report: {e}")

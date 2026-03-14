@@ -18,6 +18,8 @@ import logging
 from uuid import UUID
 
 from app.db.connection import get_db_connection
+
+import psycopg
 from app.models.schemas import ConversationSummary, Message
 from app.services.anthropic_service import get_anthropic_client, HAIKU_MODEL
 
@@ -126,7 +128,7 @@ def get_conversation_summary(
         if row:
             return ConversationSummary(**row)
         return None
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to load conversation summary: {e}")
         return None
 
@@ -142,7 +144,7 @@ def get_message_count(agent_id: UUID, contact_id: UUID) -> int:
                 [str(agent_id), str(contact_id)],
             ).fetchone()
         return row["cnt"] if row else 0
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to get message count: {e}")
         return 0
 
@@ -160,7 +162,7 @@ def get_conversation_span_days(agent_id: UUID, contact_id: UUID) -> int:
                 [str(agent_id), str(contact_id)],
             ).fetchone()
         return row["span_days"] if row and row["span_days"] else 0
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to get conversation span: {e}")
         return 0
 
@@ -219,7 +221,7 @@ def generate_or_update_summary(agent_id: UUID, contact_id: UUID) -> Conversation
         else:
             return _update_existing_summary(agent_id, contact_id, conversation_id, existing)
 
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Summarization failed for contact {contact_id}: {e}", exc_info=True)
         return None
 
@@ -268,7 +270,7 @@ def _load_messages_for_summary(
                 ).fetchall()
 
         return [Message(**r) for r in rows]
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to load messages for summarization: {e}")
         return []
 
@@ -477,6 +479,6 @@ def _save_summary(
         if row:
             return ConversationSummary(**row)
         return None
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to save conversation summary: {e}")
         return None

@@ -62,8 +62,8 @@
     <form method="get" action="/console/health" class="filters">
         <input type="hidden" name="tab" value="errors">
         <div class="form-group">
-            <label>Customer</label>
-            <select name="agent" title="Filter errors by customer">
+            <label for="health-error-agent">Customer</label>
+            <select name="agent" id="health-error-agent" title="Filter errors by customer">
                 <option value="">All</option>
                 {% for a in agents %}
                 <option value="{{ a.id }}" {% if agent_filter == a.id|string %}selected{% endif %}>{{ a.name }}</option>
@@ -160,6 +160,7 @@ Stack trace:
         <div class="section-title" title="Manually run operations for a specific customer">Manual Actions</div>
         <p style="color: var(--text-muted); margin-bottom: 0.5rem;">Run daily check for a specific customer:</p>
         <div style="display: flex; gap: 0.5rem; max-width: 400px;">
+            <label for="scan-agent" class="sr-only">Customer to scan</label>
             <select id="scan-agent" style="flex:1;" title="Choose the customer to run the daily check for">
                 <option value="">Select customer...</option>
                 {% for a in agents %}

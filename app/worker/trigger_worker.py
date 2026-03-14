@@ -6,6 +6,8 @@ from uuid import UUID
 
 from dateutil.relativedelta import relativedelta
 
+import psycopg
+
 from app.db.connection import get_db_connection
 from app.models.schemas import Trigger
 
@@ -73,7 +75,7 @@ def process_due_triggers() -> int:
         try:
             _fire_trigger(trigger)
             fired += 1
-        except Exception as e:
+        except Exception as e:  # Broad catch: worker loop must survive transient errors
             logger.error(f"Failed to fire trigger {trigger.id}: {e}")
             _mark_trigger(trigger.id, "failed")
 
@@ -132,7 +134,7 @@ def _notify_agent(trigger: Trigger) -> None:
             contact_id=trigger.entity_id if trigger.entity_type == "contact" else None,
             listing_id=trigger.entity_id if trigger.entity_type == "listing" else None,
         )
-    except Exception as e:
+    except Exception as e:  # Broad catch: Firebase SDK errors
         logger.error(f"Failed to notify agent for trigger {trigger.id}: {e}")
 
 
@@ -179,7 +181,7 @@ def _send_trigger_message(trigger: Trigger) -> None:
             # Just notify the agent with the suggested message
             _notify_agent(trigger)
 
-    except Exception as e:
+    except Exception as e:  # Broad catch: mixed DB + Twilio call
         logger.error(f"Failed to send trigger message for {trigger.id}: {e}")
 
 
@@ -244,7 +246,7 @@ def _increment_triggers_fired(agent_id: UUID) -> None:
                 [str(agent_id)],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to update triggers_fired metric: {e}")
 
 

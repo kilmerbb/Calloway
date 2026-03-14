@@ -28,7 +28,7 @@
     <!-- Activity Feed -->
     <div class="section">
         <div class="section-title" title="Live feed of recent messages — auto-refreshes every 15 seconds">Recent Activity</div>
-        <div id="activity-feed" hx-get="/console/dashboard/activity-feed" hx-trigger="load, every 15s" hx-swap="innerHTML">
+        <div id="activity-feed" hx-get="/console/dashboard/activity-feed" hx-trigger="load, every 15s" hx-swap="innerHTML" aria-live="polite">
             Loading...
         </div>
     </div>

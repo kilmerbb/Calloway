@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from app.db.connection import get_db_connection
+
+import psycopg
 from app.models.schemas import Transaction
 from app.tools.sql_utils import build_safe_update_clause
 
@@ -148,5 +150,5 @@ def _sync_contact_lifecycle(contact_id, new_status: str) -> None:
                 [stage, str(contact_id)],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error("Failed to sync contact lifecycle: %s", e)

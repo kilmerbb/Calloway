@@ -39,7 +39,7 @@ def get_oauth_credentials(agent: AgentConfig) -> Credentials | None:
                 conn.commit()
 
         return creds
-    except Exception as e:
+    except Exception as e:  # Broad catch: Google OAuth refresh + DB update
         logger.error(f"Failed to get Google credentials: {e}")
         return None
 
@@ -86,7 +86,7 @@ def check_availability(
             "busy_slots": busy_slots,
         }
 
-    except Exception as e:
+    except Exception as e:  # Broad catch: Google Calendar API errors
         logger.error(f"Calendar check failed: {e}")
         return _default_availability(agent, target_date)
 
@@ -120,7 +120,7 @@ def create_event(
         event = service.events().insert(calendarId="primary", body=event_body).execute()
         return {"event_id": event.get("id"), "status": "created"}
 
-    except Exception as e:
+    except Exception as e:  # Broad catch: Google Calendar API errors
         logger.error(f"Failed to create calendar event: {e}")
         return {"event_id": None, "status": "error", "error": str(e)}
 

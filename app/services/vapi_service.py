@@ -122,7 +122,7 @@ def _create_assistant(api_key: str, config: dict, agent_id: UUID) -> dict:
 
         logger.info(f"Created Vapi assistant: {result.get('id')}")
         return result
-    except Exception as e:
+    except Exception as e:  # Broad catch: Vapi HTTP API + DB call
         logger.error(f"Failed to create Vapi assistant: {e}")
         return {"error": str(e)}
 
@@ -139,6 +139,6 @@ def _update_assistant(api_key: str, assistant_id: str, config: dict) -> dict:
         response.raise_for_status()
         logger.info(f"Updated Vapi assistant: {assistant_id}")
         return response.json()
-    except Exception as e:
+    except httpx.HTTPError as e:
         logger.error(f"Failed to update Vapi assistant: {e}")
         return {"error": str(e)}

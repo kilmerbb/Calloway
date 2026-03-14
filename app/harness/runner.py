@@ -30,7 +30,7 @@ def list_scenarios() -> list[dict]:
                 "steps": len(data.get("steps", [])),
                 "file": f.name,
             })
-        except Exception as e:
+        except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"Failed to load scenario {f.name}: {e}")
     return scenarios
 
@@ -53,7 +53,7 @@ def _load_scenario(scenario_id: str) -> dict | None:
                 data = json.load(fh)
             if data.get("id") == scenario_id:
                 return data
-        except Exception:
+        except (json.JSONDecodeError, OSError):
             continue
     return None
 
@@ -277,6 +277,8 @@ class ScenarioRunner:
         """Set up scenario preconditions, return agent_id."""
         from app.db.connection import get_db_connection
 
+import psycopg
+
         agent_id = preconditions.get("agent_id")
         if agent_id:
             return agent_id
@@ -289,7 +291,7 @@ class ScenarioRunner:
                 ).fetchone()
             if row:
                 return str(row["id"])
-        except Exception as e:
+        except psycopg.Error as e:
             logger.error(f"Failed to find agent for scenario: {e}")
 
         return None

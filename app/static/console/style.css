@@ -3,6 +3,7 @@
     --bg: #121212;
     --bg-card: #181818;
     --bg-hover: #282828;
+    --bg-sidebar: #000000;
     --border: #333333;
     --text: #FFFFFF;
     --text-muted: #B3B3B3;
@@ -12,7 +13,33 @@
     --green: #1ED760;
     --yellow: #FFA42B;
     --red: #E91429;
+    --red-hover: #dc2626;
+    --black: #000000;
+    --white: #FFFFFF;
     --sidebar-w: 220px;
+
+    /* Spacing */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+
+    /* Typography */
+    --font-size-sm: 12px;
+    --font-size-md: 14px;
+    --font-size-lg: 16px;
+    --font-weight-normal: 400;
+    --font-weight-bold: 700;
+
+    /* Radius */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+
+    /* Shadow */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.12);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -33,7 +60,7 @@ a:hover { text-decoration: underline; }
 
 .sidebar {
     width: var(--sidebar-w);
-    background: #000000;
+    background: var(--bg-sidebar);
     padding: 1rem 0;
     position: fixed;
     height: 100vh;
@@ -44,7 +71,7 @@ a:hover { text-decoration: underline; }
 
 .sidebar-logo {
     padding: 16px 16px 16px 16px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid var(--border);
     font-weight: 700;
     font-size: 15px;
     letter-spacing: -0.3px;
@@ -76,7 +103,7 @@ a:hover { text-decoration: underline; }
 
 .btn-new-agent:hover {
     background: var(--accent);
-    color: #000;
+    color: var(--black);
     text-decoration: none;
 }
 
@@ -265,10 +292,10 @@ textarea { min-height: 80px; resize: vertical; }
     border: none;
     transition: background 0.15s;
 }
-.btn-primary { background: var(--accent); color: #000; font-weight: 600; }
+.btn-primary { background: var(--accent); color: var(--black); font-weight: 600; }
 .btn-primary:hover { background: var(--accent-hover); text-decoration: none; }
-.btn-danger { background: var(--red); color: #fff; }
-.btn-danger:hover { background: #dc2626; }
+.btn-danger { background: var(--red); color: var(--white); }
+.btn-danger:hover { background: var(--red-hover); }
 .btn-sm { padding: 0.25rem 0.5rem; font-size: 12px; }
 .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
 .btn-outline:hover { border-color: var(--text); color: var(--text); }
@@ -473,12 +500,65 @@ details summary:hover { color: var(--accent); }
     left: 1rem;
     padding: 0.5rem 1rem;
     background: var(--accent);
-    color: #fff;
+    color: var(--white);
     border-radius: 0 0 6px 6px;
     z-index: 100;
     font-size: 14px;
 }
 .skip-nav:focus { top: 0; text-decoration: none; }
+.skip-nav:focus-visible { top: 0; text-decoration: none; outline: 2px solid #fff; outline-offset: 2px; }
+
+/* ============================================================
+   Focus-Visible — Consistent keyboard focus indicators
+   ============================================================ */
+a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.btn-danger:focus-visible {
+    outline-color: var(--red);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 0;
+    border-color: var(--accent);
+}
+
+summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.wizard-dots .dot:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.option-card:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.checkbox-item:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.mobile-menu-toggle:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
 
 /* Mobile hamburger menu */
 .mobile-menu-toggle {

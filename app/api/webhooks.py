@@ -7,6 +7,9 @@ import uuid
 from fastapi import APIRouter, Request, Response, BackgroundTasks
 from fastapi.responses import JSONResponse
 
+import psycopg
+import redis
+
 from twilio.request_validator import RequestValidator
 
 from app.config import get_settings
@@ -50,7 +53,7 @@ def _publish_to_stream(
             msg_type, agent_id, correlation_id,
         )
         return True
-    except Exception as e:
+    except redis.RedisError as e:
         logger.critical(
             "Redis XADD failed — falling back to BackgroundTasks: %s "
             "(type=%s agent=%s correlation_id=%s)",
@@ -118,7 +121,7 @@ def _process_inbound_message_sync(agent_id: str, payload: dict):
                         from app.services.firebase_service import send_push_notification
                         n = tcpa_result["notification"]
                         send_push_notification(agent.id, n["tier"], n["title"], n["body"])
-                    except Exception:
+                    except Exception:  # Broad catch: notification failure must not block pipeline
                         pass
                 return
 
@@ -157,7 +160,7 @@ def _process_inbound_message_sync(agent_id: str, payload: dict):
 
         logger.info(f"Processed message: intent={intent.intent}, model={decision.model_used}")
 
-    except Exception as e:
+    except Exception as e:  # Broad catch: worker loop must survive transient errors
         logger.error(f"Pipeline error: {e}", exc_info=True)
 
 
@@ -174,7 +177,7 @@ def _increment_inbound_sms(agent_id: str) -> None:
                 [agent_id],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error("Failed to track inbound SMS: %s", e)
 
 
@@ -203,7 +206,7 @@ def _log_feedback(event, contact, agent):
                     [score, str(contact.id), str(agent.id)],
                 )
                 conn.commit()
-        except Exception as e:
+        except psycopg.Error as e:
             logger.error(f"Failed to log feedback: {e}")
         logger.info(f"Feedback logged from {contact.name}: score={score}")
 
@@ -305,7 +308,7 @@ async def twilio_status(request: Request):
                         [status, message_sid],
                     )
                 await conn.commit()
-        except Exception as e:
+        except Exception as e:  # Broad catch: webhook must return 200 to prevent provider retries
             logger.error("Failed to update delivery status: %s", e, exc_info=True)
 
     return Response(
@@ -388,7 +391,7 @@ async def vapi_post_call(request: Request, background_tasks: BackgroundTasks):
         agent_phone = payload.get("phoneNumber", {}).get("number", "")
         vapi_agent = get_agent_by_twilio_number(agent_phone)
         vapi_agent_id = str(vapi_agent.id) if vapi_agent else ""
-    except Exception:
+    except Exception:  # Broad catch: webhook must return 200 to prevent provider retries
         pass
 
     published = _publish_to_stream("voice", vapi_agent_id, payload, call_id)
@@ -486,7 +489,7 @@ def _process_vapi_transcript_sync(payload: dict):
                             title="Voice Minute Limit Reached",
                             body=f"You've used {float(total_mins['voice_minutes']):.0f} of your {agent.voice_daily_cap_minutes} daily voice minutes.",
                         )
-                    except Exception:
+                    except Exception:  # Broad catch: notification failure must not block pipeline
                         pass
 
         dispatch(decision, event, contact, agent)
@@ -504,7 +507,7 @@ def _process_vapi_transcript_sync(payload: dict):
 
         logger.info(f"Processed Vapi call: {payload.get('call_id')}")
 
-    except Exception as e:
+    except Exception as e:  # Broad catch: worker loop must survive transient errors
         logger.error(f"Vapi processing error: {e}", exc_info=True)
 
 
@@ -535,7 +538,7 @@ def _validate_sendgrid_basic_auth(authorization: str | None) -> bool | JSONRespo
             raise ValueError("not basic auth")
         decoded = base64.b64decode(encoded).decode("utf-8")
         _, _, password = decoded.partition(":")
-    except Exception:
+    except (ValueError, UnicodeDecodeError):
         logger.warning("SendGrid inbound request has malformed Authorization header")
         return JSONResponse(status_code=401, content={"error": "unauthorized"})
 
@@ -589,7 +592,7 @@ async def _resolve_agent_from_email(to_address: str):
             row = await cur.fetchone()
         if row:
             return get_agent_by_id(UUID(str(row["id"])))
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error("Agent email lookup failed: %s", e)
     return None
 
@@ -635,7 +638,7 @@ def _process_inbound_email_sync(agent_id: str, payload: dict):
                      parsed["subject"], parsed["text"]],
                 )
                 conn.commit()
-        except Exception as e:
+        except psycopg.Error as e:
             logger.error("Failed to archive email: %s", e)
 
         # Resolve contact
@@ -666,5 +669,5 @@ def _process_inbound_email_sync(agent_id: str, payload: dict):
         logger.info("Processed email: from=%s intent=%s model=%s",
                      parsed["from_address"], intent.intent, decision.model_used)
 
-    except Exception as e:
+    except Exception as e:  # Broad catch: worker loop must survive transient errors
         logger.error("Email pipeline error: %s", e, exc_info=True)

@@ -7,6 +7,8 @@ from twilio.rest import Client
 from app.config import get_settings
 from app.db.connection import get_db_connection
 
+import psycopg
+
 logger = logging.getLogger(__name__)
 
 _client: Client | None = None
@@ -38,7 +40,7 @@ def send_sms(to: str, from_: str, body: str, agent_id: UUID | None = None) -> di
         logger.info(f"Sent SMS to {to}: {body[:50]}...")
         return result
 
-    except Exception as e:
+    except Exception as e:  # Broad catch: Twilio SDK errors
         logger.error(f"Failed to send SMS to {to}: {e}")
         return {"sid": None, "status": "failed", "error": str(e)}
 
@@ -59,7 +61,7 @@ def _increment_sms_metrics(agent_id: UUID | None, segments: int) -> None:
                 [str(agent_id), segments, cost_cents, segments, cost_cents],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to track SMS cost: {e}")
 
 
@@ -111,7 +113,7 @@ def send_client_message(
                 [str(contact_id)],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to log outbound message: {e}")
 
     result["channel"] = "rcs"

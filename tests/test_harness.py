@@ -311,7 +311,8 @@ def test_store_trace_function():
 
     # Should not raise even if DB is unavailable
     with patch("app.services.harness_queries.get_db_connection") as mock_db:
-        mock_db.side_effect = Exception("DB not available")
+        import psycopg
+        mock_db.side_effect = psycopg.Error("DB not available")
         store_trace(trace, "+15559990000", "test message")
         # Function logs error but doesn't raise
 

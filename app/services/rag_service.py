@@ -350,7 +350,7 @@ class RAGService:
                 query=message_text,
                 top_k=settings.RAG_TOP_K,
             )
-        except Exception as e:
+        except Exception as e:  # Broad catch: mixed DB + embedding API call
             logger.warning("RAG search failed, proceeding without context: %s", e)
             return ""
 

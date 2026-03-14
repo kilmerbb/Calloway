@@ -13,6 +13,8 @@ from uuid import UUID
 from app.config import get_settings
 from app.db.connection import get_db_connection
 
+import psycopg
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -63,7 +65,7 @@ def _get_firebase_app():
         logger.info("Firebase Admin SDK initialised successfully")
         return _firebase_app
 
-    except Exception:
+    except Exception:  # Broad catch: Firebase SDK init (lazy-imported)
         logger.exception("Failed to initialise Firebase Admin SDK")
         return None
 
@@ -144,7 +146,7 @@ def _deactivate_token(fcm_token: str) -> None:
             )
             conn.commit()
         logger.info("Deactivated invalid FCM token: %s...%s", fcm_token[:8], fcm_token[-4:])
-    except Exception:
+    except psycopg.Error:
         logger.exception("Failed to deactivate token")
 
 
@@ -225,7 +227,7 @@ def _send_to_token(token: str, tier: str, title: str, body: str, data: dict) -> 
         _deactivate_token(token)
         return False
 
-    except Exception:
+    except Exception:  # Broad catch: Firebase SDK errors
         logger.exception("FCM send failed for token %s...%s", token[:8], token[-4:])
         return False
 

@@ -3,8 +3,8 @@
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
     <form method="get" class="filters">
         <div class="form-group">
-            <label>Search</label>
-            <input type="text" name="search" value="{{ search }}" placeholder="Name or market..." title="Filter customers by name or market area">
+            <label for="tenant-search">Search</label>
+            <input type="text" name="search" id="tenant-search" value="{{ search }}" placeholder="Name or market..." title="Filter customers by name or market area">
         </div>
         <button type="submit" class="btn btn-outline btn-sm" title="Apply the search filter">Filter</button>
     </form>

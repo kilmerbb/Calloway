@@ -3,6 +3,8 @@ import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
+import psycopg
+
 from app.config import get_settings
 from app.db.connection import get_db_connection
 
@@ -89,7 +91,7 @@ def create_customer_and_subscription(
                 ],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error("DB insert failed for agent %s: %s", agent_id, e, exc_info=True)
         return {"error": str(e)}
 
@@ -114,7 +116,7 @@ def create_customer_and_subscription(
             trial_period_days=TRIAL_DAYS,
             metadata={"agent_id": str(agent_id)},
         )
-    except Exception as e:
+    except Exception as e:  # Broad catch: Stripe SDK errors (lazy-imported)
         logger.error("Stripe API error for agent %s: %s", agent_id, e, exc_info=True)
         # Clean up the placeholder DB row
         try:
@@ -124,7 +126,7 @@ def create_customer_and_subscription(
                     [str(agent_id)],
                 )
                 conn.commit()
-        except Exception as cleanup_err:
+        except psycopg.Error as cleanup_err:
             logger.error("Failed to clean up DB row for agent %s: %s", agent_id, cleanup_err)
         return {"error": str(e)}
 
@@ -149,7 +151,7 @@ def create_customer_and_subscription(
                 ],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error("DB update with Stripe IDs failed for agent %s: %s", agent_id, e, exc_info=True)
         return {"error": str(e)}
 
@@ -194,7 +196,7 @@ def change_plan(agent_id: UUID, new_tier: str) -> dict:
             proration_behavior="create_prorations",
             metadata={"plan_tier": new_tier},
         )
-    except Exception as e:
+    except Exception as e:  # Broad catch: Stripe SDK errors (lazy-imported)
         logger.error("Stripe API error changing plan for agent %s: %s", agent_id, e, exc_info=True)
         return {"error": str(e)}
 
@@ -235,7 +237,7 @@ def cancel_subscription(agent_id: UUID, at_period_end: bool = True) -> dict:
         else:
             stripe.Subscription.cancel(sub["stripe_subscription_id"])
             new_status = "canceled"
-    except Exception as e:
+    except Exception as e:  # Broad catch: Stripe SDK errors (lazy-imported)
         logger.error("Stripe API error cancelling subscription for agent %s: %s", agent_id, e, exc_info=True)
         return {"error": str(e)}
 

@@ -1,5 +1,6 @@
 """Contact-related command handlers: instructions, queries, notes, connect."""
 
+import anthropic
 import logging
 import re
 from datetime import datetime, timezone
@@ -48,7 +49,7 @@ def handle_client_instruction(
             details,
             agent.id,
         )
-    except Exception:
+    except anthropic.APIError:
         logger.debug("Failed to compose message for %s, falling back to raw details", contact.name, exc_info=True)
         composed = details
 

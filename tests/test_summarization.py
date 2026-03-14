@@ -382,7 +382,8 @@ class TestAssemblerWithSummary:
     @patch("app.services.summarization_service.get_conversation_summary")
     def test_summary_lookup_failure_falls_back(self, mock_summary, mock_history):
         """If summary lookup fails, fall back to standard behavior."""
-        mock_summary.side_effect = Exception("DB error")
+        import psycopg
+        mock_summary.side_effect = psycopg.Error("DB error")
         mock_history.return_value = [_make_message(i) for i in range(20)]
 
         summary_text, messages = _load_history_with_summary(AGENT_ID, CONTACT_ID)

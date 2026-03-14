@@ -3,6 +3,8 @@ import logging
 from datetime import datetime, timezone, timedelta, time
 from uuid import UUID
 
+import psycopg
+
 from app.db.connection import get_db_connection
 from app.models.schemas import AgentConfig, Trigger
 from app.tools.contacts import analyze_contact_gaps
@@ -18,13 +20,13 @@ def run_daily_scan():
     # Process knowledge base expirations across all agents
     try:
         process_kb_expirations()
-    except Exception as e:
+    except Exception as e:  # Broad catch: worker loop must survive transient errors
         logger.error(f"KB expiration processing failed: {e}")
 
     for agent in agents:
         try:
             scan_agent(agent)
-        except Exception as e:
+        except Exception as e:  # Broad catch: worker loop must survive transient errors
             logger.error(f"Daily scan failed for agent {agent.id}: {e}")
 
 
@@ -205,7 +207,7 @@ def send_morning_briefing(agent: AgentConfig) -> None:
             title=f"Morning Briefing — {briefing['date']}",
             body=text,
         )
-    except Exception as e:
+    except Exception as e:  # Broad catch: Firebase SDK errors
         logger.error(f"Failed to send morning briefing to {agent.name}: {e}")
 
 
@@ -471,7 +473,7 @@ def _create_gap_trigger(agent: AgentConfig, gap: dict) -> None:
             message_template=f"{contact.name}: {gap['suggested_action']} ({gap['days_since_contact']}d gap)",
             autonomy_level="ask_agent",
         )
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to create gap trigger for {contact.name}: {e}")
 
 
@@ -490,7 +492,7 @@ def _create_dom_alert_trigger(agent: AgentConfig, alert: dict) -> None:
             message_template=f"{alert['address']}: {alert['dom']} days on market at ${alert['price']:,}",
             autonomy_level="ask_agent",
         )
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to create DOM alert: {e}")
 
 
@@ -509,5 +511,5 @@ def _create_followup_trigger(agent: AgentConfig, followup: dict) -> None:
             message_template=f"Hi {followup['name']}! Just checking in — still interested in finding a place?",
             autonomy_level="auto",
         )
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to create proactive followup: {e}")

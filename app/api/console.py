@@ -12,6 +12,8 @@ from app.api.console_auth import (
     check_rate_limit, record_failed_attempt, reset_rate_limit,
     log_audit,
 )
+import psycopg
+
 from app.services.console_queries import set_console_context
 
 logger = logging.getLogger(__name__)
@@ -418,7 +420,7 @@ async def tenant_test_sms(request: Request, agent_id: str):
             target_id=agent_id,
             ip_address=_client_ip(request),
         )
-    except Exception as e:
+    except Exception as e:  # Broad catch: mixed DB + Twilio call
         logger.error(f"Test SMS failed: {e}")
     return RedirectResponse(f"/console/tenants/{agent_id}", status_code=303)
 
@@ -725,7 +727,7 @@ async def billing_change_plan(request: Request, agent_id: str):
             ip_address=_client_ip(request),
             metadata={"new_tier": new_tier},
         )
-    except Exception as e:
+    except Exception as e:  # Broad catch: mixed Stripe API + DB call
         logger.error(f"Plan change failed: {e}")
 
     return RedirectResponse("/console/billing", status_code=303)
@@ -757,7 +759,7 @@ async def billing_cancel(request: Request, agent_id: str):
             target_id=agent_id,
             ip_address=_client_ip(request),
         )
-    except Exception as e:
+    except Exception as e:  # Broad catch: mixed Stripe API + DB call
         logger.error(f"Subscription cancellation failed: {e}")
 
     return RedirectResponse("/console/billing", status_code=303)
@@ -898,7 +900,7 @@ async def tenant_kb_remove(request: Request, agent_id: str, source_type: str, so
             ip_address=_client_ip(request),
             metadata={"agent_id": agent_id},
         )
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"KB remove failed: {e}")
 
     return RedirectResponse(f"/console/tenants/{agent_id}?tab=knowledge-base", status_code=303)
@@ -951,7 +953,7 @@ async def tenant_kb_reindex(request: Request, agent_id: str, source_type: str, s
             ip_address=_client_ip(request),
             metadata={"agent_id": agent_id, "chunks": chunks},
         )
-    except Exception as e:
+    except Exception as e:  # Broad catch: mixed DB + embedding API call
         logger.error(f"KB re-index failed: {e}")
 
     return RedirectResponse(f"/console/tenants/{agent_id}?tab=knowledge-base", status_code=303)
@@ -999,7 +1001,7 @@ async def tenant_kb_set_expiration(request: Request, agent_id: str, source_type:
             ip_address=_client_ip(request),
             metadata={"agent_id": agent_id, "expires_at": expires_at},
         )
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"KB expiration update failed: {e}")
 
     return RedirectResponse(f"/console/tenants/{agent_id}?tab=knowledge-base", status_code=303)
@@ -1039,7 +1041,7 @@ async def tenant_kb_update_settings(request: Request, agent_id: str):
         )
     except ValueError as e:
         return Response(str(e), status_code=400)
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"KB settings update failed: {e}")
 
     return RedirectResponse(f"/console/tenants/{agent_id}?tab=knowledge-base", status_code=303)
@@ -1130,7 +1132,7 @@ async def tenant_kb_upload(request: Request, agent_id: str):
             ip_address=_client_ip(request),
             metadata={"agent_id": agent_id, "title": title, "chunks": len(chunks)},
         )
-    except Exception as e:
+    except Exception as e:  # Broad catch: mixed DB + embedding API call
         logger.error(f"KB document upload failed: {e}")
         return Response(f"Upload failed: {e}", status_code=500)
 

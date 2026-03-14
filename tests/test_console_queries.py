@@ -7,6 +7,7 @@ tested with mocked sync DB connections.
 """
 import json
 import pytest
+import psycopg
 from datetime import datetime, timezone, date, timedelta
 from uuid import uuid4
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -81,7 +82,7 @@ async def test_get_system_pulse_error_returns_defaults():
     from app.services.console_queries import get_system_pulse
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_system_pulse()
         assert result["total_agents"] == 0
@@ -152,7 +153,7 @@ async def test_get_recent_activity_error():
     from app.services.console_queries import get_recent_activity
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_recent_activity()
         assert result == []
@@ -186,7 +187,7 @@ async def test_get_agents_needing_attention_error():
     from app.services.console_queries import get_agents_needing_attention
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_agents_needing_attention()
         assert result == {"error_agents": [], "inactive_agents": []}
@@ -239,7 +240,7 @@ async def test_get_all_agents_error():
     from app.services.console_queries import get_all_agents
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         agents = await get_all_agents()
         assert agents == []
@@ -305,7 +306,7 @@ async def test_get_agent_detail_error():
     from app.services.console_queries import get_agent_detail
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_agent_detail(AGENT_ID)
         assert result is None
@@ -367,7 +368,7 @@ async def test_get_recent_conversations_error():
     from app.services.console_queries import get_recent_conversations
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_recent_conversations()
         assert result == []
@@ -458,7 +459,7 @@ async def test_get_conversation_detail_error():
     from app.services.console_queries import get_conversation_detail
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_conversation_detail(CONV_ID)
         assert result is None
@@ -511,7 +512,7 @@ async def test_get_trigger_queue_error():
     from app.services.console_queries import get_trigger_queue
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_trigger_queue()
         assert result == []
@@ -540,7 +541,7 @@ async def test_retry_trigger_error_no_raise():
     from app.services.console_queries import retry_trigger
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         await retry_trigger(TRIGGER_ID)  # Should not raise
 
@@ -586,7 +587,7 @@ async def test_fire_trigger_now_error_no_raise():
     from app.services.console_queries import fire_trigger_now
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         await fire_trigger_now(TRIGGER_ID)  # Should not raise
 
@@ -639,7 +640,7 @@ async def test_get_recent_errors_db_down():
     from app.services.console_queries import get_recent_errors
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_recent_errors()
         assert result == {"tool_errors": [], "app_errors": []}
@@ -682,7 +683,7 @@ def test_log_error_no_context(mock_conn):
 def test_log_error_swallows_exception(mock_conn):
     from app.services.console_queries import log_error
 
-    mock_conn.side_effect = Exception("DB down")
+    mock_conn.side_effect = psycopg.Error("DB down")
     log_error("mod", "error", "msg")  # Should not raise
 
 
@@ -728,7 +729,7 @@ async def test_get_cost_summary_error():
     from app.services.console_queries import get_cost_summary
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_cost_summary()
         assert result["total_cost_dollars"] == 0
@@ -791,7 +792,7 @@ async def test_get_cost_by_agent_error():
     from app.services.console_queries import get_cost_by_agent
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_cost_by_agent()
         assert result == []
@@ -845,7 +846,7 @@ async def test_get_model_tier_breakdown_error():
     from app.services.console_queries import get_model_tier_breakdown
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_model_tier_breakdown()
         assert result == {"_total": 0}
@@ -861,6 +862,10 @@ async def test_get_health_overview_db_green():
     from app.services.console_queries import get_health_overview
 
     mock_conn = AsyncMock()
+    # Mock cursor fetchone to return dict-like results for health queries
+    mock_cursor = AsyncMock()
+    mock_cursor.fetchone = AsyncMock(return_value={"cnt": 1, "avg_latency": 100, "p50": 80, "p95": 200})
+    mock_conn.execute = AsyncMock(return_value=mock_cursor)
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get, \
          patch("redis.from_url") as mock_redis, \
@@ -882,7 +887,7 @@ async def test_get_health_overview_db_red():
     from app.services.console_queries import get_health_overview
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_health_overview()
         assert result["services"]["database"] == "red"
@@ -908,7 +913,7 @@ async def test_get_health_status_color_red():
     from app.services.console_queries import get_health_status_color
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         result = await get_health_status_color()
         assert result == "red"
@@ -1041,7 +1046,8 @@ def test_update_agent_tenant_success(mock_conn):
 def test_update_agent_tenant_error_raises(mock_conn):
     from app.services.console_queries import update_agent_tenant
 
-    mock_conn.side_effect = Exception("DB down")
+    import psycopg
+    mock_conn.side_effect = psycopg.Error("DB down")
     with pytest.raises(ValueError, match="Failed to update agent"):
         update_agent_tenant(AGENT_ID, {"name": "Test"})
 
@@ -1072,7 +1078,7 @@ async def test_deactivate_agent_error_no_raise():
     from app.services.console_queries import deactivate_agent
 
     with patch("app.services.console_queries.get_async_db_connection") as mock_get:
-        mock_get.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_get.return_value.__aenter__ = AsyncMock(side_effect=psycopg.Error("DB down"))
         mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
         await deactivate_agent(AGENT_ID)  # Should not raise
 
@@ -1113,7 +1119,8 @@ def test_send_test_sms_success(mock_sms, mock_conn):
 def test_send_test_sms_error_raises(mock_conn):
     from app.services.console_queries import send_test_sms
 
-    mock_conn.side_effect = Exception("DB down")
+    import psycopg
+    mock_conn.side_effect = psycopg.Error("DB down")
     with pytest.raises(RuntimeError, match="Test SMS failed"):
         send_test_sms(AGENT_ID)
 

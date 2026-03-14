@@ -128,7 +128,8 @@
     <div id="messages-container"
          hx-get="/console/tenants/{{ agent.id }}/tab/messages"
          hx-trigger="intersect once"
-         hx-swap="innerHTML">
+         hx-swap="innerHTML"
+         aria-live="polite">
         <!-- Loading skeleton -->
         <div class="loading-skeleton" aria-label="Loading messages">
             <div class="skeleton-row"></div>
@@ -172,7 +173,7 @@
             </div>
         </form>
     </div>
-    <div id="panel-kb-content">
+    <div id="panel-kb-content" aria-live="polite">
         <!-- Loaded via HTMX when Knowledge Base tab is clicked -->
         <div class="loading-skeleton" aria-label="Loading knowledge base">
             <div class="skeleton-row"></div>

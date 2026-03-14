@@ -78,7 +78,7 @@ class CircuitBreaker:
                 self.failures = 0
                 logger.info("Circuit breaker closed (recovered)")
             return result
-        except Exception as e:
+        except Exception as e:  # Broad catch: circuit breaker must track all failures
             self.failures += 1
             self.last_failure_time = time.time()
             if self.failures >= self.failure_threshold:
@@ -98,7 +98,7 @@ def safe_execute(func: Callable, *args, default=None, log_error: bool = True, **
     """Execute a function safely, returning default on any exception."""
     try:
         return func(*args, **kwargs)
-    except Exception as e:
+    except Exception as e:  # Broad catch: safe_execute is designed to swallow all errors
         if log_error:
             logger.error(f"{func.__name__} failed: {e}")
         return default

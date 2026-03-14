@@ -3,6 +3,8 @@ import logging
 from uuid import UUID
 
 from app.db.connection import get_db_connection
+
+import psycopg
 from app.models.schemas import NormalizedEvent, Contact, AgentConfig
 
 logger = logging.getLogger(__name__)
@@ -50,6 +52,6 @@ def resolve_contact(
         logger.info("Unknown sender: %s (channel=%s)", event.sender_phone, event.channel)
         return None, False
 
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error("Contact resolution failed: %s", e, exc_info=True)
         return None, False

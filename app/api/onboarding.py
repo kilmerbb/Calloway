@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 
 from app.db.connection import get_db_connection
 
+import psycopg
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 
@@ -76,7 +78,7 @@ async def onboard_agent(req: OnboardingRequest):
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception as e:  # Broad catch: mixed DB + service calls
         logger.error(f"Onboarding failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -129,7 +131,7 @@ async def get_checklist(agent_id: str):
 
     except HTTPException:
         raise
-    except Exception as e:
+    except psycopg.Error as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 

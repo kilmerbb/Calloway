@@ -9,6 +9,8 @@ after authenticating the operator session. Background workers that need
 cross-tenant access should call ``set_console_context({"source": "worker",
 "worker": "<worker-name>"})`` at the start of their run loop.
 """
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -17,7 +19,22 @@ from datetime import datetime, timezone
 from functools import wraps
 from uuid import UUID
 
+import psycopg
+import redis
+
 from app.db.connection import get_db_connection, get_async_db_connection
+from app.models.responses import (
+    ActivityEntry,
+    AgentDetail,
+    AgentSummary,
+    ConversationDetail,
+    ConversationRow,
+    CostSummary,
+    ErrorSummary,
+    HealthOverview,
+    SystemPulse,
+    TriggerRow,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +105,7 @@ def _sync_console_authorized(func):
 # ============================================================
 
 @console_authorized
-async def get_system_pulse() -> dict:
+async def get_system_pulse() -> SystemPulse:
     """Top-level system stats for the dashboard."""
     try:
         async with get_async_db_connection() as conn:
@@ -129,7 +146,7 @@ async def get_system_pulse() -> dict:
             "errors_24h": errors_24h["cnt"] if errors_24h else 0,
             "cost_today_dollars": round((cost_today["cost"] if cost_today else 0) / 100, 2),
         }
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"System pulse query failed: {e}")
         return {
             "total_agents": 0, "messages_today": 0, "messages_24h": 0,
@@ -138,7 +155,7 @@ async def get_system_pulse() -> dict:
 
 
 @console_authorized
-async def get_recent_activity(limit: int = 20) -> list[dict]:
+async def get_recent_activity(limit: int = 20) -> list[ActivityEntry]:
     """Recent events across the system for the activity feed."""
     try:
         async with get_async_db_connection() as conn:
@@ -155,7 +172,7 @@ async def get_recent_activity(limit: int = 20) -> list[dict]:
             )
             rows = await cur.fetchall()
         return rows or []
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Recent activity query failed: {e}")
         return []
 
@@ -190,7 +207,7 @@ async def get_agents_needing_attention() -> dict:
             "error_agents": error_agents or [],
             "inactive_agents": inactive_agents or [],
         }
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Attention query failed: {e}")
         return {"error_agents": [], "inactive_agents": []}
 
@@ -200,7 +217,7 @@ async def get_agents_needing_attention() -> dict:
 # ============================================================
 
 @console_authorized
-async def get_all_agents() -> list[dict]:
+async def get_all_agents() -> list[AgentSummary]:
     """All agents with summary stats."""
     try:
         async with get_async_db_connection() as conn:
@@ -232,13 +249,13 @@ async def get_all_agents() -> list[dict]:
             )
             rows = await cur.fetchall()
         return rows or []
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Get all agents failed: {e}")
         return []
 
 
 @console_authorized
-async def get_agent_detail(agent_id: str) -> dict | None:
+async def get_agent_detail(agent_id: str) -> AgentDetail | None:
     """Full agent record with all related data."""
     try:
         async with get_async_db_connection() as conn:
@@ -313,7 +330,7 @@ async def get_agent_detail(agent_id: str) -> dict | None:
             "messages_this_month": cost_month["msgs"] if cost_month else 0,
             "errors_24h": errors["cnt"] if errors else 0,
         }
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Agent detail query failed: {e}")
         return None
 
@@ -328,7 +345,7 @@ async def get_recent_conversations(
     channel: str | None = None,
     search: str | None = None,
     limit: int = 100,
-) -> list[dict]:
+) -> list[ConversationRow]:
     """Recent conversations with filtering."""
     try:
         conditions = []
@@ -363,13 +380,13 @@ async def get_recent_conversations(
             )
             rows = await cur.fetchall()
         return rows or []
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Conversations query failed: {e}")
         return []
 
 
 @console_authorized
-async def get_conversation_detail(conversation_id: str) -> dict | None:
+async def get_conversation_detail(conversation_id: str) -> ConversationDetail | None:
     """Full conversation thread with messages and tool executions."""
     try:
         async with get_async_db_connection() as conn:
@@ -419,7 +436,7 @@ async def get_conversation_detail(conversation_id: str) -> dict | None:
             "tool_executions": tool_execs or [],
             "triggers": triggers,
         }
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Conversation detail query failed: {e}")
         return None
 
@@ -432,7 +449,7 @@ async def get_conversation_detail(conversation_id: str) -> dict | None:
 async def get_trigger_queue(
     status: str | None = None,
     agent_id: str | None = None,
-) -> list[dict]:
+) -> list[TriggerRow]:
     """All triggers with optional filtering."""
     try:
         conditions = []
@@ -458,7 +475,7 @@ async def get_trigger_queue(
             )
             rows = await cur.fetchall()
         return rows or []
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Trigger queue query failed: {e}")
         return []
 
@@ -474,7 +491,7 @@ async def retry_trigger(trigger_id: str) -> None:
                 [trigger_id],
             )
             await conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Retry trigger failed: {e}")
 
 
@@ -488,7 +505,7 @@ async def cancel_trigger(trigger_id: str) -> None:
                 [trigger_id],
             )
             await conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Cancel trigger failed: {e}")
 
 
@@ -502,7 +519,7 @@ async def fire_trigger_now(trigger_id: str) -> None:
                 [trigger_id],
             )
             await conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Fire trigger now failed: {e}")
 
 
@@ -514,7 +531,7 @@ async def fire_trigger_now(trigger_id: str) -> None:
 async def get_recent_errors(
     limit: int = 100,
     agent_id: str | None = None,
-) -> dict:
+) -> ErrorSummary:
     """Tool execution errors + error_log entries."""
     try:
         conditions = ["te.error_message IS NOT NULL"]
@@ -548,14 +565,14 @@ async def get_recent_errors(
                     [limit],
                 )
                 error_log_rows = await cur.fetchall() or []
-            except Exception:
+            except psycopg.Error:
                 pass  # Table may not exist yet
 
         return {
             "tool_errors": rows or [],
             "app_errors": error_log_rows,
         }
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Recent errors query failed: {e}")
         return {"tool_errors": [], "app_errors": []}
 
@@ -578,7 +595,7 @@ def log_error(
                  json.dumps(context) if context else None],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to log error: {e}")
 
 
@@ -587,7 +604,7 @@ def log_error(
 # ============================================================
 
 @console_authorized
-async def get_cost_summary(days: int = 30) -> dict:
+async def get_cost_summary(days: int = 30) -> CostSummary:
     """System-wide cost summary."""
     try:
         async with get_async_db_connection() as conn:
@@ -633,7 +650,7 @@ async def get_cost_summary(days: int = 30) -> dict:
             "total_llm_calls": row["total_llm_calls"] if row else 0,
             "daily": daily or [],
         }
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Cost summary query failed: {e}")
         return {
             "total_cost_dollars": 0, "llm_cost_dollars": 0,
@@ -681,7 +698,7 @@ async def get_cost_by_agent(days: int = 30) -> list[dict]:
                 "cost_per_message": round(total_cost / max(msgs, 1) / 100, 4),
             })
         return result
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Cost by agent query failed: {e}")
         return []
 
@@ -713,7 +730,7 @@ async def get_model_tier_breakdown(days: int = 30) -> dict:
             }
         breakdown["_total"] = total
         return breakdown
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Model tier breakdown query failed: {e}")
         return {"_total": 0}
 
@@ -723,7 +740,7 @@ async def get_model_tier_breakdown(days: int = 30) -> dict:
 # ============================================================
 
 @console_authorized
-async def get_health_overview() -> dict:
+async def get_health_overview() -> HealthOverview:
     """System health combining /health data with operational metrics."""
     services = {}
 
@@ -732,7 +749,7 @@ async def get_health_overview() -> dict:
         async with get_async_db_connection() as conn:
             await conn.execute("SELECT 1")
         services["database"] = "green"
-    except Exception:
+    except psycopg.Error:
         services["database"] = "red"
 
     # Redis
@@ -743,7 +760,7 @@ async def get_health_overview() -> dict:
         r = redis.from_url(settings.REDIS_URL, socket_timeout=2)
         r.ping()
         services["redis"] = "green"
-    except Exception:
+    except (redis.RedisError, ConnectionError):
         services["redis"] = "red"
 
     # Check Anthropic (recent successful LLM call)
@@ -756,7 +773,7 @@ async def get_health_overview() -> dict:
             )
             recent_llm = await cur.fetchone()
         services["anthropic"] = "green" if (recent_llm and recent_llm["cnt"] > 0) else "yellow"
-    except Exception:
+    except psycopg.Error:
         services["anthropic"] = "red"
 
     # Check Twilio (recent sent message)
@@ -769,7 +786,7 @@ async def get_health_overview() -> dict:
             )
             recent_sms = await cur.fetchone()
         services["twilio"] = "green" if (recent_sms and recent_sms["cnt"] > 0) else "yellow"
-    except Exception:
+    except psycopg.Error:
         services["twilio"] = "red"
 
     # Pipeline performance
@@ -791,7 +808,7 @@ async def get_health_overview() -> dict:
                 "p50_ms": round(perf["p50"] or 0),
                 "p95_ms": round(perf["p95"] or 0),
             }
-    except Exception:
+    except psycopg.Error:
         pipeline_stats = {"avg_latency_ms": 0, "p50_ms": 0, "p95_ms": 0}
 
     return {
@@ -807,7 +824,7 @@ async def get_health_status_color() -> str:
         async with get_async_db_connection() as conn:
             await conn.execute("SELECT 1")
         return "green"
-    except Exception:
+    except psycopg.Error:
         return "red"
 
 
@@ -963,7 +980,7 @@ def create_agent_from_wizard(form_data: dict) -> dict:
 
     except ValueError:
         raise
-    except Exception as e:
+    except psycopg.Error as e:
         raise ValueError(f"Failed to create agent: {e}")
 
 
@@ -1017,7 +1034,7 @@ def create_agent_tenant(form_data: dict) -> str:
             return str(row["id"])
     except ValueError:
         raise
-    except Exception as e:
+    except psycopg.Error as e:
         raise ValueError(f"Failed to create agent: {e}")
 
 
@@ -1059,9 +1076,9 @@ def update_agent_tenant(agent_id: str, form_data: dict) -> None:
         try:
             from app.services.agent_config import invalidate_agent_cache
             invalidate_agent_cache(UUID(agent_id))
-        except Exception:
+        except redis.RedisError:
             pass
-    except Exception as e:
+    except psycopg.Error as e:
         raise ValueError(f"Failed to update agent: {e}")
 
 
@@ -1080,7 +1097,7 @@ async def deactivate_agent(agent_id: str) -> None:
                 [agent_id],
             )
             await conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Deactivate agent failed: {e}")
 
 
@@ -1102,7 +1119,7 @@ def send_test_sms(agent_id: str) -> None:
                 body=f"Test message from {agent['name']}'s AI assistant. System is working!",
                 agent_id=UUID(agent_id),
             )
-    except Exception as e:
+    except psycopg.Error as e:
         raise RuntimeError(f"Test SMS failed: {e}")
 
 
@@ -1115,7 +1132,7 @@ def run_manual_scan(agent_id: str) -> None:
         agent = get_agent_by_id(UUID(agent_id))
         if agent:
             scan_agent(agent)
-    except Exception as e:
+    except (psycopg.Error, Exception) as e:  # Broad catch: scanner can throw non-DB errors
         logger.error(f"Manual scan failed: {e}")
 
 
@@ -1167,7 +1184,7 @@ async def get_conversations_by_contact(
             )
             rows = await cur.fetchall()
         return rows or []
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Conversations by contact query failed: {e}")
         return []
 
@@ -1270,7 +1287,7 @@ async def get_conversation_thread(
             "messages": messages_list,
             "total_tool_executions": len(tool_execs) if tool_execs else 0,
         }
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Conversation thread query failed: {e}")
         return {"messages": [], "total_tool_executions": 0}
 
@@ -1309,7 +1326,7 @@ async def get_knowledge_base_items(agent_id: str) -> list[dict]:
             )
             rows = await cur.fetchall()
         return rows or []
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Knowledge base items query failed: {e}")
         return []
 
@@ -1330,7 +1347,7 @@ async def get_kb_settings(agent_id: str) -> dict:
                 "kb_default_ttl_days": row["kb_default_ttl_days"],
             }
         return {"kb_expiration_policy": "remind_only", "kb_default_ttl_days": None}
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"KB settings query failed: {e}")
         return {"kb_expiration_policy": "remind_only", "kb_default_ttl_days": None}
 
@@ -1351,7 +1368,7 @@ async def update_kb_settings(
                 [policy, default_ttl, agent_id],
             )
             await conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"KB settings update failed: {e}")
         raise
 
@@ -1370,7 +1387,7 @@ async def remove_kb_item(agent_id: str, source_type: str, source_id: str) -> int
             deleted = await cur.fetchall()
             await conn.commit()
         return len(deleted) if deleted else 0
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"KB item removal failed: {e}")
         raise
 
@@ -1388,7 +1405,7 @@ async def set_kb_item_expiration(
                 [expires_at, agent_id, source_type, source_id],
             )
             await conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"KB item expiration update failed: {e}")
         raise
 
@@ -1405,7 +1422,7 @@ def get_dead_letter_count() -> int:
         r = get_redis_pool()
         length = r.xlen("calloway:dlq")
         return int(length)
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error("Failed to read DLQ length from Redis: %s", e)
         return -1
 
@@ -1422,7 +1439,7 @@ def get_stream_info() -> dict:
             "inbound_stream_length": int(inbound_len),
             "dlq_length": int(dlq_len),
         }
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error("Failed to read stream info from Redis: %s", e)
         return {"inbound_stream_length": -1, "dlq_length": -1}
 

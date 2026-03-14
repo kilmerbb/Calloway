@@ -6,6 +6,7 @@ import time
 from uuid import UUID
 
 import anthropic
+import psycopg
 
 from app.config import get_settings
 from app.models.schemas import AgentDecision
@@ -58,7 +59,7 @@ class AnthropicClient:
                     [str(agent_id), total_tokens, cost_cents, total_tokens, cost_cents],
                 )
                 conn.commit()
-        except Exception as e:
+        except psycopg.Error as e:
             logger.error(f"Failed to persist token usage: {e}")
 
     def get_usage(self, agent_id: UUID) -> dict:
@@ -75,7 +76,7 @@ class AnthropicClient:
                 ).fetchone()
             if row:
                 return {str(row["date"]): {"tokens": row["tokens"], "cost_cents": row["cost_cents"]}}
-        except Exception as e:
+        except psycopg.Error as e:
             logger.error(f"Failed to read token usage: {e}")
         return {}
 
@@ -221,7 +222,7 @@ class AnthropicClient:
                             "tool_use_id": block.id,
                             "content": json.dumps(result) if not isinstance(result, str) else result,
                         })
-                    except Exception as e:
+                    except Exception as e:  # Broad catch: tool errors must be reported to LLM
                         logger.error(f"Tool {block.name} failed: {e}")
                         tool_results.append({
                             "type": "tool_result",

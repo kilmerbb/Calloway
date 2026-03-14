@@ -9,6 +9,7 @@ This module provides:
   - handle_template: zero-LLM template responses
 """
 
+import anthropic
 import json
 import logging
 from datetime import datetime
@@ -105,7 +106,7 @@ def handle_agent_command(
     try:
         client = get_anthropic_client()
         parsed = client.classify(COMMAND_CLASSIFY_PROMPT, body, agent.id, max_tokens=300)
-    except Exception as e:
+    except anthropic.APIError as e:
         logger.error("Command parsing failed: %s", e, exc_info=True)
         return AgentDecision(
             response_text="Sorry, I didn't understand that command. Try again?",
@@ -304,7 +305,7 @@ def _execute_tool(tool_name: str, tool_input: dict, agent_id: UUID) -> dict:
         else:
             return {"error": f"Unknown tool: {tool_name}"}
 
-    except Exception as e:
+    except Exception as e:  # Broad catch: tool errors must be reported to LLM
         logger.error("Tool execution error (%s): %s", tool_name, e, exc_info=True)
         return {"error": str(e)}
 
@@ -340,7 +341,7 @@ def handle_full_reasoning(
             )
             if rag_context:
                 system_prompt += f"\n\n{rag_context}"
-        except Exception as e:
+        except Exception as e:  # Broad catch: RAG is non-critical, proceed without context
             logger.warning("RAG context retrieval failed, proceeding without: %s", e)
 
     if contact:

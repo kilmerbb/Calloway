@@ -37,7 +37,7 @@ def index_agent_data(agent_id: UUID) -> dict:
         try:
             rag.index_conversation(agent_id, row["id"])
             counts["conversations"] += 1
-        except Exception as e:
+        except Exception as e:  # Broad catch: mixed DB + embedding API call
             logger.error("Failed to index conversation %s: %s", row["id"], e)
             counts["errors"] += 1
 
@@ -53,7 +53,7 @@ def index_agent_data(agent_id: UUID) -> dict:
         try:
             rag.index_contact(agent_id, row["id"])
             counts["contacts"] += 1
-        except Exception as e:
+        except Exception as e:  # Broad catch: mixed DB + embedding API call
             logger.error("Failed to index contact %s: %s", row["id"], e)
             counts["errors"] += 1
 
@@ -69,7 +69,7 @@ def index_agent_data(agent_id: UUID) -> dict:
         try:
             rag.index_listing(agent_id, row["id"])
             counts["listings"] += 1
-        except Exception as e:
+        except Exception as e:  # Broad catch: mixed DB + embedding API call
             logger.error("Failed to index listing %s: %s", row["id"], e)
             counts["errors"] += 1
 
@@ -96,7 +96,7 @@ def index_conversation_async(agent_id: UUID, conversation_id: UUID) -> None:
         from app.services.rag_service import get_rag_service
         rag = get_rag_service()
         rag.index_conversation(agent_id, conversation_id)
-    except Exception as e:
+    except Exception as e:  # Broad catch: RAG indexing is non-critical
         logger.warning(
             "Failed to index conversation %s for RAG (non-fatal): %s",
             conversation_id, e,

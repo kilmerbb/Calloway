@@ -4,6 +4,8 @@ import threading
 from datetime import date
 from uuid import UUID
 
+import psycopg
+
 from app.db.connection import get_db_connection
 from app.models.schemas import (
     NormalizedEvent, Contact, AgentConfig, AgentDecision,
@@ -133,7 +135,7 @@ def _send_notification(agent: AgentConfig, notif: dict, contact: Contact | None)
             body=notif.get("body", ""),
             contact_id=contact.id if contact else None,
         )
-    except Exception as e:
+    except Exception as e:  # Broad catch: Firebase SDK errors
         logger.error(f"Failed to send notification: {e}")
 
 
@@ -157,7 +159,7 @@ def _create_trigger(agent_id: UUID, trigger_data: dict):
                 ],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to create trigger: {e}")
 
 
@@ -241,7 +243,7 @@ def _log_conversation(
                 )
 
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to log conversation: {e}")
 
 
@@ -276,7 +278,7 @@ def _update_usage_metrics(
                  msg_sent, llm_calls, decision.tokens_used, cost_cents],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to update usage metrics: {e}")
 
 
@@ -305,7 +307,7 @@ def _maybe_append_feedback_prompt(
             response_text += (
                 "\n\nPS — Was this helpful? Tap 1 for yes, 2 for not really."
             )
-    except Exception as e:
+    except psycopg.Error as e:
         logger.debug(f"Feedback pulse check skipped: {e}")
 
     return response_text
@@ -328,7 +330,7 @@ def _background_summarize(agent_id: UUID, contact_id: UUID) -> None:
 
     try:
         _maybe_summarize_conversation(agent_id, contact_id)
-    except Exception:
+    except Exception:  # Broad catch: worker loop must survive transient errors
         logger.exception("Background summarization failed")
     finally:
         r.delete(lock_key)
@@ -354,6 +356,6 @@ def _maybe_summarize_conversation(agent_id: UUID, contact_id: UUID) -> None:
                     f"Conversation summary updated for contact {contact_id}: "
                     f"{summary.messages_summarized_count} msgs summarized"
                 )
-    except Exception as e:
+    except Exception as e:  # Broad catch: worker loop must survive transient errors
         # Non-fatal — assembler will fall back to recent messages only
         logger.warning(f"Conversation summarization skipped: {e}")

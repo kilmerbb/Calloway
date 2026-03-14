@@ -68,7 +68,7 @@ def handle_status_change(
                 )
                 if status_until < now:
                     status_until += timedelta(days=1)
-        except Exception:
+        except (ValueError, OverflowError):
             logger.debug("Failed to parse status time reference '%s', leaving open-ended", time_ref, exc_info=True)
             status_until = None
 
@@ -148,7 +148,7 @@ def handle_handoff_return(
                     "message_template": f"Reminder: showing at {listing.address} today",
                 })
                 updates_made.append(f"Showing scheduled: {listing.address} at {time_ref}")
-            except Exception:
+            except (ValueError, OverflowError):
                 logger.debug("Failed to parse showing time '%s' for handoff return", time_ref, exc_info=True)
 
     # Add notes with the details

@@ -12,6 +12,8 @@ import re
 from uuid import UUID
 
 from app.db.connection import get_db_connection
+
+import psycopg
 from app.models.schemas import (
     NormalizedEvent, Contact, AgentConfig, IntentClassification,
     AssembledContext, Listing, Trigger, Message,
@@ -120,7 +122,7 @@ def _load_history_with_summary(
         summary = get_conversation_summary(agent_id, contact_id)
         if summary:
             summary_text = summary.summary_text
-    except Exception as e:
+    except psycopg.Error as e:
         logger.debug(f"Summary lookup skipped: {e}")
 
     # Decide how many recent messages to load
@@ -144,7 +146,7 @@ def _load_conversation_history(
             messages = [Message(**r) for r in rows]
             # Respect caller's limit even on cache hit
             return messages[-limit:] if len(messages) > limit else messages
-        except Exception as e:
+        except (json.JSONDecodeError, TypeError) as e:
             logger.warning("Failed to deserialise cached conversation: %s", e)
 
     # --- cache miss: load from DB ---
@@ -165,11 +167,11 @@ def _load_conversation_history(
                 [m.model_dump(mode="json") for m in messages]
             )
             cache_set(cache_key, serialised, ttl=30)
-        except Exception as e:
+        except Exception as e:  # Broad catch: cache write is non-critical
             logger.warning("Failed to cache conversation history: %s", e)
 
         return messages
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to load conversation history: {e}")
         return []
 
@@ -233,7 +235,7 @@ def _find_referenced_listing(body: str, agent_id: UUID) -> Listing | None:
                 f"SELECT * FROM listings WHERE {where} LIMIT 5",
                 params,
             ).fetchall()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to search listings by address: {e}")
         return None
 
@@ -264,7 +266,7 @@ def _cached_active_listings(agent_id: UUID) -> list[Listing]:
         try:
             rows = _json.loads(cached)
             return [Listing(**r) for r in rows]
-        except Exception as e:
+        except (json.JSONDecodeError, TypeError) as e:
             logger.warning("Failed to deserialise cached listings: %s", e)
 
     listings = search_listings(agent_id, filters={"status": "active"})
@@ -274,7 +276,7 @@ def _cached_active_listings(agent_id: UUID) -> list[Listing]:
             [l.model_dump(mode="json") for l in listings]
         )
         cache_set(cache_key, serialised, ttl=300)
-    except Exception as e:
+    except Exception as e:  # Broad catch: cache write is non-critical
         logger.warning("Failed to cache listings: %s", e)
 
     return listings
@@ -296,7 +298,7 @@ def _load_contact_triggers(agent_id: UUID, contact_id: UUID) -> list[Trigger]:
                 [str(agent_id), str(contact_id)],
             ).fetchall()
         return [Trigger(**r) for r in rows]
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to load triggers: {e}")
         return []
 

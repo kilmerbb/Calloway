@@ -2,8 +2,8 @@
 {% block content %}
 <form method="get" class="filters">
     <div class="form-group">
-        <label>Customer</label>
-        <select name="agent" title="Filter errors by customer">
+        <label for="errors-agent-filter">Customer</label>
+        <select name="agent" id="errors-agent-filter" title="Filter errors by customer">
             <option value="">All</option>
             {% for a in agents %}
             <option value="{{ a.id }}" {% if agent_filter == a.id|string %}selected{% endif %}>{{ a.name }}</option>

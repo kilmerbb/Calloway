@@ -8,13 +8,13 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="section">
         <div class="section-title">Agent Profile</div>
-        <div class="form-group"><label>Name *</label><input type="text" name="name" required title="Full name of the real estate agent"></div>
-        <div class="form-group"><label>Email *</label><input type="email" name="email" required title="Agent's email address for notifications"></div>
-        <div class="form-group"><label>Phone *</label><input type="tel" name="phone" required placeholder="+15551234567" title="Agent's personal phone in E.164 format (e.g. +15551234567)"></div>
-        <div class="form-group"><label>Brokerage</label><input type="text" name="brokerage" title="The agent's real estate brokerage firm"></div>
-        <div class="form-group"><label>Market</label><input type="text" name="market" placeholder="e.g. Philadelphia" title="Primary geographic market area the agent serves"></div>
-        <div class="form-group"><label>Timezone</label>
-            <select name="timezone" title="Used for scheduling automations and daily briefings in the agent's local time">
+        <div class="form-group"><label for="new-name">Name *</label><input type="text" name="name" id="new-name" required title="Full name of the real estate agent"></div>
+        <div class="form-group"><label for="new-email">Email *</label><input type="email" name="email" id="new-email" required title="Agent's email address for notifications"></div>
+        <div class="form-group"><label for="new-phone">Phone *</label><input type="tel" name="phone" id="new-phone" required placeholder="+15551234567" title="Agent's personal phone in E.164 format (e.g. +15551234567)"></div>
+        <div class="form-group"><label for="new-brokerage">Brokerage</label><input type="text" name="brokerage" id="new-brokerage" title="The agent's real estate brokerage firm"></div>
+        <div class="form-group"><label for="new-market">Market</label><input type="text" name="market" id="new-market" placeholder="e.g. Philadelphia" title="Primary geographic market area the agent serves"></div>
+        <div class="form-group"><label for="new-timezone">Timezone</label>
+            <select name="timezone" id="new-timezone" title="Used for scheduling automations and daily briefings in the agent's local time">
                 <option value="America/New_York">Eastern</option>
                 <option value="America/Chicago">Central</option>
                 <option value="America/Denver">Mountain</option>
@@ -25,36 +25,36 @@
 
     <div class="section">
         <div class="section-title">Twilio Configuration</div>
-        <div class="form-group"><label>Twilio Phone Number *</label><input type="tel" name="twilio_number" required placeholder="+15559876543" title="The Twilio number that contacts will text to reach this agent's AI"></div>
+        <div class="form-group"><label for="new-twilio">Twilio Phone Number *</label><input type="tel" name="twilio_number" id="new-twilio" required placeholder="+15559876543" title="The Twilio number that contacts will text to reach this agent's AI"></div>
     </div>
 
     <div class="section">
         <div class="section-title">Style & Autonomy</div>
-        <div class="form-group"><label>Tone</label>
-            <select name="tone" title="Controls the AI's communication style in messages">
+        <div class="form-group"><label for="new-tone">Tone</label>
+            <select name="tone" id="new-tone" title="Controls the AI's communication style in messages">
                 <option value="professional">Professional</option>
                 <option value="friendly">Friendly</option>
                 <option value="casual">Casual</option>
             </select>
         </div>
-        <div class="form-group"><label>Emoji Usage</label>
-            <select name="emoji" title="Whether the AI should include emojis in messages"><option value="no">No</option><option value="yes">Yes</option></select>
+        <div class="form-group"><label for="new-emoji">Emoji Usage</label>
+            <select name="emoji" id="new-emoji" title="Whether the AI should include emojis in messages"><option value="no">No</option><option value="yes">Yes</option></select>
         </div>
-        <div class="form-group"><label>Autonomy Level</label>
-            <select name="autonomy_level" title="Supervised = AI drafts, agent approves. Autonomous = AI sends directly. Manual = AI only responds when prompted.">
+        <div class="form-group"><label for="new-autonomy">Autonomy Level</label>
+            <select name="autonomy_level" id="new-autonomy" title="Supervised = AI drafts, agent approves. Autonomous = AI sends directly. Manual = AI only responds when prompted.">
                 <option value="supervised">Supervised</option>
                 <option value="autonomous">Autonomous</option>
                 <option value="manual">Manual</option>
             </select>
         </div>
-        <div class="form-group"><label>Buffer Minutes</label><input type="text" name="buffer_minutes" value="30" title="Minimum minutes between scheduled showings to allow travel time"></div>
+        <div class="form-group"><label for="new-buffer">Buffer Minutes</label><input type="text" name="buffer_minutes" id="new-buffer" value="30" title="Minimum minutes between scheduled showings to allow travel time"></div>
     </div>
 
     <div class="section">
         <div class="section-title">Optional</div>
-        <div class="form-group"><label>Google Review Link</label><input type="text" name="google_review_link" title="URL to the agent's Google Business review page — AI may share this with satisfied clients"></div>
-        <div class="form-group"><label>Briefing Time</label><input type="time" name="briefing_time" value="07:30" title="Time of day (in agent's timezone) to send the daily briefing summary"></div>
-        <div class="form-group"><label>System Prompt Override</label><textarea name="system_prompt" title="Custom system prompt that overrides the default AI instructions for this customer"></textarea></div>
+        <div class="form-group"><label for="new-google-review">Google Review Link</label><input type="text" name="google_review_link" id="new-google-review" title="URL to the agent's Google Business review page — AI may share this with satisfied clients"></div>
+        <div class="form-group"><label for="new-briefing-time">Briefing Time</label><input type="time" name="briefing_time" id="new-briefing-time" value="07:30" title="Time of day (in agent's timezone) to send the daily briefing summary"></div>
+        <div class="form-group"><label for="new-system-prompt">System Prompt Override</label><textarea name="system_prompt" id="new-system-prompt" title="Custom system prompt that overrides the default AI instructions for this customer"></textarea></div>
     </div>
 
     <button type="submit" class="btn btn-primary" title="Save this customer and create their account">Create Customer</button>

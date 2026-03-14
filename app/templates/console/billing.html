@@ -83,7 +83,8 @@
                                 <form method="post" action="/console/billing/{{ s.agent_id }}/change-plan">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                     <div class="form-group" style="margin-bottom:0.5rem;">
-                                        <select name="plan_tier" style="font-size:12px;">
+                                        <label for="plan-tier-{{ s.agent_id }}" class="sr-only">New plan for {{ s.agent_name }}</label>
+                                        <select name="plan_tier" id="plan-tier-{{ s.agent_id }}" style="font-size:12px;">
                                             {% for tid, t in plan_tiers.items() %}
                                             <option value="{{ tid }}" {% if s.plan_tier == tid %}selected{% endif %}>${{ (t.price_cents / 100)|int }}/mo — {{ t.name }}</option>
                                             {% endfor %}

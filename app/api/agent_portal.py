@@ -14,6 +14,9 @@ from app.config import get_settings
 from app.api.console_auth import generate_csrf_token, validate_csrf_token
 from app.services.redis_pool import get_redis_pool
 
+import psycopg
+import redis
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agent", tags=["agent-portal"])
@@ -35,7 +38,7 @@ def _store_login_code(phone: str, code: str) -> None:
     try:
         r = get_redis_pool()
         r.setex(f"login_code:{phone}", LOGIN_CODE_TTL, code)
-    except Exception as e:
+    except redis.RedisError as e:
         logger.warning("Redis unavailable for login code storage, using in-memory fallback: %s", e)
         _login_codes[phone] = {
             "code": code,
@@ -51,7 +54,7 @@ def _get_login_code(phone: str) -> str | None:
         if value is not None:
             return value.decode() if isinstance(value, bytes) else value
         return None
-    except Exception as e:
+    except redis.RedisError as e:
         logger.warning("Redis unavailable for login code retrieval, using in-memory fallback: %s", e)
         stored = _login_codes.get(phone)
         if not stored:
@@ -67,7 +70,7 @@ def _delete_login_code(phone: str) -> None:
     try:
         r = get_redis_pool()
         r.delete(f"login_code:{phone}")
-    except Exception as e:
+    except redis.RedisError as e:
         logger.warning("Redis unavailable for login code deletion, using in-memory fallback: %s", e)
         _login_codes.pop(phone, None)
 
@@ -184,7 +187,7 @@ async def login_submit(request: Request, phone: str = Form(...), code: str = For
                         body=f"Your Calloway login code is: {login_code}",
                         agent_id=agent["id"],
                     )
-            except Exception as e:
+            except Exception as e:  # Broad catch: mixed Twilio + DB call
                 logger.error(f"Failed to send login code: {e}")
             return _render(request, "login.html",
                 error=None, message="A verification code has been sent to your phone.")
@@ -761,7 +764,7 @@ async def conversation_reply(request: Request, conversation_id: str):
                         [sms_result["sid"], sms_result.get("status", "sent"), msg["id"]],
                     )
                     await conn.commit()
-        except Exception as e:
+        except Exception as e:  # Broad catch: mixed Twilio + DB call
             logger.error(f"SMS send failed for agent reply: {e}")
 
     # Return HTMX partial — the new message bubble

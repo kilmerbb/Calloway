@@ -8,6 +8,8 @@ from uuid import UUID
 
 from app.db.connection import get_db_connection
 
+import psycopg
+
 logger = logging.getLogger(__name__)
 
 
@@ -43,7 +45,7 @@ def log_interaction(
             conn.commit()
 
         return {"logged": True}
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to log interaction: {e}")
         return {"logged": False, "error": str(e)}
 
@@ -78,5 +80,5 @@ def log_tool_execution(
                 ],
             )
             conn.commit()
-    except Exception as e:
+    except psycopg.Error as e:
         logger.error(f"Failed to log tool execution: {e}")
