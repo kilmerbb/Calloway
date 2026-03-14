@@ -93,9 +93,16 @@ if __name__ == "__main__":
     trigger_thread = threading.Thread(target=run_trigger_loop, daemon=True)
     trigger_thread.start()
 
+    # Start the Redis Streams message consumer thread
+    from app.worker.message_consumer import run_consumer_loop
+    consumer_thread = threading.Thread(target=run_consumer_loop, args=(_shutdown,), daemon=True)
+    consumer_thread.start()
+    logger.info("Message consumer thread started")
+
     # Run daily scan in main thread
     run_daily_scan_loop()
 
-    # Wait for trigger thread to finish its current cycle
+    # Wait for background threads to finish their current cycle
     trigger_thread.join(timeout=10)
+    consumer_thread.join(timeout=10)
     logger.info("Worker shut down cleanly")

@@ -1394,6 +1394,40 @@ async def set_kb_item_expiration(
 
 
 # ============================================================
+# Message Queue Monitoring (DLQ)
+# ============================================================
+
+@_sync_console_authorized
+def get_dead_letter_count() -> int:
+    """Return the number of messages in the Redis dead-letter queue stream."""
+    try:
+        from app.services.redis_pool import get_redis_pool
+        r = get_redis_pool()
+        length = r.xlen("calloway:dlq")
+        return int(length)
+    except Exception as e:
+        logger.error("Failed to read DLQ length from Redis: %s", e)
+        return -1
+
+
+@_sync_console_authorized
+def get_stream_info() -> dict:
+    """Return basic info about the inbound stream and DLQ for monitoring."""
+    try:
+        from app.services.redis_pool import get_redis_pool
+        r = get_redis_pool()
+        inbound_len = r.xlen("calloway:inbound")
+        dlq_len = r.xlen("calloway:dlq")
+        return {
+            "inbound_stream_length": int(inbound_len),
+            "dlq_length": int(dlq_len),
+        }
+    except Exception as e:
+        logger.error("Failed to read stream info from Redis: %s", e)
+        return {"inbound_stream_length": -1, "dlq_length": -1}
+
+
+# ============================================================
 # Sync wrappers — for callers that cannot use async (harness, tests)
 # ============================================================
 

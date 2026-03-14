@@ -1,7 +1,9 @@
 import asyncio
 import base64
 import hmac
+import json
 import logging
+import uuid
 from fastapi import APIRouter, Request, Response, BackgroundTasks
 from fastapi.responses import JSONResponse
 
@@ -12,6 +14,49 @@ from app.services.agent_config import get_agent_by_twilio_number
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
+
+STREAM_KEY = "calloway:inbound"
+STREAM_MAXLEN = 10000
+
+
+def _publish_to_stream(
+    msg_type: str,
+    agent_id: str,
+    payload: dict,
+    provider_message_id: str = "",
+) -> bool:
+    """Publish a message to the Redis inbound stream.
+
+    Returns True on success, False on failure (caller should fall back).
+    """
+    correlation_id = str(uuid.uuid4())
+    try:
+        from app.services.redis_pool import get_redis_pool
+        r = get_redis_pool()
+        r.xadd(
+            STREAM_KEY,
+            {
+                "type": msg_type,
+                "agent_id": agent_id,
+                "payload": json.dumps(payload, default=str),
+                "provider_message_id": provider_message_id,
+                "correlation_id": correlation_id,
+            },
+            maxlen=STREAM_MAXLEN,
+            approximate=True,
+        )
+        logger.info(
+            "Published to stream: type=%s agent=%s correlation_id=%s",
+            msg_type, agent_id, correlation_id,
+        )
+        return True
+    except Exception as e:
+        logger.critical(
+            "Redis XADD failed — falling back to BackgroundTasks: %s "
+            "(type=%s agent=%s correlation_id=%s)",
+            e, msg_type, agent_id, correlation_id,
+        )
+        return False
 
 
 def validate_twilio_signature(request_url: str, params: dict, signature: str) -> bool:
@@ -187,8 +232,11 @@ async def twilio_inbound(request: Request, background_tasks: BackgroundTasks):
             status_code=200,
         )
 
-    # Enqueue for async processing and return 200 immediately
-    background_tasks.add_task(process_inbound_message, str(agent.id), payload)
+    # Publish to Redis Stream; fall back to BackgroundTasks if Redis is down
+    provider_msg_id = payload.get("MessageSid", "")
+    published = _publish_to_stream("sms", str(agent.id), payload, provider_msg_id)
+    if not published:
+        background_tasks.add_task(process_inbound_message, str(agent.id), payload)
 
     return Response(
         content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
@@ -331,9 +379,21 @@ async def vapi_post_call(request: Request, background_tasks: BackgroundTasks):
         logger.warning("VAPI_WEBHOOK_SECRET not set — skipping Vapi webhook authentication")
 
     payload = await request.json()
-    logger.info(f"Vapi post-call received: {payload.get('call_id', 'unknown')}")
+    call_id = payload.get("call_id", "unknown")
+    logger.info(f"Vapi post-call received: {call_id}")
 
-    background_tasks.add_task(process_vapi_transcript, payload)
+    # Attempt to resolve agent for stream metadata; fail-safe if Redis/DB unavailable
+    vapi_agent_id = ""
+    try:
+        agent_phone = payload.get("phoneNumber", {}).get("number", "")
+        vapi_agent = get_agent_by_twilio_number(agent_phone)
+        vapi_agent_id = str(vapi_agent.id) if vapi_agent else ""
+    except Exception:
+        pass
+
+    published = _publish_to_stream("voice", vapi_agent_id, payload, call_id)
+    if not published:
+        background_tasks.add_task(process_vapi_transcript, payload)
     return {"status": "ok"}
 
 
@@ -502,7 +562,11 @@ async def email_inbound(request: Request, background_tasks: BackgroundTasks):
         logger.warning("No agent found for email address: %s", to_address)
         return {"status": "no_agent"}
 
-    background_tasks.add_task(process_inbound_email, str(agent.id), payload)
+    # Publish to Redis Stream; fall back to BackgroundTasks if Redis is down
+    email_msg_id = payload.get("Message-Id", payload.get("message-id", ""))
+    published = _publish_to_stream("email", str(agent.id), payload, email_msg_id)
+    if not published:
+        background_tasks.add_task(process_inbound_email, str(agent.id), payload)
     return {"status": "ok"}
 
 
