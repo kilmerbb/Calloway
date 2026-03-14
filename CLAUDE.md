@@ -93,7 +93,7 @@ Test: /harness (conversation simulator)
 | Schema | `app/db/schema.sql` | 12 tables with RLS |
 | Workers | `app/worker/` | Background trigger + daily scanner |
 | Tests | `tests/` | 26 test files |
-| User manual | `USER_MANUAL.md` | Admin console documentation |
+| User manual | `docs/user-manual.md` | Admin console documentation |
 
 ### Key Patterns
 - **Tenant isolation** via PostgreSQL RLS — each agent sees only their data

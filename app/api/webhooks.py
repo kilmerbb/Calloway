@@ -139,14 +139,19 @@ def _log_feedback(event, contact, agent):
     if score is not None and contact:
         try:
             with get_db_connection() as conn:
+                # C-4 fix: PostgreSQL does not support ORDER BY/LIMIT in UPDATE.
+                # Use a subquery to target only the most recent AI-generated message.
                 conn.execute(
                     """UPDATE messages SET feedback_score = %s
-                       WHERE conversation_id IN (
-                           SELECT id FROM conversations
-                           WHERE contact_id = %s AND agent_id = %s
-                       )
-                       AND ai_generated = true
-                       ORDER BY created_at DESC LIMIT 1""",
+                       WHERE id = (
+                           SELECT m.id FROM messages m
+                           WHERE m.conversation_id IN (
+                               SELECT id FROM conversations
+                               WHERE contact_id = %s AND agent_id = %s
+                           )
+                           AND m.ai_generated = true
+                           ORDER BY m.created_at DESC LIMIT 1
+                       )""",
                     [score, str(contact.id), str(agent.id)],
                 )
                 conn.commit()
@@ -327,7 +332,15 @@ async def vapi_post_call(request: Request, background_tasks: BackgroundTasks):
 
 
 async def process_vapi_transcript(payload: dict):
-    """Process a Vapi call transcript through the pipeline."""
+    """Process a Vapi call transcript through the pipeline.
+
+    Runs the synchronous pipeline in a separate thread (C-3 fix).
+    """
+    await asyncio.to_thread(_process_vapi_transcript_sync, payload)
+
+
+def _process_vapi_transcript_sync(payload: dict):
+    """Synchronous implementation of Vapi transcript processing."""
     from uuid import UUID
     from app.pipeline.normalizer import normalize_vapi_event
     from app.pipeline.resolver import resolve_contact
@@ -470,7 +483,15 @@ async def _resolve_agent_from_email(to_address: str):
 
 
 async def process_inbound_email(agent_id: str, payload: dict):
-    """Process an inbound email through the full pipeline."""
+    """Process an inbound email through the full pipeline.
+
+    Runs the synchronous pipeline in a separate thread (C-3 fix).
+    """
+    await asyncio.to_thread(_process_inbound_email_sync, agent_id, payload)
+
+
+def _process_inbound_email_sync(agent_id: str, payload: dict):
+    """Synchronous implementation of inbound email processing."""
     from uuid import UUID
     from app.pipeline.normalizer import normalize_email_event
     from app.pipeline.resolver import resolve_contact
