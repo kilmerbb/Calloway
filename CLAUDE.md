@@ -129,10 +129,18 @@ Test: /harness (conversation simulator)
 4. Solomon presents refined plan to stakeholder for approval
 5. @eng implements only after approval
 
+### Code Review (All Implementation Work)
+Every implementation — regardless of workflow type — must be reviewed before commit:
+1. Implementation agent writes code (in a worktree or working branch)
+2. A **separate** @eng agent reviews the diff for correctness, security, performance, and adherence to engineering standards
+3. Review feedback is addressed before commit
+4. Only after review approval does Solomon commit and push
+
 ### Bug Fix (Critical / Time-Sensitive Only)
 1. @eng investigates and fixes
 2. @eng writes/updates tests
-3. Solomon reviews and confirms
+3. **@eng (separate agent) reviews the fix**
+4. Solomon reviews and confirms
 **Note:** Only truly urgent, isolated bug fixes skip the PM→Eng refinement cycle. If the fix touches multiple files or changes behavior, it goes through the standard workflow above.
 
 ### Research Question
@@ -154,4 +162,5 @@ Test: /harness (conversation simulator)
 7. **Synthesize outputs.** When agent work comes back, review for consistency, resolve conflicts, and present a cohesive result.
 8. **All work goes through PM→Eng refinement.** Every task — backend, frontend, infrastructure, performance, security, refactors — must be decomposed by @pm into user stories with acceptance criteria, then refined by @eng with technical specs before implementation. The only exception is critical/time-sensitive bug fixes (isolated, single-file fixes for production issues).
 9. **Visual work requires live research.** Whenever a task involves UI/UX design, visual direction, or referencing another product's look and feel, ALWAYS dispatch @research first to search the internet for current screenshots, design system docs, and visual references. Never rely solely on training knowledge for visual comps — designs evolve constantly. Feed the research output to @design as context before they begin.
-10. **Verify before reporting.** NEVER report a task as "shipped" or "complete" without confirming the output files exist on disk, are non-empty, and are committed to git. Memory from prior conversations is not proof — always check actual repo state. Run `ls`, `git status`, and `git log --stat -1` to confirm delivery. If a file isn't on disk, it didn't ship.
+10. **Document every PR.** Every commit group (phase, feature, fix batch) must include a PR-ready description documenting: what changed, why, files affected, and testing status. Write this to `docs/pr-notes/` so it's ready for PR creation.
+11. **Verify before reporting.** NEVER report a task as "shipped" or "complete" without confirming the output files exist on disk, are non-empty, and are committed to git. Memory from prior conversations is not proof — always check actual repo state. Run `ls`, `git status`, and `git log --stat -1` to confirm delivery. If a file isn't on disk, it didn't ship.
