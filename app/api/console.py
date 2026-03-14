@@ -42,6 +42,14 @@ def _render(request: Request, template: str, response: Response | None = None, *
     return resp
 
 
+def _safe_int(value: str | None, default: int, min_val: int = 1, max_val: int = 500) -> int:
+    """Parse a query param as int with safe defaults and clamping."""
+    try:
+        return max(min_val, min(int(value or default), max_val))
+    except (ValueError, TypeError):
+        return default
+
+
 def _require_auth(request: Request) -> dict | RedirectResponse:
     """Return user info dict if authenticated, or a redirect to login.
 
@@ -451,8 +459,8 @@ async def conversation_list(request: Request):
     agent_filter = request.query_params.get("agent", "")
     channel_filter = request.query_params.get("channel", "")
     search = request.query_params.get("search", "")
-    page = int(request.query_params.get("page", "1"))
-    per_page = int(request.query_params.get("per_page", "25"))
+    page = _safe_int(request.query_params.get("page"), 1)
+    per_page = _safe_int(request.query_params.get("per_page"), 25, max_val=100)
     offset = (page - 1) * per_page
 
     conversations = await get_recent_conversations(
@@ -503,8 +511,8 @@ async def trigger_list(request: Request):
 
     status_filter = request.query_params.get("status", "pending")
     agent_filter = request.query_params.get("agent", "")
-    page = int(request.query_params.get("page", "1"))
-    per_page = int(request.query_params.get("per_page", "50"))
+    page = _safe_int(request.query_params.get("page"), 1)
+    per_page = _safe_int(request.query_params.get("per_page"), 50, max_val=500)
     offset = (page - 1) * per_page
 
     triggers = await get_trigger_queue(
@@ -827,8 +835,8 @@ async def tenant_messages_tab(request: Request, agent_id: str):
 
     from app.services.console_queries import get_conversations_by_contact
 
-    page = int(request.query_params.get("page", "1"))
-    per_page = int(request.query_params.get("per_page", "25"))
+    page = _safe_int(request.query_params.get("page"), 1)
+    per_page = _safe_int(request.query_params.get("per_page"), 25, max_val=100)
     offset = (page - 1) * per_page
 
     contacts = await get_conversations_by_contact(
@@ -851,7 +859,7 @@ async def tenant_messages_thread(request: Request, agent_id: str, contact_id: st
 
     from app.services.console_queries import get_conversation_thread
 
-    page = int(request.query_params.get("page", "1"))
+    page = _safe_int(request.query_params.get("page"), 1)
     per_page = 50
     offset = (page - 1) * per_page
 
@@ -881,7 +889,7 @@ async def tenant_contacts_tab(request: Request, agent_id: str):
 
     from app.services.console_queries import get_agent_contacts_paginated
 
-    page = int(request.query_params.get("page", "1"))
+    page = _safe_int(request.query_params.get("page"), 1)
     per_page = 25
     offset = (page - 1) * per_page
 
@@ -909,7 +917,7 @@ async def tenant_listings_tab(request: Request, agent_id: str):
 
     from app.services.console_queries import get_agent_listings_paginated
 
-    page = int(request.query_params.get("page", "1"))
+    page = _safe_int(request.query_params.get("page"), 1)
     per_page = 25
     offset = (page - 1) * per_page
 

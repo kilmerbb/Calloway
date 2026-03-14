@@ -15,7 +15,9 @@ import asyncio
 import json
 import logging
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from bisect import bisect_left
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from uuid import UUID
 
@@ -442,6 +444,7 @@ async def get_recent_conversations(
     offset: int = 0,
 ) -> list[ConversationRow]:
     """Recent conversations with filtering and pagination."""
+    limit = min(limit, 100)  # Safety cap
     try:
         conditions = []
         params = []
@@ -454,7 +457,8 @@ async def get_recent_conversations(
             params.append(channel)
         if search:
             conditions.append("(c.name ILIKE %s OR c.phone ILIKE %s)")
-            params.extend([f"%{search}%", f"%{search}%"])
+            search_escaped = search.replace("%", "\\%").replace("_", "\\_")
+            params.extend([f"%{search_escaped}%", f"%{search_escaped}%"])
 
         where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
@@ -1383,7 +1387,6 @@ async def get_conversation_thread(
             messages = await cur.fetchall()
 
             # Tool executions — bounded to the message time window
-            from datetime import timedelta
             tool_execs = []
             if messages:
                 timestamps = [m["created_at"] for m in messages if m["created_at"]]
@@ -1418,8 +1421,6 @@ async def get_conversation_thread(
                     tool_execs = await cur.fetchall()
 
         # Correlate tool executions to messages using O(n log n) bisect approach
-        from bisect import bisect_left
-        from collections import defaultdict
 
         messages_list = list(messages) if messages else []
         for msg in messages_list:
