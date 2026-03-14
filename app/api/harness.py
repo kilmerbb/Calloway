@@ -15,6 +15,7 @@ from pydantic import BaseModel
 import psycopg
 
 from app.api.console_auth import check_session
+from app.services.console_queries import set_console_context
 from app.models.trace import PipelineTrace, StageTrace, ToolCallTrace
 
 logger = logging.getLogger(__name__)
@@ -38,8 +39,11 @@ def _render(request: Request, template: str, **ctx):
 
 
 def _require_auth(request: Request) -> RedirectResponse | None:
-    if not check_session(request):
+    """Authenticate and set console context, or return a redirect to login."""
+    user_info = check_session(request)
+    if not user_info:
         return RedirectResponse("/console/login", status_code=303)
+    set_console_context({"source": "console", "ip": request.client.host, **user_info})
     return None
 
 
