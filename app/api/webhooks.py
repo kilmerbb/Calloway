@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from fastapi import APIRouter, Request, Response, BackgroundTasks
+from fastapi.responses import JSONResponse
 
 from twilio.request_validator import RequestValidator
 
@@ -322,6 +323,9 @@ async def vapi_post_call(request: Request, background_tasks: BackgroundTasks):
             logger.warning("Vapi webhook rejected — invalid or missing x-vapi-secret header")
             return Response(status_code=401)
     else:
+        if settings.ENVIRONMENT == "production":
+            logger.critical("VAPI_WEBHOOK_SECRET not set — blocking Vapi webhook in production")
+            return JSONResponse(status_code=403, content={"error": "Webhook not configured"})
         logger.warning("VAPI_WEBHOOK_SECRET not set — skipping Vapi webhook authentication")
 
     payload = await request.json()

@@ -375,9 +375,29 @@ def process_kb_expirations() -> dict:
 # ============================================================
 
 def _get_all_active_agents() -> list[AgentConfig]:
-    """Get all active agents from the database."""
+    """Get all active agents from the database.
+
+    Selects only the columns used by downstream scan functions rather than
+    SELECT * — this avoids loading large JSONB blobs that aren't needed:
+      - google_oauth, style_profile, vapi_assistant are excluded.
+
+    Columns used by:
+      - scan_agent / run_daily_scan: id, name, listing_rules
+      - _check_dom_alerts:           id, listing_rules
+      - _create_*_trigger helpers:   id
+      - _find_proactive_followups:   id
+      - send_morning_briefing:       id, name
+      - AgentConfig required fields: id, name, email, phone, twilio_number
+    """
     with get_db_connection() as conn:
-        rows = conn.execute("SELECT * FROM agents").fetchall()
+        rows = conn.execute(
+            """SELECT id, name, email, phone, timezone, twilio_number,
+                      autonomy_rules, listing_rules, scheduling_prefs,
+                      market, brokerage, system_prompt, google_review_link,
+                      briefing_time, current_status, status_until,
+                      voice_daily_cap_minutes, created_at, updated_at
+               FROM agents"""
+        ).fetchall()
     return [AgentConfig(**r) for r in rows]
 
 

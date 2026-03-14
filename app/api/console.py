@@ -843,9 +843,8 @@ async def tenant_kb_upload(request: Request, agent_id: str):
         )
 
     # Sanitize content: strip HTML/script tags
-    import re
-    content = re.sub(r"<script[^>]*>.*?</script>", "", content, flags=re.DOTALL | re.IGNORECASE)
-    content = re.sub(r"<[^>]+>", "", content)
+    import nh3
+    content = nh3.clean(content, tags=set())  # Strip ALL HTML tags
 
     from uuid import uuid4, UUID as _UUID
     from app.services.rag_service import get_rag_service

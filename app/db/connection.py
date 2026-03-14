@@ -7,6 +7,7 @@ from typing import Any
 import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool, AsyncConnectionPool
+from pgvector.psycopg import register_vector, register_vector_async
 
 from app.config import get_settings
 
@@ -40,11 +41,15 @@ def init_pool(min_size: int = 2, max_size: int = 20) -> None:
         return
     conninfo = get_connection_string()
     logger.info("Connecting to sync DB pool...")
+    def _configure_sync(conn: psycopg.Connection) -> None:
+        register_vector(conn)
+
     _pool = ConnectionPool(
         conninfo,
         min_size=min_size,
         max_size=max_size,
         kwargs={"row_factory": dict_row},
+        configure=_configure_sync,
         open=False,  # Don't block startup waiting for connections
         timeout=10,
     )
@@ -73,7 +78,9 @@ def get_db_connection() -> psycopg.Connection:
     if _pool is not None:
         return _pool.connection()
     # Fallback for tests / scripts that haven't called init_pool()
-    return psycopg.connect(get_connection_string(), row_factory=dict_row)
+    conn = psycopg.connect(get_connection_string(), row_factory=dict_row)
+    register_vector(conn)
+    return conn
 
 
 # ============================================================
@@ -87,11 +94,15 @@ async def init_async_pool(min_size: int = 2, max_size: int = 20) -> None:
         return
     conninfo = get_connection_string()
     logger.info("Connecting to async DB pool...")
+    async def _configure_async(conn: psycopg.AsyncConnection) -> None:
+        await register_vector_async(conn)
+
     _async_pool = AsyncConnectionPool(
         conninfo,
         min_size=min_size,
         max_size=max_size,
         kwargs={"row_factory": dict_row},
+        configure=_configure_async,
         open=False,
         timeout=10,
     )
@@ -114,6 +125,7 @@ async def _fallback_async_connection():
     conn = await psycopg.AsyncConnection.connect(
         get_connection_string(), row_factory=dict_row
     )
+    await register_vector_async(conn)
     try:
         yield conn
     finally:

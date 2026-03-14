@@ -4,6 +4,8 @@ import time
 from datetime import datetime, timezone, timedelta
 from uuid import UUID
 
+from dateutil.relativedelta import relativedelta
+
 from app.db.connection import get_db_connection
 from app.models.schemas import Trigger
 
@@ -195,9 +197,9 @@ def _mark_trigger(trigger_id: UUID, status: str) -> None:
 def _create_next_recurrence(trigger: Trigger) -> None:
     """Create the next occurrence for a recurring trigger."""
     if trigger.recurrence == "annually":
-        next_at = trigger.scheduled_at + timedelta(days=365)
+        next_at = trigger.scheduled_at + relativedelta(years=1)
     elif trigger.recurrence == "monthly":
-        next_at = trigger.scheduled_at + timedelta(days=30)
+        next_at = trigger.scheduled_at + relativedelta(months=1)
     elif trigger.recurrence == "weekly":
         next_at = trigger.scheduled_at + timedelta(days=7)
     elif trigger.recurrence == "daily":

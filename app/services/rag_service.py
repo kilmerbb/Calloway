@@ -241,7 +241,7 @@ class RAGService:
                         str(source_id),
                         i,
                         chunk,
-                        str(embedding),
+                        embedding,
                         json.dumps(metadata),
                     ],
                 )
@@ -275,14 +275,6 @@ class RAGService:
         """
         query_embedding = self.embedding_service.embed_query(query)
 
-        type_filter = ""
-        params = [str(agent_id), str(query_embedding), top_k]
-
-        if source_types:
-            placeholders = ", ".join(["%s"] * len(source_types))
-            type_filter = f"AND source_type IN ({placeholders})"
-            params = [str(agent_id)] + source_types + [str(query_embedding), top_k]
-
         if source_types:
             sql = f"""
                 SELECT content, source_type, source_id, chunk_index, metadata,
@@ -293,10 +285,10 @@ class RAGService:
                 LIMIT %s
             """
             params = [
-                str(query_embedding),
+                query_embedding,
                 str(agent_id),
                 *source_types,
-                str(query_embedding),
+                query_embedding,
                 top_k,
             ]
         else:
@@ -309,9 +301,9 @@ class RAGService:
                 LIMIT %s
             """
             params = [
-                str(query_embedding),
+                query_embedding,
                 str(agent_id),
-                str(query_embedding),
+                query_embedding,
                 top_k,
             ]
 
