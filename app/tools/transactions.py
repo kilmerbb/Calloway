@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.db.connection import get_db_connection
 from app.models.schemas import Transaction
+from app.tools.sql_utils import build_safe_update_clause
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +63,11 @@ def update_transaction(
         "closing_date", "inspection_date", "appraisal_date", "financing_deadline",
         "earnest_money", "commission_pct", "notes", "listing_id",
     }
-    updates = {k: v for k, v in fields.items() if k in valid_fields and v is not None}
-    if not updates:
+    set_clause, values = build_safe_update_clause(fields, valid_fields)
+    if not set_clause:
         return None
 
-    set_clause = ", ".join(f"{k} = %s" for k in updates)
-    values = list(updates.values()) + [str(transaction_id), str(agent_id)]
+    values.extend([str(transaction_id), str(agent_id)])
 
     with get_db_connection() as conn:
         row = conn.execute(

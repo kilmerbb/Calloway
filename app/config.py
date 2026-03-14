@@ -25,6 +25,8 @@ class Settings(BaseSettings):
 
     # Anthropic
     ANTHROPIC_API_KEY: str = ""
+    CLAUDE_HAIKU_MODEL: str = "claude-haiku-4-5-20251001"
+    CLAUDE_SONNET_MODEL: str = "claude-sonnet-4-5-20241022"
 
     # Vapi
     VAPI_API_KEY: str = ""

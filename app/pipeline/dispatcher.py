@@ -1,5 +1,6 @@
 """Response dispatcher — sends AI response via correct channel."""
 import logging
+import threading
 from datetime import date
 from uuid import UUID
 
@@ -103,9 +104,14 @@ def dispatch(
     # 6. Update usage metrics
     _update_usage_metrics(agent.id, event, decision, is_agent_command)
 
-    # 7. Trigger conversation summarization (non-blocking)
+    # 7. Trigger conversation summarization in background thread
     if contact and not is_agent_command:
-        _maybe_summarize_conversation(agent.id, contact.id)
+        thread = threading.Thread(
+            target=_background_summarize,
+            args=(agent.id, contact.id),
+            daemon=True,
+        )
+        thread.start()
 
 
 def _send_notification(agent: AgentConfig, notif: dict, contact: Contact | None):
@@ -297,12 +303,35 @@ def _maybe_append_feedback_prompt(
     return response_text
 
 
+def _background_summarize(agent_id: UUID, contact_id: UUID) -> None:
+    """Run summarization in a background daemon thread with Redis dedup lock."""
+    from app.services.redis_pool import get_redis_pool
+
+    lock_key = f"summarize:{contact_id}"
+    r = get_redis_pool()
+
+    # Acquire dedup lock (SET NX EX) — skip if another summarization is running
+    if not r.set(lock_key, "1", nx=True, ex=30):
+        logger.debug(
+            f"Skipping summarization for contact {contact_id} — "
+            "another summarization is in progress"
+        )
+        return
+
+    try:
+        _maybe_summarize_conversation(agent_id, contact_id)
+    except Exception:
+        logger.exception("Background summarization failed")
+    finally:
+        r.delete(lock_key)
+
+
 def _maybe_summarize_conversation(agent_id: UUID, contact_id: UUID) -> None:
     """Check if conversation needs summarization and generate/update if so.
 
-    This runs synchronously after dispatch. The summarization call uses Haiku
-    which is fast (~200-400ms), so it adds minimal latency. If it fails,
-    the error is logged and the next request falls back to recent-messages-only.
+    Called from a background daemon thread — never blocks the dispatch hot path.
+    If it fails, the error is logged and the next request falls back to
+    recent-messages-only context.
     """
     try:
         from app.services.summarization_service import (

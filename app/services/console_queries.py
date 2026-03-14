@@ -126,14 +126,29 @@ def get_all_agents() -> list[dict]:
         with get_db_connection() as conn:
             rows = conn.execute(
                 """SELECT a.*,
-                    (SELECT COUNT(*) FROM contacts WHERE agent_id = a.id) as contact_count,
-                    (SELECT COALESCE(SUM(messages_sent), 0) FROM usage_metrics
-                     WHERE agent_id = a.id AND date = CURRENT_DATE) as messages_today,
-                    (SELECT MAX(date) FROM usage_metrics WHERE agent_id = a.id) as last_active,
-                    (SELECT COUNT(*) FROM tool_executions
-                     WHERE agent_id = a.id AND error_message IS NOT NULL
-                     AND created_at > now() - interval '24 hours') as errors_24h
-                   FROM agents a ORDER BY a.name"""
+                    COALESCE(c.cnt, 0) AS contact_count,
+                    COALESCE(u.msgs, 0) AS messages_today,
+                    u.last_dt AS last_active,
+                    COALESCE(e.cnt, 0) AS errors_24h
+                   FROM agents a
+                   LEFT JOIN (
+                       SELECT agent_id, COUNT(*) AS cnt
+                       FROM contacts GROUP BY agent_id
+                   ) c ON c.agent_id = a.id
+                   LEFT JOIN (
+                       SELECT agent_id,
+                              COALESCE(SUM(CASE WHEN date = CURRENT_DATE THEN messages_sent ELSE 0 END), 0) AS msgs,
+                              MAX(date) AS last_dt
+                       FROM usage_metrics GROUP BY agent_id
+                   ) u ON u.agent_id = a.id
+                   LEFT JOIN (
+                       SELECT agent_id, COUNT(*) AS cnt
+                       FROM tool_executions
+                       WHERE error_message IS NOT NULL
+                         AND created_at > now() - interval '24 hours'
+                       GROUP BY agent_id
+                   ) e ON e.agent_id = a.id
+                   ORDER BY a.name"""
             ).fetchall()
         return rows or []
     except Exception as e:
@@ -1098,14 +1113,29 @@ async def async_get_all_agents() -> list[dict]:
         async with get_async_db_connection() as conn:
             cur = await conn.execute(
                 """SELECT a.*,
-                    (SELECT COUNT(*) FROM contacts WHERE agent_id = a.id) as contact_count,
-                    (SELECT COALESCE(SUM(messages_sent), 0) FROM usage_metrics
-                     WHERE agent_id = a.id AND date = CURRENT_DATE) as messages_today,
-                    (SELECT MAX(date) FROM usage_metrics WHERE agent_id = a.id) as last_active,
-                    (SELECT COUNT(*) FROM tool_executions
-                     WHERE agent_id = a.id AND error_message IS NOT NULL
-                     AND created_at > now() - interval '24 hours') as errors_24h
-                   FROM agents a ORDER BY a.name"""
+                    COALESCE(c.cnt, 0) AS contact_count,
+                    COALESCE(u.msgs, 0) AS messages_today,
+                    u.last_dt AS last_active,
+                    COALESCE(e.cnt, 0) AS errors_24h
+                   FROM agents a
+                   LEFT JOIN (
+                       SELECT agent_id, COUNT(*) AS cnt
+                       FROM contacts GROUP BY agent_id
+                   ) c ON c.agent_id = a.id
+                   LEFT JOIN (
+                       SELECT agent_id,
+                              COALESCE(SUM(CASE WHEN date = CURRENT_DATE THEN messages_sent ELSE 0 END), 0) AS msgs,
+                              MAX(date) AS last_dt
+                       FROM usage_metrics GROUP BY agent_id
+                   ) u ON u.agent_id = a.id
+                   LEFT JOIN (
+                       SELECT agent_id, COUNT(*) AS cnt
+                       FROM tool_executions
+                       WHERE error_message IS NOT NULL
+                         AND created_at > now() - interval '24 hours'
+                       GROUP BY agent_id
+                   ) e ON e.agent_id = a.id
+                   ORDER BY a.name"""
             )
             rows = await cur.fetchall()
         return rows or []

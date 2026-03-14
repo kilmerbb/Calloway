@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import hmac
 import logging
 from fastapi import APIRouter, Request, Response, BackgroundTasks
 from fastapi.responses import JSONResponse
@@ -446,9 +448,51 @@ def _process_vapi_transcript_sync(payload: dict):
         logger.error(f"Vapi processing error: {e}", exc_info=True)
 
 
+def _validate_sendgrid_basic_auth(authorization: str | None) -> bool | JSONResponse:
+    """Validate SendGrid Inbound Parse Basic Auth header.
+
+    Returns True if valid/skipped, or a JSONResponse to return early.
+    """
+    settings = get_settings()
+    secret = settings.SENDGRID_INBOUND_SECRET
+
+    if not secret:
+        if settings.ENVIRONMENT == "production":
+            logger.critical("SECURITY: SENDGRID_INBOUND_SECRET is not configured in production")
+            return JSONResponse(status_code=503, content={"error": "service unavailable"})
+        else:
+            logger.debug("SENDGRID_INBOUND_SECRET not configured — skipping auth validation in %s", settings.ENVIRONMENT)
+            return True
+
+    if not authorization:
+        logger.warning("SendGrid inbound request missing Authorization header")
+        return JSONResponse(status_code=401, content={"error": "unauthorized"})
+
+    # Expected format: "Basic <base64(username:password)>"
+    try:
+        scheme, _, encoded = authorization.partition(" ")
+        if scheme.lower() != "basic" or not encoded:
+            raise ValueError("not basic auth")
+        decoded = base64.b64decode(encoded).decode("utf-8")
+        _, _, password = decoded.partition(":")
+    except Exception:
+        logger.warning("SendGrid inbound request has malformed Authorization header")
+        return JSONResponse(status_code=401, content={"error": "unauthorized"})
+
+    if not hmac.compare_digest(password, secret):
+        logger.warning("SendGrid inbound request has invalid credentials")
+        return JSONResponse(status_code=401, content={"error": "unauthorized"})
+
+    return True
+
+
 @router.post("/email/inbound")
 async def email_inbound(request: Request, background_tasks: BackgroundTasks):
     """Receives inbound email via SendGrid Inbound Parse webhook."""
+    auth_result = _validate_sendgrid_basic_auth(request.headers.get("authorization"))
+    if auth_result is not True:
+        return auth_result
+
     form_data = await request.form()
     payload = dict(form_data)
 

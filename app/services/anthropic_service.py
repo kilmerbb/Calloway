@@ -12,13 +12,17 @@ from app.models.schemas import AgentDecision
 
 logger = logging.getLogger(__name__)
 
-HAIKU_MODEL = "claude-haiku-4-5-20251001"
-SONNET_MODEL = "claude-sonnet-4-5-20241022"
+_settings = get_settings()
+HAIKU_MODEL = _settings.CLAUDE_HAIKU_MODEL
+SONNET_MODEL = _settings.CLAUDE_SONNET_MODEL
 
-# Cost per 1M tokens (input/output) in cents
+logger.info("Claude model config: haiku=%s, sonnet=%s", HAIKU_MODEL, SONNET_MODEL)
+
+# Cost per 1M tokens (input/output) in cents — keyed by tier name so costs
+# remain correct regardless of which specific model version is configured.
 MODEL_COSTS = {
-    HAIKU_MODEL: {"input": 100, "output": 500},       # $1/$5 per 1M
-    SONNET_MODEL: {"input": 300, "output": 1500},      # $3/$15 per 1M
+    "haiku":  {"input": 100, "output": 500},        # $1/$5 per 1M
+    "sonnet": {"input": 300, "output": 1500},        # $3/$15 per 1M
 }
 
 
@@ -35,7 +39,8 @@ class AnthropicClient:
         """
         from app.db.connection import get_db_connection
 
-        costs = MODEL_COSTS.get(model, MODEL_COSTS[HAIKU_MODEL])
+        tier = "sonnet" if model == SONNET_MODEL else "haiku"
+        costs = MODEL_COSTS[tier]
         cost_cents = int(
             (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000
         )

@@ -8,6 +8,7 @@ from uuid import UUID
 from app.db.connection import get_db_connection
 from app.models.schemas import Listing
 from app.services.anthropic_service import get_anthropic_client
+from app.tools.sql_utils import build_safe_update_clause
 
 logger = logging.getLogger(__name__)
 
@@ -86,24 +87,21 @@ def update_listing(
     agent_id: UUID, listing_id: UUID, updates: dict
 ) -> tuple[Listing, list[str]]:
     """Apply updates to an existing listing."""
-    # Filter to only non-None updates
-    valid_updates = {
-        k: v for k, v in updates.items()
-        if v is not None and k in (
-            "address", "price", "beds", "baths", "sqft", "hoa",
-            "features", "showing_instructions", "lockbox", "status", "notes",
-        )
+    valid_fields = {
+        "address", "price", "beds", "baths", "sqft", "hoa",
+        "features", "showing_instructions", "lockbox", "status", "notes",
     }
 
-    if "features" in valid_updates and isinstance(valid_updates["features"], list):
-        valid_updates["features"] = json.dumps(valid_updates["features"])
+    # Pre-process features before validation
+    if "features" in updates and isinstance(updates.get("features"), list):
+        updates["features"] = json.dumps(updates["features"])
 
-    if not valid_updates:
+    set_clauses, values = build_safe_update_clause(updates, valid_fields)
+
+    if not set_clauses:
         existing = get_listing(agent_id, listing_id=listing_id)
         return existing, []
 
-    set_clauses = ", ".join(f"{k} = %s" for k in valid_updates)
-    values = list(valid_updates.values())
     values.extend([str(listing_id), str(agent_id)])
 
     with get_db_connection() as conn:

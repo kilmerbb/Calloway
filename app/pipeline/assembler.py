@@ -7,6 +7,7 @@ focused on *current* context while preserving the full relationship
 history in condensed form.
 """
 import logging
+import re
 from uuid import UUID
 
 from app.db.connection import get_db_connection
@@ -146,16 +147,85 @@ def _load_conversation_history(
         return []
 
 
+_ADDRESS_STOP_WORDS = frozenset({
+    "the", "and", "for", "are", "but", "not", "you", "all", "can", "had",
+    "her", "was", "one", "our", "out", "has", "have", "been", "this", "that",
+    "with", "from", "about", "what", "when", "how", "any", "some", "there",
+    "which", "their", "them", "then", "will", "would", "could", "should",
+    "info", "more", "please", "tell", "show", "details", "listing", "house",
+    "home", "property", "address", "place", "street", "road", "lane", "drive",
+    "avenue", "court", "way", "unit", "apt", "bed", "bath",
+})
+
+
+def _extract_address_tokens(body: str) -> list[str]:
+    """Extract plausible address tokens from a message body.
+
+    Returns words/numbers that are likely part of a street address,
+    filtering out common conversational stop words and short fragments.
+    """
+    words = re.findall(r"[a-zA-Z0-9]+", body)
+    tokens = []
+    for w in words:
+        if len(w) <= 2:
+            continue
+        if w.lower() in _ADDRESS_STOP_WORDS:
+            continue
+        tokens.append(w)
+    return tokens
+
+
 def _find_referenced_listing(body: str, agent_id: UUID) -> Listing | None:
-    """Try to find a listing referenced in the message body."""
-    # Simple: check all listings for address match in the message
-    listings = search_listings(agent_id, filters={"status": "active"})
+    """Try to find a listing referenced in the message body.
+
+    Uses a SQL ILIKE query to search for address matches server-side
+    instead of loading all listings into memory.
+    """
+    tokens = _extract_address_tokens(body)
+    if not tokens:
+        return None
+
+    # Build ILIKE conditions — any token matching the address column
+    conditions = ["agent_id = %s", "status = 'active'"]
+    params: list = [str(agent_id)]
+
+    ilike_clauses = []
+    for token in tokens:
+        ilike_clauses.append("address ILIKE %s")
+        params.append(f"%{token}%")
+
+    if not ilike_clauses:
+        return None
+
+    conditions.append(f"({' OR '.join(ilike_clauses)})")
+    where = " AND ".join(conditions)
+
+    try:
+        with get_db_connection() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM listings WHERE {where} LIMIT 5",
+                params,
+            ).fetchall()
+    except Exception as e:
+        logger.error(f"Failed to search listings by address: {e}")
+        return None
+
+    if not rows:
+        return None
+
+    # Score candidates by number of matching tokens and return best match
+    candidates = [Listing(**r) for r in rows]
     body_lower = body.lower()
-    for listing in listings:
+    best: Listing | None = None
+    best_score = 0
+    for listing in candidates:
         addr_parts = listing.address.lower().split()
-        if any(part in body_lower for part in addr_parts if len(part) > 2):
-            return listing
-    return None
+        score = sum(1 for part in addr_parts if len(part) > 2 and part in body_lower)
+        if score > best_score:
+            best_score = score
+            best = listing
+
+    return best
 
 
 def _load_relevant_listings(agent_id: UUID, contact: Contact) -> list[Listing]:

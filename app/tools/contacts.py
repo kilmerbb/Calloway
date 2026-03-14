@@ -6,6 +6,7 @@ from uuid import UUID
 
 from app.db.connection import get_db_connection
 from app.models.schemas import Contact, LeadPreferences
+from app.tools.sql_utils import build_safe_update_clause
 
 logger = logging.getLogger(__name__)
 
@@ -132,9 +133,9 @@ def update_contact(contact_id: UUID, **updates) -> Contact:
         "consent_method", "consent_message", "consent_response",
         "language_detected", "interaction_count", "lead_source",
     }
-    filtered = {k: v for k, v in updates.items() if k in valid_fields and v is not None}
+    set_clauses, values = build_safe_update_clause(updates, valid_fields)
 
-    if not filtered:
+    if not set_clauses:
         # Just update last_contact_at
         with get_db_connection() as conn:
             row = conn.execute(
@@ -144,8 +145,6 @@ def update_contact(contact_id: UUID, **updates) -> Contact:
             conn.commit()
             return Contact(**row)
 
-    set_clauses = ", ".join(f"{k} = %s" for k in filtered)
-    values = list(filtered.values())
     values.append(str(contact_id))
 
     with get_db_connection() as conn:
