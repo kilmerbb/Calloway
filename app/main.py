@@ -19,6 +19,7 @@ from app.api.agent_portal import router as agent_portal_router
 from app.api.mobile import router as mobile_router
 from app.db.connection import init_pool, close_pool, init_async_pool, close_async_pool
 from app.services.redis_pool import get_redis_pool
+from app.services.redis_async import init_async_redis, close_async_redis
 from app.pipeline.structured_logging import configure_logging, set_correlation_id
 from app.services.console_queries import AuthorizationError
 
@@ -44,8 +45,10 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     init_pool()
     await init_async_pool()
+    await init_async_redis()
     logger.info("Database connection pools initialized (sync + async)")
     yield
+    await close_async_redis()
     await close_async_pool()
     close_pool()
     pool = get_redis_pool()
@@ -65,6 +68,7 @@ OPENAPI_TAGS = [
     {"name": "agent-portal", "description": "Agent-facing mobile portal -- dashboard, contacts, conversations, schedule, triggers, transactions, scores, and campaigns."},
     {"name": "harness", "description": "Testing harness -- message injection, trace history, scenario runner."},
     {"name": "mobile-auth", "description": "Mobile app authentication — login, token refresh, logout."},
+    {"name": "mobile-ws", "description": "Mobile WebSocket — real-time conversation updates."},
 ]
 
 app = FastAPI(
