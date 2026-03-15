@@ -409,7 +409,8 @@ async def edit_trigger(
     agent_id: str = Depends(get_current_agent),
 ):
     """MOB-CONV-004: Edit the message body of a pending ask_agent trigger."""
-    await _get_trigger_for_agent(trigger_id, agent_id)
+    trigger = await _get_trigger_for_agent(trigger_id, agent_id)
+    _check_trigger_expiry(trigger)
 
     async with get_async_db_connection() as conn:
         await conn.execute(

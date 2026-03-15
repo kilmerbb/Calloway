@@ -71,7 +71,7 @@ async def login(body: LoginRequest):
     agent = None
     async with get_async_db_connection() as conn:
         result = await conn.execute(
-            "SELECT id, phone FROM agents WHERE phone = %s", [phone]
+            "SELECT id, phone, twilio_number FROM agents WHERE phone = %s", [phone]
         )
         agent = await result.fetchone()
 
@@ -84,15 +84,7 @@ async def login(body: LoginRequest):
         code = f"{secrets.randbelow(1000000):06d}"
         r.setex(f"mobile_login_code:{phone}", 300, code)
 
-        # Look up agent's Twilio number for the from_ param
-        twilio_from = settings.TWILIO_PHONE_NUMBER
-        async with get_async_db_connection() as conn:
-            result = await conn.execute(
-                "SELECT twilio_number FROM agents WHERE id = %s", [str(agent["id"])]
-            )
-            agent_row = await result.fetchone()
-            if agent_row and agent_row.get("twilio_number"):
-                twilio_from = agent_row["twilio_number"]
+        twilio_from = agent.get("twilio_number") or settings.TWILIO_PHONE_NUMBER
 
         send_sms(
             to=phone,
@@ -154,7 +146,12 @@ async def verify(body: VerifyRequest):
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(body: RefreshRequest):
-    r = get_redis_pool()
+    try:
+        r = get_redis_pool()
+        r.ping()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable")
+
     redis_key = f"mobile_refresh:{body.refresh_token}"
     agent_id_bytes = r.get(redis_key)
 
@@ -190,7 +187,10 @@ async def logout(
     agent_id: str = Depends(get_current_agent),
 ):
     settings = get_settings()
-    r = get_redis_pool()
+    try:
+        r = get_redis_pool()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable")
 
     auth_header = request.headers.get("Authorization", "")
     token = auth_header[7:]  # Strip "Bearer "

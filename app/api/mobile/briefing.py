@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -112,7 +113,8 @@ async def _fetch_pending_approvals(agent_id: str) -> list[dict]:
                WHERE t.agent_id = %s
                  AND t.status = 'pending'
                  AND t.autonomy_level = 'ask_agent'
-               ORDER BY t.scheduled_at""",
+               ORDER BY t.scheduled_at
+               LIMIT 100""",
             [agent_id],
         )
         return await result.fetchall()
@@ -141,7 +143,8 @@ async def _fetch_new_leads(agent_id: str, yesterday_start: datetime) -> list[dic
             """SELECT id, name, phone, lead_source
                FROM contacts
                WHERE agent_id = %s AND created_at >= %s
-               ORDER BY created_at DESC""",
+               ORDER BY created_at DESC
+               LIMIT 50""",
             [agent_id, yesterday_start],
         )
         return await result.fetchall()
@@ -212,9 +215,13 @@ async def get_briefing_today(agent_id: str = Depends(get_current_agent)):
     )
 
     now_utc = datetime.now(timezone.utc)
+    try:
+        agent_date = datetime.now(ZoneInfo(timezone_str)).strftime("%Y-%m-%d")
+    except Exception:
+        agent_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
     return BriefingResponse(
-        date=now_utc.strftime("%Y-%m-%d"),
+        date=agent_date,
         timezone=timezone_str,
         generated_at=now_utc,
         showings_today=[
@@ -284,10 +291,13 @@ async def get_schedule_today(agent_id: str = Depends(get_current_agent)):
         )
         rows = await result.fetchall()
 
-    now_utc = datetime.now(timezone.utc)
+    try:
+        agent_date = datetime.now(ZoneInfo(timezone_str)).strftime("%Y-%m-%d")
+    except Exception:
+        agent_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
     return ScheduleResponse(
-        date=now_utc.strftime("%Y-%m-%d"),
+        date=agent_date,
         timezone=timezone_str,
         events=[
             ScheduleEvent(

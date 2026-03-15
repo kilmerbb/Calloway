@@ -1,4 +1,5 @@
 import logging
+import secrets
 import sys
 
 from pydantic_settings import BaseSettings
@@ -94,4 +95,7 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     settings = Settings()
     settings.validate_production_secrets()
+    if settings.ENVIRONMENT == "development" and not settings.MOBILE_JWT_SECRET:
+        settings.MOBILE_JWT_SECRET = secrets.token_hex(32)
+        logger.warning("MOBILE_JWT_SECRET not set — generated random key for development")
     return settings

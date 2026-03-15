@@ -9,6 +9,7 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from app.config import get_settings
 from app.services.redis_async import get_async_redis
+from app.services.redis_pool import get_redis_pool
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,17 @@ async def ws_conversations(websocket: WebSocket, token: str = Query(...)):
             await websocket.close(code=4001, reason="Invalid token type")
             return
         agent_id = payload["agent_id"]
+
+        # Check JWT deny-list
+        jti = payload.get("jti")
+        if jti:
+            try:
+                r = get_redis_pool()
+                if r.get(f"mobile_jwt_deny:{jti}"):
+                    await websocket.close(code=4001, reason="Token revoked")
+                    return
+            except Exception:
+                logger.warning("Redis unavailable for WS deny-list check, failing open")
     except jwt.ExpiredSignatureError:
         await websocket.close(code=4001, reason="Token expired")
         return

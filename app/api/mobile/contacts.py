@@ -148,7 +148,8 @@ async def list_contacts(
         params.append(lifecycle_stage)
 
     if search is not None:
-        like_pattern = f"%{search}%"
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        like_pattern = f"%{escaped}%"
         conditions.append("(name ILIKE %s OR phone ILIKE %s OR email ILIKE %s)")
         params.extend([like_pattern, like_pattern, like_pattern])
 
