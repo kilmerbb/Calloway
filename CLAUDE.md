@@ -167,3 +167,26 @@ Every implementation — regardless of workflow type — must be reviewed before
 12. **Document both the what and the why.** Code must be self-explanatory to a new developer joining the project. This means two layers of documentation, written during implementation — never deferred:
     - **The what:** Module-level docstrings (one sentence describing the file's purpose) on every new Python file. Function/class docstrings on public APIs and any non-trivial helper. Section comment headers (e.g., `# --- Helpers ---`) to break up long files.
     - **The why:** Concise inline comments on every non-obvious design decision explaining the rationale. This includes: security trade-offs (fail-open vs fail-closed), rate limiting thresholds and why those numbers, anti-enumeration patterns, compliance requirements (TCPA, consent), async/sync bridging patterns, pagination strategies, data model choices (e.g., timestamp vs separate table), and any deliberate deviation from the "obvious" approach. A new developer reading the code should never need to ask "what does this file do?" or "why is it done this way?"
+
+## Engineering Standards
+
+These standards apply to all code written by @eng agents. Solomon enforces them during review.
+
+### Testing
+- **Tests ship with the code.** Every implementation includes tests in the same commit or batch — never deferred to a "separate task." If you write an endpoint, you write its tests.
+- **Test the contract, not the implementation.** Tests verify behavior (inputs → outputs, side effects, error codes), not internal method calls. This keeps tests stable across refactors.
+- **Cover three paths:** Happy path, error/edge cases, and security-sensitive paths (auth failures, permission checks, rate limits, input validation). Happy path alone is insufficient.
+- **Tests must be deterministic.** No sleeps, no real network calls, no clock-dependent assertions. Mock external dependencies (Redis, DB, Twilio, Firebase). Use dependency overrides for FastAPI.
+- **Syntax-validate before committing.** Run `ast.parse()` on all modified Python files. Catches typos and import errors before they reach CI.
+
+### Security
+- **Parameterized queries only.** Never use f-strings or string concatenation for SQL. All user input goes through `%s` placeholders. ILIKE wildcards (`%`, `_`) must be escaped separately (parameterization doesn't protect against wildcard injection).
+- **Validate at system boundaries.** All external input (API request bodies, query params, webhook payloads) must be validated via Pydantic models or explicit checks. Internal function calls between trusted modules do not need redundant validation.
+- **Secrets never in code.** All credentials, API keys, and signing secrets come from environment variables via `app/config.py`. Production secrets must pass validation in `validate_production_secrets()`. Development mode may auto-generate safe defaults.
+- **Principle of least privilege.** Every database query, API endpoint, and background job must be scoped to the authenticated agent. Never trust client-supplied IDs without verifying ownership (e.g., `WHERE agent_id = %s`).
+
+### Code Quality
+- **Type hints on all function signatures.** Parameters and return types must be annotated. Pydantic models handle request/response typing. Use `str | None` over `Optional[str]`.
+- **Consistent error responses.** Use `HTTPException` with appropriate status codes: 400 (bad request), 401 (not authenticated), 403 (forbidden), 404 (not found), 409 (conflict), 410 (gone/expired), 422 (validation), 429 (rate limit), 503 (dependency unavailable).
+- **Logging at the right level.** `logger.info` for successful operations (login, logout, key state changes). `logger.warning` for degraded-but-functional states (Redis unavailable, fail-open). `logger.error` for failures that lost data or broke a user flow. `logger.debug` for development troubleshooting. Never log secrets, tokens, or full request bodies.
+- **Async discipline.** Never call blocking I/O (Twilio, Firebase, sync DB) directly in async endpoints — wrap in `loop.run_in_executor()`. Each `asyncio.gather()` task must acquire its own DB connection to enable true parallelism.
