@@ -85,7 +85,9 @@ class ScheduleResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Helpers — each acquires its own connection for asyncio.gather
+# Helpers — each acquires its own DB connection for asyncio.gather parallelism.
+# Using separate connections allows all 6 briefing queries to run concurrently,
+# reducing latency from sum-of-all to max-of-slowest.
 # ---------------------------------------------------------------------------
 
 async def _fetch_showings_today(agent_id: str, today_start: datetime, today_end: datetime) -> list[dict]:

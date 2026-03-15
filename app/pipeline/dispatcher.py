@@ -33,7 +33,10 @@ def dispatch(
     """
     Send the AI response via the correct channel and log everything.
     """
-    # 0. CONSENT GATE — NEVER send to a contact with revoked consent
+    # 0. CONSENT GATE (TCPA COMPLIANCE) — NEVER send to a contact with revoked
+    # consent. The message is blocked, but the interaction is still logged (audit
+    # trail for compliance). Even if the AI generated a valid response, it must
+    # not leave the system if the contact has opted out.
     if contact and not is_agent_command:
         from app.pipeline.consent import check_consent_before_send
         if not check_consent_before_send(contact):
@@ -41,7 +44,7 @@ def dispatch(
                 f"Blocked outbound message to {contact.name} — consent not granted "
                 f"(status: {contact.consent_status})"
             )
-            # Still log the interaction, but don't send
+            # Still log the interaction for audit trail, but don't send
             _log_conversation(event, decision, contact, agent, is_agent_command)
             # Invalidate conversation cache after logging
             from app.services.cache import cache_invalidate
@@ -170,7 +173,10 @@ def _send_notification(agent: AgentConfig, notif: dict, contact: Contact | None)
 def _publish_ws_event(agent_id: UUID, event_type: str, data: dict) -> None:
     """Fire-and-forget a WebSocket event to mobile clients.
 
-    Safe to call from sync code — creates an event loop if needed.
+    Called from both async handlers and sync worker threads, so we detect the
+    execution context: create_task() if an event loop is running (non-blocking),
+    asyncio.run() if in a sync thread (creates a temporary loop). Errors are
+    swallowed — WebSocket publishing is best-effort and must never break dispatch.
     """
     try:
         from app.api.mobile.ws import publish_mobile_event
@@ -178,10 +184,10 @@ def _publish_ws_event(agent_id: UUID, event_type: str, data: dict) -> None:
 
         try:
             loop = asyncio.get_running_loop()
-            # We're inside an async context — schedule as a task
+            # Async context — schedule without blocking the dispatch hot path
             loop.create_task(publish_mobile_event(str(agent_id), event))
         except RuntimeError:
-            # No running loop (sync thread) — run in a new loop
+            # Sync thread (e.g., trigger_worker) — no running loop, create one
             asyncio.run(publish_mobile_event(str(agent_id), event))
     except Exception:
         # WebSocket publishing is best-effort — never break the dispatch pipeline

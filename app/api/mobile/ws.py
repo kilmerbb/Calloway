@@ -50,6 +50,7 @@ async def ws_conversations(websocket: WebSocket, token: str = Query(...)):
                     await websocket.close(code=4001, reason="Token revoked")
                     return
             except Exception:
+                # Same fail-open policy as deps.py:get_current_agent — see comment there
                 logger.warning("Redis unavailable for WS deny-list check, failing open")
     except jwt.ExpiredSignatureError:
         await websocket.close(code=4001, reason="Token expired")

@@ -127,7 +127,12 @@ async def _get_trigger_for_agent(trigger_id: str, agent_id: str) -> dict:
 
 
 def _check_trigger_expiry(trigger: dict) -> None:
-    """Raise 410 if trigger scheduled_at is older than 24 hours."""
+    """Raise 410 if trigger scheduled_at is older than 24 hours.
+
+    Stale triggers should not be acted upon — the context has likely changed.
+    HTTP 410 (Gone) signals the resource state has permanently changed, not
+    that the user lacks permission (which would be 403).
+    """
     scheduled_at = trigger["scheduled_at"]
     if scheduled_at.tzinfo is None:
         scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
@@ -187,6 +192,9 @@ async def list_conversations(
             ORDER BY created_at DESC
             LIMIT 1
         ) lm ON true
+        -- Unread count: messages newer than last_read_at. Uses a single timestamp
+        -- per conversation instead of a read_receipts table — simpler schema, fast
+        -- indexed query, sufficient for "new messages since agent last looked."
         LEFT JOIN LATERAL (
             SELECT COUNT(*) as cnt
             FROM messages
@@ -267,7 +275,14 @@ async def list_messages(
     per_page: int = Query(50, ge=1, le=100),
     before: str | None = Query(None),
 ):
-    """MOB-CONV-002: List messages for a conversation."""
+    """MOB-CONV-002: List messages for a conversation.
+
+    Supports dual pagination:
+    - Cursor-based (?before=<message_id>): for mobile infinite scroll (load older)
+    - Offset-based (?page=N): for traditional pagination
+
+    Side effect: viewing messages marks the conversation as read (updates last_read_at).
+    """
     # Verify conversation belongs to agent
     async with get_async_db_connection() as conn:
         result = await conn.execute(
@@ -343,7 +358,9 @@ async def list_messages(
         total = count_row["total"] if count_row else 0
         pages = math.ceil(total / per_page) if total > 0 else 0
 
-    # Side effect: mark conversation as read
+    # Side effect: opening the message list implies the agent has seen everything,
+    # so we update last_read_at to reduce the unread count. No separate "mark read"
+    # endpoint needed — viewing is reading.
     async with get_async_db_connection() as conn:
         await conn.execute(
             "UPDATE conversations SET last_read_at = %s WHERE id = %s::uuid",

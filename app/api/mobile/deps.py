@@ -38,6 +38,12 @@ def create_access_token(agent_id: str) -> str:
 
 
 def create_refresh_token(agent_id: str) -> tuple[str, str]:
+    """Create an opaque refresh token stored in Redis (not a JWT).
+
+    Unlike access tokens (self-contained JWTs verified by signature), refresh
+    tokens are random strings backed by Redis. This allows instant server-side
+    revocation (delete the key) which JWTs alone cannot provide.
+    """
     token = secrets.token_urlsafe(48)
     r = get_redis_pool()
     key = f"mobile_refresh:{token}"
@@ -77,6 +83,10 @@ async def get_current_agent(request: Request) -> str:
         except HTTPException:
             raise
         except Exception:
+            # FAIL-OPEN: If Redis is down, allow the request through. We prioritize
+            # availability over perfect revocation — a revoked token may briefly work
+            # during Redis outages, but the alternative (fail-closed) would block ALL
+            # authenticated requests when Redis is unavailable.
             logger.warning("Redis unavailable for JWT deny-list check, failing open", extra={"jti": jti})
 
     return payload["agent_id"]

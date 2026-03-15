@@ -62,6 +62,11 @@ class MessageResponse(BaseModel):
 
 @router.post("/login", response_model=LoginResponse)
 async def login(body: LoginRequest):
+    """Send a verification code via SMS.
+
+    ANTI-ENUMERATION: Returns the same 200 response whether the phone number
+    exists or not, preventing attackers from discovering valid agent accounts.
+    """
     phone = normalize_e164(body.phone)
     settings = get_settings()
 
@@ -78,6 +83,7 @@ async def login(body: LoginRequest):
         )
         agent = await result.fetchone()
 
+    # Response is built BEFORE checking if agent exists — identical message either way
     response = LoginResponse(
         message="If an account exists, a verification code has been sent",
         expires_in=300,
@@ -89,6 +95,8 @@ async def login(body: LoginRequest):
 
         twilio_from = agent.get("twilio_number") or settings.TWILIO_PHONE_NUMBER
 
+        # send_sms() is synchronous (blocking Twilio HTTP call) — offload to
+        # thread pool to avoid blocking the FastAPI async event loop.
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
             None,
@@ -117,6 +125,8 @@ async def verify(body: VerifyRequest):
     except Exception:
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
 
+    # Rate limit: 5 attempts per phone per 15 min. With 6-digit codes (~1M combos),
+    # 5 guesses gives negligible brute-force probability while allowing typo retries.
     rate_key = f"mobile_verify_attempts:{phone}"
     attempts = r.get(rate_key)
     if attempts and int(attempts) >= 5:
@@ -127,6 +137,7 @@ async def verify(body: VerifyRequest):
         r.incr(rate_key)
         ttl = r.ttl(rate_key)
         if ttl < 0:
+            # Lazy TTL: only set on first attempt (INCR doesn't preserve TTL)
             r.expire(rate_key, 900)
         raise HTTPException(status_code=401, detail="Invalid or expired code")
 
@@ -159,7 +170,9 @@ async def refresh(body: RefreshRequest):
     except Exception:
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
 
-    # Rate limit: 10 refresh attempts per token per 15 minutes
+    # Rate limit: 10 attempts per token per 15 min. Higher than verify (10 vs 5)
+    # because refresh tokens are harder to guess. Key uses token prefix to avoid
+    # storing full tokens in Redis (defense in depth).
     rate_key = f"mobile_refresh_rate:{body.refresh_token[:16]}"
     attempts = r.get(rate_key)
     if attempts and int(attempts) >= 10:
@@ -187,6 +200,8 @@ async def refresh(body: RefreshRequest):
         r.delete(redis_key)
         raise HTTPException(status_code=401, detail="Agent no longer exists")
 
+    # TOKEN ROTATION: Delete old token before creating new one, ensuring at most
+    # one valid refresh token exists at a time.
     r.delete(redis_key)
 
     access_token = create_access_token(agent_id)
@@ -209,6 +224,9 @@ async def logout(
     except Exception:
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
 
+    # JTI DENY-LIST: Add the token's unique ID to Redis so it's rejected on future
+    # requests. TTL matches the token's remaining lifetime — once the JWT would expire
+    # naturally, the deny-list entry is no longer needed and auto-cleans.
     auth_header = request.headers.get("Authorization", "")
     token = auth_header[7:]  # Strip "Bearer "
     try:

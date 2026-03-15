@@ -144,6 +144,10 @@ async def list_contacts(
         params.append(lifecycle_stage)
 
     if search is not None:
+        # Escape ILIKE wildcards (% and _) to prevent wildcard injection.
+        # Parameterized queries prevent SQL injection, but ILIKE treats
+        # unescaped % and _ as wildcards — a search for "100%" would match
+        # any string starting with "100". Backslash must be escaped first.
         escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         like_pattern = f"%{escaped}%"
         conditions.append("(name ILIKE %s OR phone ILIKE %s OR email ILIKE %s)")
