@@ -1,4 +1,5 @@
 """Response dispatcher — sends AI response via correct channel."""
+import asyncio
 import logging
 import threading
 from datetime import date
@@ -88,6 +89,15 @@ def dispatch(
                 to_number=contact.phone,
             )
 
+    # 1b. Publish WebSocket event for new message
+    if decision.response_text and contact and not is_agent_command:
+        _publish_ws_event(agent.id, "new_message", {
+            "contact_id": str(contact.id),
+            "contact_name": contact.name,
+            "message_preview": decision.response_text[:150],
+            "channel": event.channel,
+        })
+
     # 2. Send push notifications
     if decision.notifications:
         for notif in decision.notifications:
@@ -97,6 +107,16 @@ def dispatch(
     if decision.triggers_to_create:
         for trigger_data in decision.triggers_to_create:
             _create_trigger(agent.id, trigger_data)
+
+    # 3b. Publish WebSocket event for new triggers
+    if decision.triggers_to_create:
+        for trigger_data in decision.triggers_to_create:
+            if trigger_data.get("autonomy_level") == "ask_agent":
+                _publish_ws_event(agent.id, "pending_approval", {
+                    "trigger_type": trigger_data.get("trigger_type"),
+                    "contact_id": trigger_data.get("entity_id"),
+                    "message_preview": (trigger_data.get("message_template") or "")[:150],
+                })
 
     # 4. Execute queued tool calls
     if decision.tool_calls:
@@ -135,8 +155,37 @@ def _send_notification(agent: AgentConfig, notif: dict, contact: Contact | None)
             body=notif.get("body", ""),
             contact_id=contact.id if contact else None,
         )
+        _publish_ws_event(
+            agent.id, "notification", {
+                "tier": notif.get("tier", "informational"),
+                "title": notif.get("title", "Notification"),
+                "body": notif.get("body", ""),
+                "contact_id": str(contact.id) if contact else None,
+            }
+        )
     except Exception as e:  # Broad catch: Firebase SDK errors
         logger.error(f"Failed to send notification: {e}")
+
+
+def _publish_ws_event(agent_id: UUID, event_type: str, data: dict) -> None:
+    """Fire-and-forget a WebSocket event to mobile clients.
+
+    Safe to call from sync code — creates an event loop if needed.
+    """
+    try:
+        from app.api.mobile.ws import publish_mobile_event
+        event = {"type": event_type, **data}
+
+        try:
+            loop = asyncio.get_running_loop()
+            # We're inside an async context — schedule as a task
+            loop.create_task(publish_mobile_event(str(agent_id), event))
+        except RuntimeError:
+            # No running loop (sync thread) — run in a new loop
+            asyncio.run(publish_mobile_event(str(agent_id), event))
+    except Exception:
+        # WebSocket publishing is best-effort — never break the dispatch pipeline
+        logger.debug("Failed to publish WS event", exc_info=True)
 
 
 def _create_trigger(agent_id: UUID, trigger_data: dict):

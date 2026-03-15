@@ -115,13 +115,22 @@ def register_device_token(
     return dict(row) if row else {}
 
 
-def unregister_device_token(fcm_token: str) -> bool:
-    """Deactivate a device token (e.g. on logout)."""
+def unregister_device_token(fcm_token: str, agent_id: UUID | None = None) -> bool:
+    """Deactivate a device token (e.g. on logout).
+
+    When agent_id is provided, only deactivates if the token belongs to that agent.
+    """
     with get_db_connection() as conn:
-        conn.execute(
-            "UPDATE device_tokens SET is_active = false, updated_at = now() WHERE fcm_token = %s",
-            [fcm_token],
-        )
+        if agent_id:
+            conn.execute(
+                "UPDATE device_tokens SET is_active = false, updated_at = now() WHERE fcm_token = %s AND agent_id = %s",
+                [fcm_token, str(agent_id)],
+            )
+        else:
+            conn.execute(
+                "UPDATE device_tokens SET is_active = false, updated_at = now() WHERE fcm_token = %s",
+                [fcm_token],
+            )
         conn.commit()
     return True
 

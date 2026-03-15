@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import secrets
 from datetime import datetime, timezone
@@ -86,11 +87,15 @@ async def login(body: LoginRequest):
 
         twilio_from = agent.get("twilio_number") or settings.TWILIO_PHONE_NUMBER
 
-        send_sms(
-            to=phone,
-            from_=twilio_from,
-            body=f"Your Calloway verification code is: {code}",
-            agent_id=agent["id"],
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: send_sms(
+                to=phone,
+                from_=twilio_from,
+                body=f"Your Calloway verification code is: {code}",
+                agent_id=agent["id"],
+            ),
         )
         logger.info("Login code sent", extra={"phone": phone, "agent_id": str(agent["id"])})
 
@@ -151,6 +156,16 @@ async def refresh(body: RefreshRequest):
         r.ping()
     except Exception:
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
+
+    # Rate limit: 10 refresh attempts per token per 15 minutes
+    rate_key = f"mobile_refresh_rate:{body.refresh_token[:16]}"
+    attempts = r.get(rate_key)
+    if attempts and int(attempts) >= 10:
+        raise HTTPException(status_code=429, detail="Too many refresh attempts. Try again later.")
+    r.incr(rate_key)
+    ttl = r.ttl(rate_key)
+    if ttl < 0:
+        r.expire(rate_key, 900)
 
     redis_key = f"mobile_refresh:{body.refresh_token}"
     agent_id_bytes = r.get(redis_key)

@@ -257,12 +257,12 @@ async def get_briefing_today(agent_id: str = Depends(get_current_agent)):
         ],
         new_leads_since_yesterday=[
             LeadSummary(
-                id=str(l["id"]),
-                name=l.get("name"),
-                phone=l.get("phone"),
-                lead_source=l.get("lead_source"),
+                id=str(lead["id"]),
+                name=lead.get("name"),
+                phone=lead.get("phone"),
+                lead_source=lead.get("lead_source"),
             )
-            for l in new_leads
+            for lead in new_leads
         ],
         messages_received_today=msg_count,
         active_transaction_count=txn_count,

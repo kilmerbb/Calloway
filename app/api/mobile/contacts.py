@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.db.connection import get_async_db_connection
 
 from .deps import get_current_agent
+from .schemas import PaginationMeta
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +30,6 @@ class ContactSummary(BaseModel):
     lead_source: str | None = None
     last_contact_at: datetime | None = None
     created_at: datetime | None = None
-
-
-class PaginationMeta(BaseModel):
-    total: int
-    page: int
-    per_page: int
-    pages: int
 
 
 class ContactListResponse(BaseModel):

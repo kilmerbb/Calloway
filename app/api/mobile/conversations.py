@@ -10,6 +10,7 @@ from pydantic import BaseModel, field_validator
 
 from app.db.connection import get_async_db_connection
 from .deps import get_current_agent
+from .schemas import PaginationMeta
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +24,6 @@ VALID_STAGES = {"open", "closed", "snoozed"}
 # ---------------------------------------------------------------------------
 # Response schemas
 # ---------------------------------------------------------------------------
-
-class PaginationMeta(BaseModel):
-    total: int
-    page: int
-    per_page: int
-    pages: int
-
 
 class ConversationItem(BaseModel):
     id: str
@@ -200,7 +194,7 @@ async def list_conversations(
             AND created_at > COALESCE(cv.last_read_at, '1970-01-01'::timestamptz)
             AND sender_type IN ('client', 'ai')
         ) unread ON true
-        WHERE cv.agent_id = %s
+        WHERE cv.agent_id = %s::uuid
         {stage_clause}
         ORDER BY cv.last_message_at DESC NULLS LAST
         LIMIT %s OFFSET %s
@@ -209,7 +203,7 @@ async def list_conversations(
     count_query = f"""
         SELECT COUNT(*) as total
         FROM conversations cv
-        WHERE cv.agent_id = %s
+        WHERE cv.agent_id = %s::uuid
         {stage_clause}
     """
 

@@ -62,7 +62,7 @@ async def unregister_device(body: UnregisterDeviceRequest, agent_id: str = Depen
         raise HTTPException(status_code=422, detail="fcm_token must be a non-empty string")
 
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, unregister_device_token, body.fcm_token)
+    await loop.run_in_executor(None, unregister_device_token, body.fcm_token, UUID(agent_id))
 
     logger.info("Device token unregistered", extra={"agent_id": agent_id, "fcm_token_prefix": body.fcm_token[:8]})
     return UnregisterDeviceResponse(status="unregistered")
