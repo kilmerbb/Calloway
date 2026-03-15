@@ -1,3 +1,5 @@
+"""Mobile API — FCM device token registration endpoints."""
+
 import asyncio
 import logging
 from uuid import UUID

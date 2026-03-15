@@ -1,3 +1,5 @@
+"""Mobile API — Shared Pydantic response schemas."""
+
 from pydantic import BaseModel
 
 

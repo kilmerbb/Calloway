@@ -1,3 +1,5 @@
+"""Mobile API — Authentication endpoints (login, verify, refresh, logout)."""
+
 import asyncio
 import logging
 import secrets

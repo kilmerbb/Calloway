@@ -1,3 +1,5 @@
+"""Mobile API — Shared dependencies: JWT auth, E.164 validation, FastAPI deps."""
+
 import logging
 import re
 import secrets

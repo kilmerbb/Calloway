@@ -1,3 +1,5 @@
+"""Mobile API package — aggregates all sub-routers under /api/v1/mobile/."""
+
 from fastapi import APIRouter
 
 from .auth import router as auth_router

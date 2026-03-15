@@ -1,3 +1,5 @@
+"""Mobile API — Shared utility functions."""
+
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 import logging

@@ -1,3 +1,5 @@
+"""Mobile API — Daily briefing and schedule endpoints."""
+
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone

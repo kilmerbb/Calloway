@@ -1,3 +1,5 @@
+"""Mobile API — Contact list and detail endpoints."""
+
 import logging
 import math
 from datetime import datetime
