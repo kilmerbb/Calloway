@@ -1,23 +1,16 @@
-"""Per-agent configuration loading with Redis caching."""
-import json
+"""Per-agent configuration loading with Redis caching.
+
+Uses the shared bounded connection pool from redis_pool.py rather than
+maintaining a separate unbounded client, preventing Redis connection
+exhaustion under load.
+"""
 from uuid import UUID
 
-import redis
-
-from app.config import get_settings
 from app.db.connection import get_db_connection
 from app.models.schemas import AgentConfig
+from app.services.redis_pool import get_redis_pool
 
-_redis_client: redis.Redis | None = None
 CACHE_TTL = 300  # 5 minutes
-
-
-def get_redis_client() -> redis.Redis:
-    global _redis_client
-    if _redis_client is None:
-        settings = get_settings()
-        _redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
-    return _redis_client
 
 
 def _agent_row_to_config(row: dict) -> AgentConfig:
@@ -27,7 +20,7 @@ def _agent_row_to_config(row: dict) -> AgentConfig:
 
 def get_agent_by_twilio_number(phone: str) -> AgentConfig | None:
     """Look up an agent by their Twilio phone number. Cached in Redis."""
-    r = get_redis_client()
+    r = get_redis_pool()
     cache_key = f"agent:twilio:{phone}"
 
     cached = r.get(cache_key)
@@ -49,7 +42,7 @@ def get_agent_by_twilio_number(phone: str) -> AgentConfig | None:
 
 def get_agent_by_id(agent_id: UUID) -> AgentConfig | None:
     """Look up an agent by ID. Cached in Redis."""
-    r = get_redis_client()
+    r = get_redis_pool()
     cache_key = f"agent:id:{agent_id}"
 
     cached = r.get(cache_key)
@@ -71,7 +64,7 @@ def get_agent_by_id(agent_id: UUID) -> AgentConfig | None:
 
 def invalidate_agent_cache(agent_id: UUID, twilio_number: str | None = None) -> None:
     """Invalidate cached agent config after updates."""
-    r = get_redis_client()
+    r = get_redis_pool()
     r.delete(f"agent:id:{agent_id}")
     if twilio_number:
         r.delete(f"agent:twilio:{twilio_number}")

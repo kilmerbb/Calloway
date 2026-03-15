@@ -52,13 +52,14 @@ def test_agent_config_by_twilio_number():
 def test_agent_config_cache():
     """Test that second call hits Redis cache, not DB."""
     try:
-        from app.services.agent_config import get_agent_by_id, get_redis_client
+        from app.services.agent_config import get_agent_by_id
+        from app.services.redis_pool import get_redis_pool
         # First call populates cache
         agent1 = get_agent_by_id(TEST_AGENT_ID)
         assert agent1 is not None
 
         # Verify cache exists
-        r = get_redis_client()
+        r = get_redis_pool()
         cached = r.get(f"agent:id:{TEST_AGENT_ID}")
         assert cached is not None
 
