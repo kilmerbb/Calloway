@@ -428,11 +428,22 @@ async def contacts_list(request: Request):
         escaped = f"%{escape_ilike(search)}%"
         params.extend([escaped, escaped, escaped])
 
+    # Pagination — default 50 per page, capped at 200
+    page = max(1, int(request.query_params.get("page", "1")))
+    per_page = min(200, max(1, int(request.query_params.get("per_page", "50"))))
+    offset = (page - 1) * per_page
+
     query += " ORDER BY last_contact_at DESC NULLS LAST"
+    count_query = query.replace("SELECT * FROM", "SELECT count(*) FROM", 1)
+    query += " LIMIT %s OFFSET %s"
+    params_with_pagination = params + [per_page, offset]
 
     async with get_async_db_connection() as conn:
-        cur = await conn.execute(query, params)
+        cur = await conn.execute(query, params_with_pagination)
         contacts = await cur.fetchall()
+
+        cur = await conn.execute(count_query, params)
+        total_count = (await cur.fetchone())["count"]
 
         # Get distinct lead sources for filter chips
         cur = await conn.execute(
@@ -442,11 +453,14 @@ async def contacts_list(request: Request):
         sources = await cur.fetchall()
 
     lead_sources = [s["lead_source"] for s in sources]
+    total_pages = max(1, (total_count + per_page - 1) // per_page)
 
     return _render(request, "contacts.html",
         page_title="Contacts", active_nav="contacts", agent=agent,
         contacts=contacts, search=search, role_filter=role_filter,
         source_filter=source_filter, lead_sources=lead_sources,
+        page=page, total_pages=total_pages, total_count=total_count,
+        per_page=per_page,
     )
 
 
@@ -514,11 +528,12 @@ async def conversation_detail(request: Request, conversation_id: str):
         if not conv:
             return RedirectResponse("/agent/conversations", status_code=303)
 
+        # Limit to most recent 200 messages to prevent unbounded memory usage
         cur = await conn.execute(
-            "SELECT * FROM messages WHERE conversation_id = %s ORDER BY created_at",
+            "SELECT * FROM messages WHERE conversation_id = %s ORDER BY created_at DESC LIMIT 200",
             [conversation_id],
         )
-        messages = await cur.fetchall()
+        messages = list(reversed(await cur.fetchall()))
 
     detail = {
         **conv,
