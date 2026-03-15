@@ -276,10 +276,13 @@ def test_classifier_feedback_requires_contact():
     from app.pipeline.classifier import classify_intent
 
     agent = _make_agent()
-    # Without contact, '1' falls through to keyword/LLM classification
+    # Without contact, '1' should skip the early feedback return (requires contact)
     event = _make_event(body="1")
-    # This will try LLM and fail, falling back to keyword
-    result = classify_intent(event, None, agent)
+    # Mock LLM so test doesn't depend on external API behavior
+    mock_result = {"intent": "noise", "confidence": 0.5, "needs_full_context": False, "language_code": "en"}
+    with patch("app.pipeline.classifier.get_anthropic_client") as mock_client:
+        mock_client.return_value.classify.return_value = mock_result
+        result = classify_intent(event, None, agent)
     assert result.intent != "feedback"
 
 

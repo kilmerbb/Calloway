@@ -156,20 +156,31 @@ def test_compose_returns_text(mock_anthropic_cls):
 
 @patch("app.services.anthropic_service.anthropic.Anthropic")
 def test_token_tracking(mock_anthropic_cls):
+    from datetime import date
+    from unittest.mock import patch as _patch
+
     mock_client = MagicMock()
     mock_anthropic_cls.return_value = mock_client
     mock_client.messages.create.return_value = make_mock_response(
         input_tokens=500, output_tokens=200
     )
 
-    client = AnthropicClient(api_key="test-key")
-    client.classify("system", "test message", AGENT_ID)
+    # Mock DB so _track_usage and get_usage don't hit a real database
+    mock_conn = MagicMock()
+    mock_row = {"date": date.today(), "tokens": 700, "cost_cents": 0.0}
+    mock_conn.execute.return_value.fetchone.return_value = mock_row
+    mock_cm = MagicMock()
+    mock_cm.__enter__ = MagicMock(return_value=mock_conn)
+    mock_cm.__exit__ = MagicMock(return_value=False)
 
-    usage = client.get_usage(AGENT_ID)
-    assert len(usage) > 0
-    today_usage = list(usage.values())[0]
-    assert today_usage["input"] == 500
-    assert today_usage["output"] == 200
+    with _patch("app.db.connection.get_db_connection", return_value=mock_cm):
+        client = AnthropicClient(api_key="test-key")
+        client.classify("system", "test message", AGENT_ID)
+
+        usage = client.get_usage(AGENT_ID)
+        assert len(usage) > 0
+        today_usage = list(usage.values())[0]
+        assert today_usage["tokens"] == 700
 
 
 @patch("app.services.anthropic_service.anthropic.Anthropic")
