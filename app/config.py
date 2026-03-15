@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     CONSOLE_SESSION_SECRET: str = "console-secret-change-in-production"
     LEGACY_AUTH_MODE: bool = True  # When True, single shared password still works
 
+    # Agent Portal
+    AGENT_PORTAL_SESSION_SECRET: str = ""
+
     # Mobile API
     MOBILE_JWT_SECRET: str = ""
 

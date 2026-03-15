@@ -312,6 +312,25 @@ def log_audit(
 
 # ── User management helpers ─────────────────────────────────────────
 
+def validate_password_complexity(password: str) -> str | None:
+    """Validate password meets minimum complexity requirements.
+
+    Returns None if valid, or an error message string if invalid.
+    Requires: 8+ chars, at least one uppercase, one lowercase, one digit.
+    These thresholds balance security with usability for non-technical
+    real estate agents who may not use password managers.
+    """
+    if len(password) < 8:
+        return "Password must be at least 8 characters"
+    if not any(c.isupper() for c in password):
+        return "Password must contain at least one uppercase letter"
+    if not any(c.islower() for c in password):
+        return "Password must contain at least one lowercase letter"
+    if not any(c.isdigit() for c in password):
+        return "Password must contain at least one digit"
+    return None
+
+
 def create_console_user(
     email: str,
     password: str,
@@ -320,10 +339,15 @@ def create_console_user(
 ) -> dict:
     """Create a new console user. Returns the created user dict.
 
-    Raises ValueError if email already exists or role is invalid.
+    Raises ValueError if email already exists, role is invalid,
+    or password does not meet complexity requirements.
     """
     if role not in ("admin", "viewer"):
         raise ValueError(f"Invalid role: {role}. Must be 'admin' or 'viewer'.")
+
+    complexity_error = validate_password_complexity(password)
+    if complexity_error:
+        raise ValueError(complexity_error)
 
     from app.db.connection import get_db_connection
     pw_hash = hash_password(password)

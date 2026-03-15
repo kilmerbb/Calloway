@@ -2,6 +2,16 @@
 import re
 
 
+def escape_ilike(value: str) -> str:
+    """Escape ILIKE wildcard characters in user-supplied search values.
+
+    Parameterization prevents SQL injection but does not escape LIKE/ILIKE
+    wildcards (% and _). Without escaping, a user could submit '%' to match
+    all rows or '_' for single-character wildcards.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def build_safe_update_clause(fields: dict, allowed: set[str]) -> tuple[str, list]:
     """Build a safe SET clause from validated field names.
 

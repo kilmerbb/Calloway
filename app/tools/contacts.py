@@ -6,7 +6,7 @@ from uuid import UUID
 
 from app.db.connection import get_db_connection
 from app.models.schemas import Contact, LeadPreferences
-from app.tools.sql_utils import build_safe_update_clause
+from app.tools.sql_utils import build_safe_update_clause, escape_ilike
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def lookup_contact(
         if name:
             rows = conn.execute(
                 "SELECT * FROM contacts WHERE agent_id = %s AND LOWER(name) LIKE LOWER(%s)",
-                [str(agent_id), f"%{name}%"],
+                [str(agent_id), f"%{escape_ilike(name)}%"],
             ).fetchall()
             if not rows:
                 return None

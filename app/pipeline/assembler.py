@@ -12,6 +12,7 @@ import re
 from uuid import UUID
 
 from app.db.connection import get_db_connection
+from app.tools.sql_utils import escape_ilike
 
 import psycopg
 from app.models.schemas import (
@@ -221,7 +222,7 @@ def _find_referenced_listing(body: str, agent_id: UUID) -> Listing | None:
     ilike_clauses = []
     for token in tokens:
         ilike_clauses.append("address ILIKE %s")
-        params.append(f"%{token}%")
+        params.append(f"%{escape_ilike(token)}%")
 
     if not ilike_clauses:
         return None

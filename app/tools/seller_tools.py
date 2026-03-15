@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.db.connection import get_db_connection
 from app.models.schemas import Listing, Contact, AgentConfig
+from app.tools.sql_utils import escape_ilike
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ def get_listing_activity(agent_id: UUID, listing_id: UUID, days: int = 7) -> dic
                    WHERE c.agent_id = %s AND m.created_at > %s
                    AND m.sender_type = 'client'
                    AND LOWER(m.body) LIKE LOWER(%s)""",
-                [str(agent_id), since, f"%{listing_row['address'][:20]}%"],
+                [str(agent_id), since, f"%{escape_ilike(listing_row['address'][:20])}%"],
             ).fetchone()
             inquiry_count = result["cnt"] if result else 0
 

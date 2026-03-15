@@ -68,7 +68,8 @@ def test_twilio_status_delivered(client):
     mock_conn.execute = AsyncMock()
     mock_conn.commit = AsyncMock()
 
-    with patch("app.db.connection.get_async_db_connection") as mock_get_conn:
+    with patch("app.api.webhooks.validate_twilio_signature", return_value=True), \
+         patch("app.db.connection.get_async_db_connection") as mock_get_conn:
         mock_get_conn.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
         mock_get_conn.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -109,7 +110,8 @@ def test_twilio_status_failed(client):
 
     mock_conn.execute = AsyncMock(side_effect=side_effect_execute)
 
-    with patch("app.db.connection.get_async_db_connection") as mock_get_conn:
+    with patch("app.api.webhooks.validate_twilio_signature", return_value=True), \
+         patch("app.db.connection.get_async_db_connection") as mock_get_conn:
         mock_get_conn.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
         mock_get_conn.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -128,7 +130,8 @@ def test_twilio_status_failed(client):
         assert "failure_reason" in sql
 
 
-def test_twilio_status_empty_sid(client):
+@patch("app.api.webhooks.validate_twilio_signature", return_value=True)
+def test_twilio_status_empty_sid(mock_validate, client):
     """Twilio status with empty MessageSid is handled gracefully."""
     response = client.post("/webhooks/twilio/status", data={
         "MessageSid": "",

@@ -137,8 +137,12 @@ async def login_submit(
     return _render(request, "login.html", error="Invalid credentials.")
 
 
-@router.get("/logout")
+@router.post("/logout")
 async def logout(request: Request):
+    """POST-only logout to prevent CSRF via link prefetching or image tags."""
+    form = await request.form()
+    if not validate_csrf_token(request, form.get("csrf_token")):
+        return Response("CSRF validation failed", status_code=403)
     user_info = check_session(request)
     if user_info:
         log_audit(

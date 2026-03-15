@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.db.connection import get_async_db_connection
+from app.tools.sql_utils import escape_ilike
 
 from .deps import get_current_agent
 from .schemas import PaginationMeta
@@ -148,8 +149,7 @@ async def list_contacts(
         # Parameterized queries prevent SQL injection, but ILIKE treats
         # unescaped % and _ as wildcards — a search for "100%" would match
         # any string starting with "100". Backslash must be escaped first.
-        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        like_pattern = f"%{escaped}%"
+        like_pattern = f"%{escape_ilike(search)}%"
         conditions.append("(name ILIKE %s OR phone ILIKE %s OR email ILIKE %s)")
         params.extend([like_pattern, like_pattern, like_pattern])
 

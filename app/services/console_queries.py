@@ -26,6 +26,7 @@ import redis
 
 from app.db.connection import get_db_connection, get_async_db_connection
 from app.services.cache import cache_get, cache_set, cache_invalidate
+from app.tools.sql_utils import escape_ilike
 from app.models.responses import (
     ActivityEntry,
     AgentDetail,
@@ -457,8 +458,8 @@ async def get_recent_conversations(
             params.append(channel)
         if search:
             conditions.append("(c.name ILIKE %s OR c.phone ILIKE %s)")
-            search_escaped = search.replace("%", "\\%").replace("_", "\\_")
-            params.extend([f"%{search_escaped}%", f"%{search_escaped}%"])
+            search_escaped = f"%{escape_ilike(search)}%"
+            params.extend([search_escaped, search_escaped])
 
         where = "WHERE " + " AND ".join(conditions) if conditions else ""
 

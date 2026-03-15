@@ -106,9 +106,17 @@ def _get_authed_client():
 
 
 def test_console_logout():
-    """Logout clears session."""
+    """Logout clears session (POST with CSRF)."""
     cookies = _get_authed_client()
-    response = client.get("/console/logout", cookies=cookies, follow_redirects=False)
+    # Generate a CSRF token by visiting a page first
+    csrf_token = "test-csrf-token"
+    cookies["console_csrf"] = csrf_token
+    response = client.post(
+        "/console/logout",
+        data={"csrf_token": csrf_token},
+        cookies=cookies,
+        follow_redirects=False,
+    )
     assert response.status_code == 303
     assert "/console/login" in response.headers.get("location", "")
 
@@ -428,8 +436,10 @@ def test_full_auth_flow():
     # Should either render (200) or redirect to dashboard (303 from /)
     assert r2.status_code in (200, 303)
 
-    # Logout
-    r3 = client.get("/console/logout", cookies=cookies, follow_redirects=False)
+    # Logout (POST with CSRF)
+    csrf_token = "test-csrf-token"
+    cookies["console_csrf"] = csrf_token
+    r3 = client.post("/console/logout", data={"csrf_token": csrf_token}, cookies=cookies, follow_redirects=False)
     assert r3.status_code == 303
 
     # After logout, dashboard should redirect to login

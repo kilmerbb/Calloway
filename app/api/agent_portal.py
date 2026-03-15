@@ -14,6 +14,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from app.config import get_settings
 from app.api.console_auth import generate_csrf_token, validate_csrf_token
 from app.services.redis_pool import get_redis_pool
+from app.tools.sql_utils import escape_ilike
 
 import psycopg
 import redis
@@ -29,6 +30,59 @@ SESSION_COOKIE = "agent_session"
 SESSION_MAX_AGE = 86400 * 7  # 7 days
 
 LOGIN_CODE_TTL = 300  # 5 minutes
+
+# ── Agent login rate limiting ─────────────────────────────────
+# Separate from console login rate limits to prevent cross-contamination.
+# Uses a distinct Redis key prefix so agent portal and console login
+# attempts are tracked independently.
+
+_AGENT_LOGIN_MAX_ATTEMPTS = 5
+_AGENT_LOGIN_WINDOW = 900  # 15 minutes
+
+
+def _check_agent_login_rate(ip: str) -> tuple[bool, int]:
+    """Check if IP is rate-limited for agent portal login.
+
+    Returns (allowed, retry_after_seconds). Fails open when Redis is
+    unavailable — a temporary Redis outage should not lock all agents out.
+    """
+    try:
+        r = get_redis_pool()
+        key = f"agent_login:{ip}"
+        attempts = r.get(key)
+        if attempts and int(attempts) >= _AGENT_LOGIN_MAX_ATTEMPTS:
+            ttl = r.ttl(key)
+            return False, max(ttl, 60)
+        return True, 0
+    except redis.RedisError:
+        logger.warning("Redis unavailable for agent login rate limiting — failing open")
+        return True, 0
+
+
+def _record_agent_login_fail(ip: str) -> None:
+    """Increment the failed agent login counter for an IP.
+
+    TTL is only set on key creation to prevent attackers from extending
+    the lockout window with repeated failed attempts.
+    """
+    try:
+        r = get_redis_pool()
+        key = f"agent_login:{ip}"
+        count = r.incr(key)
+        if count == 1:
+            r.expire(key, _AGENT_LOGIN_WINDOW)
+    except redis.RedisError:
+        logger.warning("Redis unavailable — agent login failed attempt not recorded")
+
+
+def _reset_agent_login_rate(ip: str) -> None:
+    """Clear the failed agent login counter after successful login."""
+    try:
+        r = get_redis_pool()
+        r.delete(f"agent_login:{ip}")
+    except redis.RedisError:
+        pass
+
 
 # Fallback in-memory store for when Redis is unavailable
 _login_codes: dict[str, dict] = {}
@@ -77,8 +131,15 @@ def _delete_login_code(phone: str) -> None:
 
 
 def _get_serializer() -> URLSafeTimedSerializer:
+    """Build the session serializer for agent portal cookies.
+
+    Prefers a dedicated AGENT_PORTAL_SESSION_SECRET when configured;
+    falls back to the derived console secret + "-agent" suffix for
+    backward compatibility with existing sessions during rollout.
+    """
     settings = get_settings()
-    return URLSafeTimedSerializer(settings.CONSOLE_SESSION_SECRET + "-agent")
+    secret = settings.AGENT_PORTAL_SESSION_SECRET or (settings.CONSOLE_SESSION_SECRET + "-agent")
+    return URLSafeTimedSerializer(secret)
 
 
 def _create_session(response: Response, agent_id: str) -> None:
@@ -193,25 +254,39 @@ async def login_submit(request: Request, phone: str = Form(...), code: str = For
             return _render(request, "login.html",
                 error=None, message="A verification code has been sent to your phone.")
 
-    # Verify code
+    # Verify code — rate-limited to prevent brute-forcing the 6-digit code
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, retry_after = _check_agent_login_rate(client_ip)
+    if not allowed:
+        return _render(request, "login.html",
+            error=f"Too many failed attempts. Please try again in {retry_after // 60} minutes.",
+            message=None)
+
     stored_code = _get_login_code(phone)
     if not stored_code:
         return _render(request, "login.html",
             error="No code found or code expired. Please request a new one.", message=None)
 
     if stored_code != code.strip():
+        _record_agent_login_fail(client_ip)
         return _render(request, "login.html",
             error="Invalid code. Please try again.", message=None)
 
-    # Success — clean up and create session
+    # Success — clean up rate limit counter and create session
+    _reset_agent_login_rate(client_ip)
     _delete_login_code(phone)
     response = RedirectResponse("/agent/dashboard", status_code=303)
     _create_session(response, str(agent["id"]))
     return response
 
 
-@router.get("/logout")
+@router.post("/logout")
 async def logout(request: Request):
+    """POST-only logout to prevent CSRF via link prefetching or image tags."""
+    form = await request.form()
+    csrf_err = _check_csrf(request, form.get("csrf_token"))
+    if csrf_err:
+        return csrf_err
     response = RedirectResponse("/agent/login", status_code=303)
     response.delete_cookie(SESSION_COOKIE)
     return response
@@ -350,7 +425,8 @@ async def contacts_list(request: Request):
 
     if search:
         query += " AND (name ILIKE %s OR phone ILIKE %s OR email ILIKE %s)"
-        params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
+        escaped = f"%{escape_ilike(search)}%"
+        params.extend([escaped, escaped, escaped])
 
     query += " ORDER BY last_contact_at DESC NULLS LAST"
 
@@ -399,7 +475,7 @@ async def conversations_list(request: Request):
 
     if search:
         query += " AND c.name ILIKE %s"
-        params.append(f"%{search}%")
+        params.append(f"%{escape_ilike(search)}%")
 
     query += " ORDER BY cv.last_message_at DESC NULLS LAST LIMIT 50"
 

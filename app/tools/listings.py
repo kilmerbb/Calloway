@@ -8,7 +8,7 @@ from uuid import UUID
 from app.db.connection import get_db_connection
 from app.models.schemas import Listing
 from app.services.anthropic_service import get_anthropic_client
-from app.tools.sql_utils import build_safe_update_clause
+from app.tools.sql_utils import build_safe_update_clause, escape_ilike
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +135,7 @@ def get_listing(
             # Fuzzy match on address (case-insensitive contains)
             row = conn.execute(
                 "SELECT * FROM listings WHERE agent_id = %s AND LOWER(address) LIKE LOWER(%s) LIMIT 1",
-                [str(agent_id), f"%{address}%"],
+                [str(agent_id), f"%{escape_ilike(address)}%"],
             ).fetchone()
         else:
             return None
@@ -184,7 +184,7 @@ def search_listings(
             params.append(filters["baths_min"])
         if "address" in filters:
             conditions.append("LOWER(address) LIKE LOWER(%s)")
-            params.append(f"%{filters['address']}%")
+            params.append(f"%{escape_ilike(filters['address'])}%")
 
     where = " AND ".join(conditions)
 

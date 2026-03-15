@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 from uuid import UUID
 
 from app.db.connection import get_db_connection
+from app.tools.sql_utils import escape_ilike
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ def search_messages(
                AND m.body ILIKE %s
                ORDER BY m.created_at DESC
                LIMIT %s""",
-            [str(agent_id), f"%{query}%", limit],
+            [str(agent_id), f"%{escape_ilike(query)}%", limit],
         ).fetchall()
     return [dict(r) for r in rows]
 

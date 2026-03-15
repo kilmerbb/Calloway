@@ -8,6 +8,7 @@ import psycopg
 from app.db.connection import get_db_connection
 from app.models.schemas import AgentConfig, Trigger
 from app.tools.contacts import analyze_contact_gaps
+from app.tools.sql_utils import escape_ilike
 
 logger = logging.getLogger(__name__)
 
@@ -272,7 +273,7 @@ def compile_seller_report(agent: AgentConfig, listing_id: UUID) -> dict:
                JOIN conversations c ON m.conversation_id = c.id
                WHERE c.agent_id = %s AND m.created_at > %s
                AND LOWER(m.body) LIKE LOWER(%s)""",
-            [str(agent.id), week_ago, f"%{listing['address'][:20]}%"],
+            [str(agent.id), week_ago, f"%{escape_ilike(listing['address'][:20])}%"],
         ).fetchone()
         report["inquiries_count"] = inquiries["cnt"] if inquiries else 0
 
