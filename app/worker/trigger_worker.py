@@ -61,14 +61,17 @@ def process_due_triggers() -> int:
                SET status = 'in_progress'
                WHERE id IN (
                    SELECT id FROM triggers
-                   WHERE status = 'pending'
-                   AND scheduled_at <= %s
+                   WHERE (
+                       (status = 'pending' AND autonomy_level != 'ask_agent' AND scheduled_at <= %s)
+                       OR
+                       (status = 'approved' AND scheduled_at <= %s)
+                   )
                    ORDER BY scheduled_at
                    LIMIT 50
                    FOR UPDATE SKIP LOCKED
                )
                RETURNING *""",
-            [now],
+            [now, now],
         ).fetchall()
         conn.commit()
 
