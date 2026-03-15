@@ -172,11 +172,14 @@ Every implementation — regardless of workflow type — must be reviewed before
 
 These standards apply to all code written by @eng agents. Solomon enforces them during review.
 
-### Testing
-- **Tests ship with the code.** Every implementation includes tests in the same commit or batch — never deferred to a "separate task." If you write an endpoint, you write its tests.
+### Testing (Non-Functional Requirement — Applies to ALL Work)
+- **Tests ship with the code.** Every implementation includes tests in the same commit or batch — never deferred to a "separate task." If you write an endpoint, you write its tests. **No PR is mergeable without tests.**
 - **Test the contract, not the implementation.** Tests verify behavior (inputs → outputs, side effects, error codes), not internal method calls. This keeps tests stable across refactors.
-- **Cover three paths:** Happy path, error/edge cases, and security-sensitive paths (auth failures, permission checks, rate limits, input validation). Happy path alone is insufficient.
+- **Cover three paths:** Happy path, error/edge cases, and security-sensitive paths (auth failures, permission checks, rate limits, input validation). Happy path alone is insufficient. **Minimum: 1 happy path + 1 error path + 1 auth/security path per endpoint or public function.**
+- **Every new endpoint must have tests.** No endpoint ships without at least: (a) 200/success response test, (b) authentication failure test (401/403), (c) invalid input test (400/422). For mutation endpoints, also test idempotency and concurrent access where applicable.
+- **Every new service function must have tests.** Services that call external APIs (Twilio, Firebase, Stripe, Anthropic) must have tests with mocked clients covering: success, API error/timeout, and rate limit/retry paths.
 - **Tests must be deterministic.** No sleeps, no real network calls, no clock-dependent assertions. Mock external dependencies (Redis, DB, Twilio, Firebase). Use dependency overrides for FastAPI.
+- **Existing tests must pass.** Before committing, run `pytest` on affected test files. New code must not break existing tests. If an existing test breaks due to an intentional behavior change, update the test — do not delete it without replacement.
 - **Syntax-validate before committing.** Run `ast.parse()` on all modified Python files. Catches typos and import errors before they reach CI.
 
 ### Security
