@@ -178,8 +178,10 @@ class TestGetCurrentAgent:
         headers = {}
         if auth_header is not None:
             headers["Authorization"] = auth_header
-        request.headers = headers
-        request.headers.get = lambda key, default=None: headers.get(key, default)
+        # Use a MagicMock for headers so we can override .get()
+        mock_headers = MagicMock()
+        mock_headers.get = lambda key, default=None: headers.get(key, default)
+        request.headers = mock_headers
         return request
 
     @pytest.mark.asyncio
