@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     CONSOLE_SESSION_SECRET: str = "console-secret-change-in-production"
     LEGACY_AUTH_MODE: bool = True  # When True, single shared password still works
 
+    # Mobile API
+    MOBILE_JWT_SECRET: str = ""
+
     # CORS — comma-separated allowed origins (e.g. "https://app.calloway.ai,https://admin.calloway.ai")
     CORS_ALLOWED_ORIGINS: str = ""
 
@@ -77,6 +80,10 @@ class Settings(BaseSettings):
             errors.append("CONSOLE_PASSWORD is still the default 'changeme'")
         if self.CONSOLE_SESSION_SECRET == "console-secret-change-in-production":
             errors.append("CONSOLE_SESSION_SECRET is still the default")
+        if not self.MOBILE_JWT_SECRET:
+            errors.append("MOBILE_JWT_SECRET is not set")
+        elif len(self.MOBILE_JWT_SECRET) < 32:
+            errors.append("MOBILE_JWT_SECRET must be at least 32 characters")
         if errors:
             for e in errors:
                 logger.critical(f"SECURITY: {e}")

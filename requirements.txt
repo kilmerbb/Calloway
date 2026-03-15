@@ -25,3 +25,4 @@ python-dateutil==2.9.0
 voyageai==0.3.2
 nh3==0.2.21
 markdown>=3.6,<4
+pyjwt>=2.8,<3

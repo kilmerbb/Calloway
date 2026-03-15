@@ -16,6 +16,7 @@ from app.api.console import router as console_router
 from app.api.harness import router as harness_router
 from app.api.billing import router as billing_router
 from app.api.agent_portal import router as agent_portal_router
+from app.api.mobile import router as mobile_router
 from app.db.connection import init_pool, close_pool, init_async_pool, close_async_pool
 from app.services.redis_pool import get_redis_pool
 from app.pipeline.structured_logging import configure_logging, set_correlation_id
@@ -63,6 +64,7 @@ OPENAPI_TAGS = [
     {"name": "conversations", "description": "Token-authenticated conversation deep-link views."},
     {"name": "agent-portal", "description": "Agent-facing mobile portal -- dashboard, contacts, conversations, schedule, triggers, transactions, scores, and campaigns."},
     {"name": "harness", "description": "Testing harness -- message injection, trace history, scenario runner."},
+    {"name": "mobile-auth", "description": "Mobile app authentication — login, token refresh, logout."},
 ]
 
 app = FastAPI(
@@ -118,6 +120,7 @@ app.include_router(console_router)
 app.include_router(harness_router)
 app.include_router(billing_router)
 app.include_router(agent_portal_router)
+app.include_router(mobile_router)
 
 # Static files for console
 STATIC_DIR = Path(__file__).resolve().parent / "static"
