@@ -124,5 +124,5 @@ async def publish_mobile_event(agent_id: str, event: dict) -> None:
         async_redis = get_async_redis()
         channel = f"mobile:agent:{agent_id}"
         await async_redis.publish(channel, json.dumps(event, default=str))
-    except Exception:
+    except Exception:  # Broad catch: Redis pub/sub is fire-and-forget
         logger.warning("Failed to publish mobile event", extra={"agent_id": agent_id})

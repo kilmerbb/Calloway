@@ -889,7 +889,7 @@ async def get_health_overview() -> HealthOverview:
             r = redis.from_url(settings.REDIS_URL, socket_timeout=2, socket_connect_timeout=2)
             r.ping()
             return ("redis", "green")
-        except Exception:
+        except Exception:  # Broad catch: Redis health check — any failure means red status
             return ("redis", "red")
 
     async def _check_anthropic() -> tuple[str, str]:

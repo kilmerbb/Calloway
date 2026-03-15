@@ -11,7 +11,7 @@ def get_agent_today_range(timezone_str: str) -> tuple[datetime, datetime]:
     """Compute today's start/end in agent's local timezone, returned as UTC datetimes."""
     try:
         tz = ZoneInfo(timezone_str)
-    except Exception:
+    except Exception:  # Broad catch: ZoneInfo raises various errors for invalid tz strings
         logger.warning("Invalid timezone %s, falling back to America/New_York", timezone_str)
         tz = ZoneInfo("America/New_York")
 

@@ -73,7 +73,7 @@ async def login(body: LoginRequest):
     try:
         r = get_redis_pool()
         r.ping()
-    except Exception:
+    except Exception:  # Broad catch: Redis connection errors block login flow
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
 
     agent = None
@@ -122,7 +122,7 @@ async def verify(body: VerifyRequest):
     try:
         r = get_redis_pool()
         r.ping()
-    except Exception:
+    except Exception:  # Broad catch: Redis connection errors block verify flow
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
 
     # Rate limit: 5 attempts per phone per 15 min. With 6-digit codes (~1M combos),
@@ -167,7 +167,7 @@ async def refresh(body: RefreshRequest):
     try:
         r = get_redis_pool()
         r.ping()
-    except Exception:
+    except Exception:  # Broad catch: Redis connection errors block refresh flow
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
 
     # Rate limit: 10 attempts per token per 15 min. Higher than verify (10 vs 5)
@@ -221,7 +221,7 @@ async def logout(
     settings = get_settings()
     try:
         r = get_redis_pool()
-    except Exception:
+    except Exception:  # Broad catch: Redis connection errors block logout flow
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
 
     # JTI DENY-LIST: Add the token's unique ID to Redis so it's rejected on future

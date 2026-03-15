@@ -221,7 +221,7 @@ async def get_briefing_today(agent_id: str = Depends(get_current_agent)):
     now_utc = datetime.now(timezone.utc)
     try:
         agent_date = datetime.now(ZoneInfo(timezone_str)).strftime("%Y-%m-%d")
-    except Exception:
+    except Exception:  # Broad catch: ZoneInfo raises various errors for invalid tz strings
         agent_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
     return BriefingResponse(
@@ -297,7 +297,7 @@ async def get_schedule_today(agent_id: str = Depends(get_current_agent)):
 
     try:
         agent_date = datetime.now(ZoneInfo(timezone_str)).strftime("%Y-%m-%d")
-    except Exception:
+    except Exception:  # Broad catch: ZoneInfo raises various errors for invalid tz strings
         agent_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
     return ScheduleResponse(
