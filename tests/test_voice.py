@@ -54,7 +54,8 @@ def test_voice_forwarding(mock_get_agent, mock_validate):
     assert "+12155551000" in response.text  # Agent's phone
 
 
-def test_voice_fallback_no_answer():
+@patch("app.api.webhooks.validate_twilio_signature", return_value=True)
+def test_voice_fallback_no_answer(mock_validate):
     response = client.post("/webhooks/twilio/voice-fallback", data={
         "DialCallStatus": "no-answer",
     })
