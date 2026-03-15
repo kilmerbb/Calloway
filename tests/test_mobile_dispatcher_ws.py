@@ -56,7 +56,7 @@ class TestDispatcherWSEvents:
     @patch("app.pipeline.dispatcher._log_conversation")
     @patch("app.pipeline.dispatcher.send_client_message")
     @patch("app.pipeline.dispatcher._publish_ws_event")
-    @patch("app.pipeline.dispatcher.check_consent_before_send", return_value=True)
+    @patch("app.pipeline.consent.check_consent_before_send", return_value=True)
     def test_new_message_publishes_ws_event(
         self, mock_consent, mock_ws, mock_send, mock_log, mock_metrics, mock_summarize
     ):
@@ -90,7 +90,7 @@ class TestDispatcherWSEvents:
     @patch("app.pipeline.dispatcher._log_conversation")
     @patch("app.pipeline.dispatcher.send_client_message")
     @patch("app.pipeline.dispatcher._publish_ws_event")
-    @patch("app.pipeline.dispatcher.check_consent_before_send", return_value=True)
+    @patch("app.pipeline.consent.check_consent_before_send", return_value=True)
     def test_no_ws_event_for_agent_commands(
         self, mock_consent, mock_ws, mock_send, mock_log, mock_metrics, mock_summarize
     ):
@@ -114,8 +114,8 @@ class TestDispatcherWSEvents:
     @patch("app.pipeline.dispatcher._update_usage_metrics")
     @patch("app.pipeline.dispatcher._log_conversation")
     @patch("app.pipeline.dispatcher._publish_ws_event")
-    @patch("app.pipeline.dispatcher.send_push_notification")
-    @patch("app.pipeline.dispatcher.check_consent_before_send", return_value=True)
+    @patch("app.services.firebase_service.send_push_notification")
+    @patch("app.pipeline.consent.check_consent_before_send", return_value=True)
     def test_notification_publishes_ws_event(
         self, mock_consent, mock_push, mock_ws, mock_log, mock_metrics, mock_summarize
     ):
@@ -153,7 +153,7 @@ class TestDispatcherWSEvents:
     @patch("app.pipeline.dispatcher._log_conversation")
     @patch("app.pipeline.dispatcher._publish_ws_event")
     @patch("app.pipeline.dispatcher._create_trigger")
-    @patch("app.pipeline.dispatcher.check_consent_before_send", return_value=True)
+    @patch("app.pipeline.consent.check_consent_before_send", return_value=True)
     def test_ask_agent_trigger_publishes_pending_approval(
         self, mock_consent, mock_create, mock_ws, mock_log, mock_metrics, mock_summarize
     ):
@@ -192,7 +192,7 @@ class TestDispatcherWSEvents:
     @patch("app.pipeline.dispatcher._log_conversation")
     @patch("app.pipeline.dispatcher._publish_ws_event")
     @patch("app.pipeline.dispatcher._create_trigger")
-    @patch("app.pipeline.dispatcher.check_consent_before_send", return_value=True)
+    @patch("app.pipeline.consent.check_consent_before_send", return_value=True)
     def test_autonomous_trigger_no_pending_approval(
         self, mock_consent, mock_create, mock_ws, mock_log, mock_metrics, mock_summarize
     ):
