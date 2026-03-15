@@ -112,14 +112,14 @@ class TestLogin:
         db_ctx = _make_async_db_ctx(fetchone_result=agent_row)
 
         patches = _auth_patches(mock_settings, mock_redis, db_ctx)
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post("/api/v1/mobile/auth/login", json={"phone": TEST_PHONE})
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post("/api/v1/mobile/auth/login", json={"phone": TEST_PHONE})
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 200
         data = resp.json()
@@ -131,14 +131,14 @@ class TestLogin:
         db_ctx = _make_async_db_ctx(fetchone_result=None)
 
         patches = _auth_patches(mock_settings, mock_redis, db_ctx)
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post("/api/v1/mobile/auth/login", json={"phone": "+19995550000"})
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post("/api/v1/mobile/auth/login", json={"phone": "+19995550000"})
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 200
         data = resp.json()
@@ -151,14 +151,14 @@ class TestLogin:
         db_ctx = _make_async_db_ctx(fetchone_result=agent_row)
 
         patches = _auth_patches(mock_settings, mock_redis, db_ctx)
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post("/api/v1/mobile/auth/login", json={"phone": TEST_PHONE})
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post("/api/v1/mobile/auth/login", json={"phone": TEST_PHONE})
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 200
         data = resp.json()
@@ -175,14 +175,14 @@ class TestLogin:
             patch("app.api.mobile.auth.get_redis_pool", return_value=bad_redis),
             patch("app.api.mobile.deps.get_redis_pool", return_value=bad_redis),
         ]
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post("/api/v1/mobile/auth/login", json={"phone": TEST_PHONE})
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post("/api/v1/mobile/auth/login", json={"phone": TEST_PHONE})
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 503
 
@@ -204,17 +204,17 @@ class TestVerify:
         db_ctx = _make_async_db_ctx(fetchone_result=agent_row)
 
         patches = _auth_patches(mock_settings, mock_redis, db_ctx)
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/v1/mobile/auth/verify",
+                json={"phone": TEST_PHONE, "code": code},
+            )
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post(
-                    "/api/v1/mobile/auth/verify",
-                    json={"phone": TEST_PHONE, "code": code},
-                )
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 200
         data = resp.json()
@@ -231,17 +231,17 @@ class TestVerify:
 
         db_ctx = _make_async_db_ctx()
         patches = _auth_patches(mock_settings, mock_redis, db_ctx)
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/v1/mobile/auth/verify",
+                json={"phone": TEST_PHONE, "code": "000000"},
+            )
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post(
-                    "/api/v1/mobile/auth/verify",
-                    json={"phone": TEST_PHONE, "code": "000000"},
-                )
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 401
 
@@ -254,17 +254,17 @@ class TestVerify:
 
         db_ctx = _make_async_db_ctx()
         patches = _auth_patches(mock_settings, mock_redis, db_ctx)
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/v1/mobile/auth/verify",
+                json={"phone": TEST_PHONE, "code": "123456"},
+            )
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post(
-                    "/api/v1/mobile/auth/verify",
-                    json={"phone": TEST_PHONE, "code": "123456"},
-                )
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 429
         assert "too many" in resp.json()["detail"].lower()
@@ -287,17 +287,17 @@ class TestRefresh:
         db_ctx = _make_async_db_ctx(fetchone_result=agent_row)
 
         patches = _auth_patches(mock_settings, mock_redis, db_ctx)
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/v1/mobile/auth/refresh",
+                json={"refresh_token": refresh_token},
+            )
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post(
-                    "/api/v1/mobile/auth/refresh",
-                    json={"refresh_token": refresh_token},
-                )
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 200
         data = resp.json()
@@ -309,17 +309,17 @@ class TestRefresh:
 
         db_ctx = _make_async_db_ctx()
         patches = _auth_patches(mock_settings, mock_redis, db_ctx)
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/v1/mobile/auth/refresh",
+                json={"refresh_token": "nonexistent-token"},
+            )
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post(
-                    "/api/v1/mobile/auth/refresh",
-                    json={"refresh_token": "nonexistent-token"},
-                )
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 401
 
@@ -332,17 +332,17 @@ class TestRefresh:
 
         db_ctx = _make_async_db_ctx()
         patches = _auth_patches(mock_settings, mock_redis, db_ctx)
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/v1/mobile/auth/refresh",
+                json={"refresh_token": refresh_token},
+            )
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post(
-                    "/api/v1/mobile/auth/refresh",
-                    json={"refresh_token": refresh_token},
-                )
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 429
         assert "too many" in resp.json()["detail"].lower()
@@ -357,17 +357,17 @@ class TestRefresh:
             patch("app.api.mobile.auth.get_redis_pool", return_value=bad_redis),
             patch("app.api.mobile.deps.get_redis_pool", return_value=bad_redis),
         ]
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/v1/mobile/auth/refresh",
+                json={"refresh_token": "some-token"},
+            )
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post(
-                    "/api/v1/mobile/auth/refresh",
-                    json={"refresh_token": "some-token"},
-                )
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 503
 
@@ -387,18 +387,18 @@ class TestLogout:
 
         db_ctx = _make_async_db_ctx()
         patches = _auth_patches(mock_settings, mock_redis, db_ctx)
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/v1/mobile/auth/logout",
+                json={"refresh_token": refresh_token},
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post(
-                    "/api/v1/mobile/auth/logout",
-                    json={"refresh_token": refresh_token},
-                    headers={"Authorization": f"Bearer {access_token}"},
-                )
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 200
         assert resp.json()["message"] == "Logged out successfully"
@@ -420,34 +420,34 @@ class TestLogout:
 
         db_ctx = _make_async_db_ctx()
         patches = _auth_patches(mock_settings, mock_redis, db_ctx)
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/v1/mobile/auth/logout",
+                json={},
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post(
-                    "/api/v1/mobile/auth/logout",
-                    json={},
-                    headers={"Authorization": f"Bearer {access_token}"},
-                )
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 200
 
     def test_logout_requires_auth(self, mock_settings, mock_redis):
         db_ctx = _make_async_db_ctx()
         patches = _auth_patches(mock_settings, mock_redis, db_ctx)
-        with TestClient(app) as client:
+        for p in patches:
+            p.start()
+        try:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/v1/mobile/auth/logout",
+                json={"refresh_token": "some-token"},
+            )
+        finally:
             for p in patches:
-                p.start()
-            try:
-                resp = client.post(
-                    "/api/v1/mobile/auth/logout",
-                    json={"refresh_token": "some-token"},
-                )
-            finally:
-                for p in patches:
-                    p.stop()
+                p.stop()
 
         assert resp.status_code == 401
