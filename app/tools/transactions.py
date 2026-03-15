@@ -84,8 +84,8 @@ def update_transaction(
         return None
 
     # If status changed to closed, update contact lifecycle
-    if "status" in updates:
-        _sync_contact_lifecycle(row["contact_id"], updates["status"])
+    if "status" in fields:
+        _sync_contact_lifecycle(row["contact_id"], fields["status"])
 
     return Transaction(**row)
 

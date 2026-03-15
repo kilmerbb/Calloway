@@ -19,7 +19,11 @@ TOKEN_MAX_AGE = 86400  # 24 hours
 
 def _get_serializer():
     settings = get_settings()
-    secret = settings.TWILIO_AUTH_TOKEN or "dev-secret-key"
+    secret = settings.TWILIO_AUTH_TOKEN
+    if not secret:
+        raise RuntimeError(
+            "TWILIO_AUTH_TOKEN must be configured to sign conversation tokens"
+        )
     return URLSafeTimedSerializer(secret)
 
 
@@ -58,7 +62,8 @@ async def view_conversation(contact_id: str, token: str = ""):
                 [contact_id, agent_id],
             ).fetchall()
     except psycopg.Error as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Conversation query failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load conversation")
 
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")

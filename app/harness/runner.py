@@ -276,8 +276,7 @@ class ScenarioRunner:
     def _setup_preconditions(self, preconditions: dict) -> str | None:
         """Set up scenario preconditions, return agent_id."""
         from app.db.connection import get_db_connection
-
-import psycopg
+        import psycopg
 
         agent_id = preconditions.get("agent_id")
         if agent_id:

@@ -1,5 +1,4 @@
 """Claude API wrapper with model tiering, caching, retry, and token counting."""
-import asyncio
 import json
 import logging
 import time
@@ -133,9 +132,14 @@ class AnthropicClient:
         try:
             # Try to extract JSON from the response
             if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
+                parts = text.split("```json")
+                if len(parts) > 1:
+                    inner = parts[1].split("```")
+                    text = inner[0] if len(inner) > 1 else inner[0]
             elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
+                parts = text.split("```")
+                if len(parts) > 1:
+                    text = parts[1]
             result = json.loads(text.strip())
         except json.JSONDecodeError:
             logger.warning(f"Failed to parse classify response as JSON: {text[:100]}")

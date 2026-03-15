@@ -67,6 +67,8 @@ class EmbeddingService:
             Embedding vector (512 floats).
         """
         results = self.embed_texts([text], max_retries=max_retries)
+        if not results:
+            raise RuntimeError("Embedding returned empty result")
         return results[0]
 
     def _embed_batch_with_retry(
@@ -106,6 +108,8 @@ class EmbeddingService:
                 result = self.client.embed(
                     [query], model=EMBEDDING_MODEL, input_type="query"
                 )
+                if not result.embeddings:
+                    raise RuntimeError("Query embedding returned empty result")
                 return result.embeddings[0]
             except Exception as e:  # Broad catch: Voyage API errors for retry logic
                 if attempt < max_retries:

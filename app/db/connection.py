@@ -26,7 +26,10 @@ def get_connection_string() -> str:
         return "postgresql://postgres:postgres@localhost:5432/realtor_ai"
     # Fallback: build from Supabase env vars
     host = settings.SUPABASE_URL.replace("https://", "").replace("http://", "")
-    project_ref = host.split(".")[0]
+    parts = host.split(".")
+    if not parts or not parts[0]:
+        raise ValueError(f"Invalid SUPABASE_URL format: cannot extract project ref from '{host}'")
+    project_ref = parts[0]
     password = quote_plus(settings.SUPABASE_SERVICE_KEY)
     return f"postgresql://postgres.{project_ref}:{password}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
 

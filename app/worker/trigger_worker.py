@@ -13,7 +13,9 @@ from app.models.schemas import Trigger
 
 logger = logging.getLogger(__name__)
 
-POLL_INTERVAL = 60  # seconds
+import os
+
+POLL_INTERVAL = int(os.environ.get("TRIGGER_POLL_INTERVAL", "60"))
 
 
 def run_trigger_worker():

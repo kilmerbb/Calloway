@@ -372,7 +372,8 @@ async def vapi_post_call(request: Request, background_tasks: BackgroundTasks):
     settings = get_settings()
     if settings.VAPI_WEBHOOK_SECRET:
         vapi_header = request.headers.get("x-vapi-secret", "")
-        if vapi_header != settings.VAPI_WEBHOOK_SECRET:
+        import hmac
+        if not hmac.compare_digest(vapi_header, settings.VAPI_WEBHOOK_SECRET):
             logger.warning("Vapi webhook rejected — invalid or missing x-vapi-secret header")
             return Response(status_code=401)
     else:
@@ -647,7 +648,7 @@ def _process_inbound_email_sync(agent_id: str, payload: dict):
         # Auto-create contact for unknown email senders
         if not contact and not is_agent_command and parsed["from_address"]:
             sender_email = _extract_email(parsed["from_address"])
-            sender_name = parsed["from_name"] or sender_email.split("@")[0]
+            sender_name = parsed["from_name"] or (sender_email.split("@")[0] if "@" in sender_email else sender_email)
             contact = create_contact(
                 agent_id=aid,
                 name=sender_name,

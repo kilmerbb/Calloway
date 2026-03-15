@@ -152,7 +152,8 @@ def _extract_name(from_header: str) -> str:
     """Extract display name from 'Jane Smith <jane@test.com>' format."""
     if "<" in from_header:
         return from_header.split("<")[0].strip().strip('"')
-    return from_header.split("@")[0]
+    parts = from_header.split("@")
+    return parts[0] if parts else from_header
 
 
 def _extract_email(from_header: str) -> str:

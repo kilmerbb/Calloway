@@ -66,6 +66,8 @@ def create_campaign(
         ).fetchone()
         conn.commit()
 
+    if not row:
+        raise RuntimeError(f"Failed to create drip campaign '{name}'")
     logger.info("Created drip campaign '%s' for agent %s", name, agent_id)
     return DripCampaign(**row)
 

@@ -32,6 +32,8 @@ def create_showing_hold(
         ).fetchone()
         conn.commit()
 
+    if not row:
+        return {"error": "Failed to create showing hold"}
     showing = Showing(**row)
     logger.info(f"Created showing hold: {showing.id}")
     return {

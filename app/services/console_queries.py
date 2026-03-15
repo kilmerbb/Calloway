@@ -506,7 +506,8 @@ async def get_conversation_detail(conversation_id: str) -> ConversationDetail | 
             cur = await conn.execute(
                 """SELECT * FROM messages
                    WHERE conversation_id = %s
-                   ORDER BY created_at""",
+                   ORDER BY created_at
+                   LIMIT 500""",
                 [conversation_id],
             )
             messages = await cur.fetchall()
@@ -514,7 +515,8 @@ async def get_conversation_detail(conversation_id: str) -> ConversationDetail | 
             cur = await conn.execute(
                 """SELECT * FROM tool_executions
                    WHERE conversation_id = %s
-                   ORDER BY created_at""",
+                   ORDER BY created_at
+                   LIMIT 500""",
                 [conversation_id],
             )
             tool_execs = await cur.fetchall()
@@ -1681,4 +1683,12 @@ async def get_agent_listings_paginated(
 
 def sync_get_all_agents() -> list[dict]:
     """Sync wrapper around get_all_agents() for non-async callers."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    if loop and loop.is_running():
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, get_all_agents()).result()
     return asyncio.run(get_all_agents())

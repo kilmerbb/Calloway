@@ -79,8 +79,8 @@ async def onboard_agent(req: OnboardingRequest):
     except HTTPException:
         raise
     except Exception as e:  # Broad catch: mixed DB + service calls
-        logger.error(f"Onboarding failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Onboarding failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Onboarding failed. Please contact support.")
 
 
 @router.get("/checklist/{agent_id}")

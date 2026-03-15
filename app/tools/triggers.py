@@ -36,7 +36,8 @@ def create_trigger(
             row = conn.execute(
                 "SELECT * FROM triggers WHERE id = %s", [str(existing["id"])]
             ).fetchone()
-            return Trigger(**row)
+            if row:
+                return Trigger(**row)
 
         row = conn.execute(
             """INSERT INTO triggers (agent_id, entity_type, entity_id, trigger_type,
@@ -50,6 +51,8 @@ def create_trigger(
         ).fetchone()
         conn.commit()
 
+    if not row:
+        raise RuntimeError(f"Failed to create trigger {trigger_type} for {entity_id}")
     return Trigger(**row)
 
 
