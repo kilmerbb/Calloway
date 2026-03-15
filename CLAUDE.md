@@ -60,7 +60,7 @@ Calloway is a **SaaS AI operational assistant for solo real estate agents**. It 
 - **Integrations:** Twilio (SMS/RCS/voice), Vapi (voice), Google (Calendar, Business Profile), Firebase (push notifications)
 - **Frontend:** Jinja2 templates + HTMX (server-rendered, no SPA framework)
 - **Deployment:** Docker + Railway
-- **Tests:** pytest + pytest-asyncio (26 test files)
+- **Tests:** pytest + pytest-asyncio (45 test files)
 
 ### Architecture
 ```
@@ -87,12 +87,12 @@ Test: /harness (conversation simulator)
 | Config | `app/config.py` | Environment-based settings |
 | Webhooks | `app/api/webhooks.py` | Inbound message handling |
 | Console | `app/api/console.py` | Admin dashboard backend |
-| Core logic | `app/pipeline/handlers.py` | Message processing (40K LOC) |
+| Core logic | `app/pipeline/handlers.py` | Message processing pipeline |
 | AI service | `app/services/anthropic_service.py` | Claude API wrapper |
 | DB queries | `app/services/console_queries.py` | Console database layer |
-| Schema | `app/db/schema.sql` | 12 tables with RLS |
+| Schema | `app/db/schema.sql` | 24 tables with RLS |
 | Workers | `app/worker/` | Background trigger + daily scanner |
-| Tests | `tests/` | 26 test files |
+| Tests | `tests/` | 45 test files |
 | User manual | `docs/user-manual.md` | Admin console documentation |
 
 ### Key Patterns
