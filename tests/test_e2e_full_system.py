@@ -254,7 +254,8 @@ class TestWebhookEndpoints:
             assert response.status_code == 403
 
     def test_twilio_status_endpoint(self, client):
-        with patch("app.db.connection.get_db_connection") as mock_conn:
+        with patch("app.api.webhooks.validate_twilio_signature", return_value=True), \
+             patch("app.db.connection.get_db_connection") as mock_conn:
             mock_ctx = MagicMock()
             mock_conn.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_conn.return_value.__exit__ = MagicMock(return_value=False)

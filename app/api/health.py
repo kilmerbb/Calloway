@@ -1,6 +1,7 @@
 """Health check endpoints — basic and detailed."""
+import hmac
 import logging
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
 
 from app.db.connection import get_db_connection
 from app.config import get_settings
@@ -9,6 +10,39 @@ import psycopg
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
+
+
+# --- Auth helper for metrics ---
+
+def _require_metrics_auth(request: Request) -> None:
+    """Require authentication for metrics endpoint.
+
+    Accepts either:
+    - Console session cookie (for dashboard access)
+    - Authorization: Bearer <CONSOLE_SESSION_SECRET> header (for monitoring tools)
+
+    In development without secrets configured, allows access with a warning.
+    """
+    settings = get_settings()
+
+    # Check for auth header first (monitoring tools)
+    auth = request.headers.get("authorization", "")
+    if auth.startswith("Bearer ") and settings.CONSOLE_SESSION_SECRET:
+        if hmac.compare_digest(auth[7:], settings.CONSOLE_SESSION_SECRET):
+            return
+
+    # Check for console session cookie
+    from app.api.console_auth import check_session
+    session = check_session(request)
+    if session:
+        return
+
+    # Development fallback — allow access when no real secrets are configured
+    if settings.ENVIRONMENT == "development":
+        logger.warning("Metrics accessed without auth in development mode")
+        return
+
+    raise HTTPException(status_code=401, detail="Authentication required")
 
 
 @router.get("/health")
@@ -65,8 +99,10 @@ async def detailed_health_check():
 
 
 @router.get("/health/metrics")
-async def health_metrics():
-    """Quick operational metrics."""
+async def health_metrics(request: Request):
+    """Quick operational metrics — requires authentication."""
+    # SEC-H5: Metrics expose cross-tenant aggregate data; require auth
+    _require_metrics_auth(request)
     try:
         with get_db_connection() as conn:
             agents = conn.execute("SELECT COUNT(*) as cnt FROM agents").fetchone()

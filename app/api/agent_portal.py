@@ -1,4 +1,5 @@
 """Agent Portal — mobile-first dashboard for real estate agents."""
+import html
 import logging
 import secrets
 from datetime import datetime, timezone, timedelta
@@ -771,8 +772,8 @@ async def conversation_reply(request: Request, conversation_id: str):
     time_str = msg["created_at"].strftime('%b %d %I:%M%p').lstrip('0') if msg["created_at"] else ""
     return HTMLResponse(f'''
         <div class="chat-msg chat-outbound">
-            {body}
-            <div class="chat-time">{time_str} &middot; You</div>
+            {html.escape(body)}
+            <div class="chat-time">{html.escape(time_str)} &middot; You</div>
         </div>
     ''')
 

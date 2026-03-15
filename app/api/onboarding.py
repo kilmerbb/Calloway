@@ -1,15 +1,44 @@
 """Step 49: Agent onboarding flow — create agent, validate config, seed data."""
+import hmac
 import logging
 from uuid import UUID
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from app.config import get_settings
 from app.db.connection import get_db_connection
 
 import psycopg
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
+
+
+# --- Auth helper ---
+
+def _validate_onboarding_auth(request: Request) -> None:
+    """Validate admin API key for onboarding endpoint.
+
+    Blocks unauthenticated requests in production. In development,
+    allows requests through when ONBOARDING_API_KEY is not configured.
+    """
+    settings = get_settings()
+    api_key = settings.ONBOARDING_API_KEY
+
+    if not api_key:
+        if settings.ENVIRONMENT == "production":
+            logger.critical("SECURITY: ONBOARDING_API_KEY not set in production")
+            raise HTTPException(status_code=503, detail="Service not configured")
+        logger.warning("ONBOARDING_API_KEY not set — skipping auth in %s", settings.ENVIRONMENT)
+        return
+
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization")
+
+    token = auth_header[7:]
+    if not hmac.compare_digest(token, api_key):
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 class OnboardingRequest(BaseModel):
@@ -31,8 +60,10 @@ class OnboardingResponse(BaseModel):
 
 
 @router.post("/agent", response_model=OnboardingResponse)
-async def onboard_agent(req: OnboardingRequest):
+async def onboard_agent(request: Request, req: OnboardingRequest):
     """Create a new agent and return onboarding checklist."""
+    # SEC-C3: Require admin API key to prevent unauthorized account creation
+    _validate_onboarding_auth(request)
     try:
         with get_db_connection() as conn:
             # Check for duplicate
@@ -84,8 +115,10 @@ async def onboard_agent(req: OnboardingRequest):
 
 
 @router.get("/checklist/{agent_id}")
-async def get_checklist(agent_id: str):
+async def get_checklist(request: Request, agent_id: str):
     """Get onboarding progress for an agent."""
+    # SEC-C3: Require admin API key — checklist exposes agent data
+    _validate_onboarding_auth(request)
     try:
         with get_db_connection() as conn:
             agent = conn.execute(

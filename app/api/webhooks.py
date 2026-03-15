@@ -254,6 +254,13 @@ async def twilio_status(request: Request):
     form_data = await request.form()
     payload = dict(form_data)
 
+    # Validate Twilio signature
+    signature = request.headers.get("X-Twilio-Signature", "")
+    request_url = str(request.url)
+    if not validate_twilio_signature(request_url, payload, signature):
+        logger.warning("Invalid Twilio signature rejected on twilio_status")
+        return Response(status_code=403)
+
     message_sid = payload.get("MessageSid", "")
     status = payload.get("MessageStatus", "")
     error_code = payload.get("ErrorCode", "")
@@ -324,6 +331,13 @@ async def twilio_voice(request: Request):
     form_data = await request.form()
     payload = dict(form_data)
 
+    # Validate Twilio signature
+    signature = request.headers.get("X-Twilio-Signature", "")
+    request_url = str(request.url)
+    if not validate_twilio_signature(request_url, payload, signature):
+        logger.warning("Invalid Twilio signature rejected on twilio_voice")
+        return Response(status_code=403)
+
     to_number = payload.get("To", "")
     agent = get_agent_by_twilio_number(to_number)
 
@@ -350,6 +364,14 @@ async def twilio_voice_fallback(request: Request):
     """If agent doesn't answer, forward to Vapi."""
     form_data = await request.form()
     payload = dict(form_data)
+
+    # Validate Twilio signature
+    signature = request.headers.get("X-Twilio-Signature", "")
+    request_url = str(request.url)
+    if not validate_twilio_signature(request_url, payload, signature):
+        logger.warning("Invalid Twilio signature rejected on twilio_voice_fallback")
+        return Response(status_code=403)
+
     dial_status = payload.get("DialCallStatus", "no-answer")
 
     if dial_status in ("no-answer", "busy", "failed"):

@@ -1,4 +1,5 @@
 """Conversation view endpoint — deep link target for push notifications."""
+import html
 import logging
 from uuid import UUID
 
@@ -76,11 +77,11 @@ async def view_conversation(contact_id: str, token: str = ""):
             css_class = "agent"
         label = {"client": "Client", "ai": "AI", "agent_command": "Agent", "system": "System"}.get(msg["sender_type"], msg["sender_type"])
         time_str = msg["created_at"].strftime("%I:%M %p") if msg["created_at"] else ""
-        message_html += f'<div class="msg {css_class}"><span class="label">{label}</span> <span class="time">{time_str}</span><p>{msg["body"]}</p></div>'
+        message_html += f'<div class="msg {html.escape(css_class)}"><span class="label">{html.escape(label)}</span> <span class="time">{html.escape(time_str)}</span><p>{html.escape(msg["body"] or "")}</p></div>'
 
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{contact['name']} - Conversation</title>
+<title>{html.escape(contact['name'] or '')} - Conversation</title>
 <style>
 body {{ font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 16px; background: #f5f5f5; }}
 .header {{ background: #2563eb; color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px; }}
@@ -92,7 +93,7 @@ body {{ font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto
 .label {{ font-weight: 600; font-size: 12px; text-transform: uppercase; }}
 .time {{ font-size: 11px; color: #888; }} .msg p {{ margin: 4px 0 0; }}
 </style></head><body>
-<div class="header"><h2>{contact['name']}</h2><p>{contact['role']} · {contact['lifecycle_stage']} · {contact['phone']}</p></div>
+<div class="header"><h2>{html.escape(contact['name'] or '')}</h2><p>{html.escape(contact['role'] or '')} · {html.escape(contact['lifecycle_stage'] or '')} · {html.escape(contact['phone'] or '')}</p></div>
 {message_html if message_html else '<p style="color:#888;text-align:center;">No messages yet</p>'}
 </body></html>"""
 

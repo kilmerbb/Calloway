@@ -43,9 +43,10 @@ def create_transaction(
         ).fetchone()
 
         # Auto-update contact lifecycle stage (same transaction)
+        # agent_id scoping prevents cross-tenant modification
         conn.execute(
-            "UPDATE contacts SET lifecycle_stage = 'under_contract' WHERE id = %s",
-            [str(contact_id)],
+            "UPDATE contacts SET lifecycle_stage = 'under_contract' WHERE id = %s AND agent_id = %s",
+            [str(contact_id), str(agent_id)],
         )
         conn.commit()
 
@@ -85,7 +86,7 @@ def update_transaction(
 
     # If status changed to closed, update contact lifecycle
     if "status" in fields:
-        _sync_contact_lifecycle(row["contact_id"], fields["status"])
+        _sync_contact_lifecycle(agent_id, row["contact_id"], fields["status"])
 
     return Transaction(**row)
 
@@ -130,8 +131,12 @@ def get_transaction(transaction_id: UUID, agent_id: UUID) -> Transaction | None:
     return Transaction(**row) if row else None
 
 
-def _sync_contact_lifecycle(contact_id, new_status: str) -> None:
-    """Sync contact lifecycle_stage when transaction status changes."""
+def _sync_contact_lifecycle(agent_id: UUID, contact_id, new_status: str) -> None:
+    """Sync contact lifecycle_stage when transaction status changes.
+
+    Requires agent_id to enforce tenant isolation — ensures the UPDATE
+    only affects contacts owned by the requesting agent.
+    """
     stage_map = {
         "pending_offer": "active_buyer",
         "under_contract": "under_contract",
@@ -146,8 +151,8 @@ def _sync_contact_lifecycle(contact_id, new_status: str) -> None:
     try:
         with get_db_connection() as conn:
             conn.execute(
-                "UPDATE contacts SET lifecycle_stage = %s WHERE id = %s",
-                [stage, str(contact_id)],
+                "UPDATE contacts SET lifecycle_stage = %s WHERE id = %s AND agent_id = %s",
+                [stage, str(contact_id), str(agent_id)],
             )
             conn.commit()
     except psycopg.Error as e:

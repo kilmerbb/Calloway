@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     # Mobile API
     MOBILE_JWT_SECRET: str = ""
 
+    # Onboarding
+    ONBOARDING_API_KEY: str = ""
+
     # CORS — comma-separated allowed origins (e.g. "https://app.calloway.ai,https://admin.calloway.ai")
     CORS_ALLOWED_ORIGINS: str = ""
 

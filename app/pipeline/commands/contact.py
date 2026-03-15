@@ -147,7 +147,7 @@ def handle_note_command(
     existing_notes = contact.notes or ""
     timestamp = datetime.now(timezone.utc).strftime("%m/%d %I:%M%p")
     new_notes = f"{existing_notes}\n[{timestamp}] {details}".strip()
-    update_contact(contact.id, notes=new_notes)
+    update_contact(agent.id, contact.id, notes=new_notes)
 
     return AgentDecision(
         response_text=f"Noted on {contact.name}: {details}",

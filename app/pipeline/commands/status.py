@@ -22,7 +22,7 @@ def handle_status_change(
     if contact_name and ("got" in lower or "have" in lower or "handling" in lower):
         contact = lookup_contact(agent.id, name=contact_name)
         if contact and not isinstance(contact, list):
-            update_contact(contact.id, silent_mode=True)
+            update_contact(agent.id, contact.id, silent_mode=True)
             return AgentDecision(
                 response_text=f"Got it — stepping back on {contact.name}. I'll observe but won't message them.",
                 model_used="template",
@@ -127,7 +127,7 @@ def handle_handoff_return(
         )
 
     # Reactivate contact (silent_mode = false)
-    update_contact(contact.id, silent_mode=False)
+    update_contact(agent.id, contact.id, silent_mode=False)
 
     updates_made = [f"Reactivated AI messaging for {contact.name}"]
     triggers_to_create = []
@@ -156,7 +156,7 @@ def handle_handoff_return(
         existing_notes = contact.notes or ""
         timestamp = datetime.now(timezone.utc).strftime("%m/%d")
         new_notes = f"{existing_notes}\n[{timestamp}] Agent handoff: {details}".strip()
-        update_contact(contact.id, notes=new_notes)
+        update_contact(agent.id, contact.id, notes=new_notes)
         updates_made.append("Notes updated")
 
     response = f"Got it. I've updated {contact.name}'s profile:\n" + "\n".join(f"- {u}" for u in updates_made)

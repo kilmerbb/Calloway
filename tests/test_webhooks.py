@@ -55,7 +55,8 @@ def test_twilio_inbound_unknown_number(mock_get_agent, mock_validate):
     assert response.status_code == 200  # Still 200 for Twilio
 
 
-def test_twilio_status():
+@patch("app.api.webhooks.validate_twilio_signature", return_value=True)
+def test_twilio_status(mock_validate):
     payload = {
         "MessageSid": "SM" + "a" * 32,
         "MessageStatus": "delivered",

@@ -150,7 +150,7 @@ def classify_intent(
         if contact and language_code != contact.language_detected:
             try:
                 from app.tools.contacts import update_contact
-                update_contact(contact.id, language_detected=language_code)
+                update_contact(agent.id, contact.id, language_detected=language_code)
             except Exception:  # Broad catch: language update is non-critical
                 pass
 

@@ -124,8 +124,12 @@ def create_contact(
     return contact
 
 
-def update_contact(contact_id: UUID, **updates) -> Contact:
-    """Update a contact record. Always updates last_contact_at."""
+def update_contact(agent_id: UUID, contact_id: UUID, **updates) -> Contact:
+    """Update a contact record. Always updates last_contact_at.
+
+    Requires agent_id to enforce tenant isolation — only the owning agent
+    can modify their contacts, preventing cross-tenant data modification.
+    """
     valid_fields = {
         "name", "phone", "email", "role", "lifecycle_stage",
         "linked_listing_id", "preferences", "notes", "silent_mode",
@@ -139,18 +143,18 @@ def update_contact(contact_id: UUID, **updates) -> Contact:
         # Just update last_contact_at
         with get_db_connection() as conn:
             row = conn.execute(
-                "UPDATE contacts SET last_contact_at = now(), updated_at = now() WHERE id = %s RETURNING *",
-                [str(contact_id)],
+                "UPDATE contacts SET last_contact_at = now(), updated_at = now() WHERE id = %s AND agent_id = %s RETURNING *",
+                [str(contact_id), str(agent_id)],
             ).fetchone()
             conn.commit()
             return Contact(**row)
 
-    values.append(str(contact_id))
+    values.extend([str(contact_id), str(agent_id)])
 
     with get_db_connection() as conn:
         row = conn.execute(
             f"""UPDATE contacts SET {set_clauses}, last_contact_at = now(), updated_at = now()
-                WHERE id = %s RETURNING *""",
+                WHERE id = %s AND agent_id = %s RETURNING *""",
             values,
         ).fetchone()
         conn.commit()

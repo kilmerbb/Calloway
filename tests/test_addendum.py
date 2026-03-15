@@ -319,7 +319,7 @@ def test_handoff_return_reactivates_contact(mock_update, mock_lookup):
     assert result.response_text is not None
     assert "Sarah Test" in result.response_text
     assert "Reactivated" in result.response_text
-    mock_update.assert_any_call(contact.id, silent_mode=False)
+    mock_update.assert_any_call(agent.id, contact.id, silent_mode=False)
 
 
 @patch("app.pipeline.commands.status.lookup_contact")
