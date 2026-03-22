@@ -7,55 +7,55 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A1B2C3D4E5F60001000001 /* CallowayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000001 /* CallowayApp.swift */; };
-		A1B2C3D4E5F60001000002 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000002 /* AvatarView.swift */; };
-		A1B2C3D4E5F60001000003 /* FilterChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000003 /* FilterChip.swift */; };
-		A1B2C3D4E5F60001000004 /* BriefingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000004 /* BriefingModels.swift */; };
-		A1B2C3D4E5F60001000005 /* ConversationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000005 /* ConversationModels.swift */; };
-		A1B2C3D4E5F60001000006 /* ListingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000006 /* ListingModels.swift */; };
-		A1B2C3D4E5F60001000007 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000007 /* APIClient.swift */; };
-		A1B2C3D4E5F60001000008 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000008 /* AuthService.swift */; };
-		A1B2C3D4E5F60001000009 /* CallowayTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000009 /* CallowayTheme.swift */; };
-		A1B2C3D4E5F60001000010 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000010 /* MainTabView.swift */; };
-		A1B2C3D4E5F60001000011 /* AssistantSummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000011 /* AssistantSummaryCard.swift */; };
-		A1B2C3D4E5F60001000012 /* BriefingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000012 /* BriefingView.swift */; };
-		A1B2C3D4E5F60001000013 /* ScheduleEventCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000013 /* ScheduleEventCard.swift */; };
-		A1B2C3D4E5F60001000014 /* ChatDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000014 /* ChatDetailView.swift */; };
-		A1B2C3D4E5F60001000015 /* ChatsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000015 /* ChatsListView.swift */; };
-		A1B2C3D4E5F60001000016 /* ConversationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000016 /* ConversationCard.swift */; };
-		A1B2C3D4E5F60001000017 /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000017 /* MessageBubble.swift */; };
-		A1B2C3D4E5F60001000018 /* ContentPortalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000018 /* ContentPortalView.swift */; };
-		A1B2C3D4E5F60001000019 /* NewListingForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000019 /* NewListingForm.swift */; };
-		A1B2C3D4E5F60001000020 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002000020 /* Assets.xcassets */; };
+		B71A2F3C4D5E6F0100000001 /* CallowayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000001 /* CallowayApp.swift */; };
+		B71A2F3C4D5E6F0100000002 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000002 /* AvatarView.swift */; };
+		B71A2F3C4D5E6F0100000003 /* FilterChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000003 /* FilterChip.swift */; };
+		B71A2F3C4D5E6F0100000004 /* BriefingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000004 /* BriefingModels.swift */; };
+		B71A2F3C4D5E6F0100000005 /* ConversationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000005 /* ConversationModels.swift */; };
+		B71A2F3C4D5E6F0100000006 /* ListingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000006 /* ListingModels.swift */; };
+		B71A2F3C4D5E6F0100000007 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000007 /* APIClient.swift */; };
+		B71A2F3C4D5E6F0100000008 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000008 /* AuthService.swift */; };
+		B71A2F3C4D5E6F0100000009 /* CallowayTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000009 /* CallowayTheme.swift */; };
+		B71A2F3C4D5E6F0100000010 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000010 /* MainTabView.swift */; };
+		B71A2F3C4D5E6F0100000011 /* AssistantSummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000011 /* AssistantSummaryCard.swift */; };
+		B71A2F3C4D5E6F0100000012 /* BriefingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000012 /* BriefingView.swift */; };
+		B71A2F3C4D5E6F0100000013 /* ScheduleEventCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000013 /* ScheduleEventCard.swift */; };
+		B71A2F3C4D5E6F0100000014 /* ChatDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000014 /* ChatDetailView.swift */; };
+		B71A2F3C4D5E6F0100000015 /* ChatsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000015 /* ChatsListView.swift */; };
+		B71A2F3C4D5E6F0100000016 /* ConversationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000016 /* ConversationCard.swift */; };
+		B71A2F3C4D5E6F0100000017 /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000017 /* MessageBubble.swift */; };
+		B71A2F3C4D5E6F0100000018 /* ContentPortalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000018 /* ContentPortalView.swift */; };
+		B71A2F3C4D5E6F0100000019 /* NewListingForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000019 /* NewListingForm.swift */; };
+		B71A2F3C4D5E6F0100000020 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B71A2F3C4D5E6F0200000020 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A1B2C3D4E5F60002000001 /* CallowayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallowayApp.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000002 /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000003 /* FilterChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterChip.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000004 /* BriefingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingModels.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000005 /* ConversationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationModels.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000006 /* ListingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingModels.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000007 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000008 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000009 /* CallowayTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallowayTheme.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000010 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000011 /* AssistantSummaryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantSummaryCard.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000012 /* BriefingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingView.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000013 /* ScheduleEventCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleEventCard.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000014 /* ChatDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatDetailView.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000015 /* ChatsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsListView.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000016 /* ConversationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationCard.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000017 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000018 /* ContentPortalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentPortalView.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000019 /* NewListingForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewListingForm.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000020 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A1B2C3D4E5F60002000021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A1B2C3D4E5F60003000001 /* Calloway.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Calloway.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B71A2F3C4D5E6F0200000001 /* CallowayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallowayApp.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000002 /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000003 /* FilterChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterChip.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000004 /* BriefingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingModels.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000005 /* ConversationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationModels.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000006 /* ListingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingModels.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000007 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000008 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000009 /* CallowayTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallowayTheme.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000010 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000011 /* AssistantSummaryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantSummaryCard.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000012 /* BriefingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingView.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000013 /* ScheduleEventCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleEventCard.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000014 /* ChatDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatDetailView.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000015 /* ChatsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsListView.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000016 /* ConversationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationCard.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000017 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000018 /* ContentPortalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentPortalView.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000019 /* NewListingForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewListingForm.swift; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000020 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0200000021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B71A2F3C4D5E6F0300000001 /* Calloway.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Calloway.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		A1B2C3D4E5F60004000001 /* Frameworks */ = {
+		B71A2F3C4D5E6F0400000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -65,110 +65,110 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		A1B2C3D4E5F60005000001 /* Root */ = {
+		B71A2F3C4D5E6F0500000001 /* Root */ = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F60005000002 /* Calloway */,
-				A1B2C3D4E5F60005000099 /* Products */,
+				B71A2F3C4D5E6F0500000002 /* Calloway */,
+				B71A2F3C4D5E6F0500000099 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		A1B2C3D4E5F60005000099 /* Products */ = {
+		B71A2F3C4D5E6F0500000099 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F60003000001 /* Calloway.app */,
+				B71A2F3C4D5E6F0300000001 /* Calloway.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		A1B2C3D4E5F60005000002 /* Calloway */ = {
+		B71A2F3C4D5E6F0500000002 /* Calloway */ = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F60002000001 /* CallowayApp.swift */,
-				A1B2C3D4E5F60002000021 /* Info.plist */,
-				A1B2C3D4E5F60002000020 /* Assets.xcassets */,
-				A1B2C3D4E5F60005000003 /* Components */,
-				A1B2C3D4E5F60005000004 /* Models */,
-				A1B2C3D4E5F60005000005 /* Services */,
-				A1B2C3D4E5F60005000006 /* Theme */,
-				A1B2C3D4E5F60005000007 /* Views */,
+				B71A2F3C4D5E6F0200000001 /* CallowayApp.swift */,
+				B71A2F3C4D5E6F0200000021 /* Info.plist */,
+				B71A2F3C4D5E6F0200000020 /* Assets.xcassets */,
+				B71A2F3C4D5E6F0500000003 /* Components */,
+				B71A2F3C4D5E6F0500000004 /* Models */,
+				B71A2F3C4D5E6F0500000005 /* Services */,
+				B71A2F3C4D5E6F0500000006 /* Theme */,
+				B71A2F3C4D5E6F0500000007 /* Views */,
 			);
 			path = Calloway;
 			sourceTree = "<group>";
 		};
-		A1B2C3D4E5F60005000003 /* Components */ = {
+		B71A2F3C4D5E6F0500000003 /* Components */ = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F60002000002 /* AvatarView.swift */,
-				A1B2C3D4E5F60002000003 /* FilterChip.swift */,
+				B71A2F3C4D5E6F0200000002 /* AvatarView.swift */,
+				B71A2F3C4D5E6F0200000003 /* FilterChip.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
 		};
-		A1B2C3D4E5F60005000004 /* Models */ = {
+		B71A2F3C4D5E6F0500000004 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F60002000004 /* BriefingModels.swift */,
-				A1B2C3D4E5F60002000005 /* ConversationModels.swift */,
-				A1B2C3D4E5F60002000006 /* ListingModels.swift */,
+				B71A2F3C4D5E6F0200000004 /* BriefingModels.swift */,
+				B71A2F3C4D5E6F0200000005 /* ConversationModels.swift */,
+				B71A2F3C4D5E6F0200000006 /* ListingModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
 		};
-		A1B2C3D4E5F60005000005 /* Services */ = {
+		B71A2F3C4D5E6F0500000005 /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F60002000007 /* APIClient.swift */,
-				A1B2C3D4E5F60002000008 /* AuthService.swift */,
+				B71A2F3C4D5E6F0200000007 /* APIClient.swift */,
+				B71A2F3C4D5E6F0200000008 /* AuthService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
 		};
-		A1B2C3D4E5F60005000006 /* Theme */ = {
+		B71A2F3C4D5E6F0500000006 /* Theme */ = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F60002000009 /* CallowayTheme.swift */,
+				B71A2F3C4D5E6F0200000009 /* CallowayTheme.swift */,
 			);
 			path = Theme;
 			sourceTree = "<group>";
 		};
-		A1B2C3D4E5F60005000007 /* Views */ = {
+		B71A2F3C4D5E6F0500000007 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F60002000010 /* MainTabView.swift */,
-				A1B2C3D4E5F60005000008 /* Briefing */,
-				A1B2C3D4E5F60005000009 /* Chats */,
-				A1B2C3D4E5F60005000010 /* Content */,
+				B71A2F3C4D5E6F0200000010 /* MainTabView.swift */,
+				B71A2F3C4D5E6F0500000008 /* Briefing */,
+				B71A2F3C4D5E6F0500000009 /* Chats */,
+				B71A2F3C4D5E6F0500000010 /* Content */,
 			);
 			path = Views;
 			sourceTree = "<group>";
 		};
-		A1B2C3D4E5F60005000008 /* Briefing */ = {
+		B71A2F3C4D5E6F0500000008 /* Briefing */ = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F60002000011 /* AssistantSummaryCard.swift */,
-				A1B2C3D4E5F60002000012 /* BriefingView.swift */,
-				A1B2C3D4E5F60002000013 /* ScheduleEventCard.swift */,
+				B71A2F3C4D5E6F0200000011 /* AssistantSummaryCard.swift */,
+				B71A2F3C4D5E6F0200000012 /* BriefingView.swift */,
+				B71A2F3C4D5E6F0200000013 /* ScheduleEventCard.swift */,
 			);
 			path = Briefing;
 			sourceTree = "<group>";
 		};
-		A1B2C3D4E5F60005000009 /* Chats */ = {
+		B71A2F3C4D5E6F0500000009 /* Chats */ = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F60002000014 /* ChatDetailView.swift */,
-				A1B2C3D4E5F60002000015 /* ChatsListView.swift */,
-				A1B2C3D4E5F60002000016 /* ConversationCard.swift */,
-				A1B2C3D4E5F60002000017 /* MessageBubble.swift */,
+				B71A2F3C4D5E6F0200000014 /* ChatDetailView.swift */,
+				B71A2F3C4D5E6F0200000015 /* ChatsListView.swift */,
+				B71A2F3C4D5E6F0200000016 /* ConversationCard.swift */,
+				B71A2F3C4D5E6F0200000017 /* MessageBubble.swift */,
 			);
 			path = Chats;
 			sourceTree = "<group>";
 		};
-		A1B2C3D4E5F60005000010 /* Content */ = {
+		B71A2F3C4D5E6F0500000010 /* Content */ = {
 			isa = PBXGroup;
 			children = (
-				A1B2C3D4E5F60002000018 /* ContentPortalView.swift */,
-				A1B2C3D4E5F60002000019 /* NewListingForm.swift */,
+				B71A2F3C4D5E6F0200000018 /* ContentPortalView.swift */,
+				B71A2F3C4D5E6F0200000019 /* NewListingForm.swift */,
 			);
 			path = Content;
 			sourceTree = "<group>";
@@ -176,13 +176,13 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A1B2C3D4E5F60006000001 /* Calloway */ = {
+		B71A2F3C4D5E6F0600000001 /* Calloway */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A1B2C3D4E5F60009000001 /* Build configuration list for PBXNativeTarget "Calloway" */;
+			buildConfigurationList = B71A2F3C4D5E6F0900000001 /* Build configuration list for PBXNativeTarget "Calloway" */;
 			buildPhases = (
-				A1B2C3D4E5F60007000001 /* Sources */,
-				A1B2C3D4E5F60004000001 /* Frameworks */,
-				A1B2C3D4E5F60007000002 /* Resources */,
+				B71A2F3C4D5E6F0700000001 /* Sources */,
+				B71A2F3C4D5E6F0400000001 /* Frameworks */,
+				B71A2F3C4D5E6F0700000002 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -190,25 +190,25 @@
 			);
 			name = Calloway;
 			productName = Calloway;
-			productReference = A1B2C3D4E5F60003000001 /* Calloway.app */;
+			productReference = B71A2F3C4D5E6F0300000001 /* Calloway.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		A1B2C3D4E5F60008000001 /* Project object */ = {
+		B71A2F3C4D5E6F0800000001 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1540;
 				LastUpgradeCheck = 1540;
 				TargetAttributes = {
-					A1B2C3D4E5F60006000001 = {
+					B71A2F3C4D5E6F0600000001 = {
 						CreatedOnToolsVersion = 15.4;
 					};
 				};
 			};
-			buildConfigurationList = A1B2C3D4E5F60009000002 /* Build configuration list for PBXProject "Calloway" */;
+			buildConfigurationList = B71A2F3C4D5E6F0900000002 /* Build configuration list for PBXProject "Calloway" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -216,58 +216,58 @@
 				en,
 				Base,
 			);
-			mainGroup = A1B2C3D4E5F60005000001 /* Root */;
-			productRefGroup = A1B2C3D4E5F60005000099 /* Products */;
+			mainGroup = B71A2F3C4D5E6F0500000001 /* Root */;
+			productRefGroup = B71A2F3C4D5E6F0500000099 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A1B2C3D4E5F60006000001 /* Calloway */,
+				B71A2F3C4D5E6F0600000001 /* Calloway */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A1B2C3D4E5F60007000002 /* Resources */ = {
+		B71A2F3C4D5E6F0700000002 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1B2C3D4E5F60001000020 /* Assets.xcassets in Resources */,
+				B71A2F3C4D5E6F0100000020 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		A1B2C3D4E5F60007000001 /* Sources */ = {
+		B71A2F3C4D5E6F0700000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1B2C3D4E5F60001000001 /* CallowayApp.swift in Sources */,
-				A1B2C3D4E5F60001000002 /* AvatarView.swift in Sources */,
-				A1B2C3D4E5F60001000003 /* FilterChip.swift in Sources */,
-				A1B2C3D4E5F60001000004 /* BriefingModels.swift in Sources */,
-				A1B2C3D4E5F60001000005 /* ConversationModels.swift in Sources */,
-				A1B2C3D4E5F60001000006 /* ListingModels.swift in Sources */,
-				A1B2C3D4E5F60001000007 /* APIClient.swift in Sources */,
-				A1B2C3D4E5F60001000008 /* AuthService.swift in Sources */,
-				A1B2C3D4E5F60001000009 /* CallowayTheme.swift in Sources */,
-				A1B2C3D4E5F60001000010 /* MainTabView.swift in Sources */,
-				A1B2C3D4E5F60001000011 /* AssistantSummaryCard.swift in Sources */,
-				A1B2C3D4E5F60001000012 /* BriefingView.swift in Sources */,
-				A1B2C3D4E5F60001000013 /* ScheduleEventCard.swift in Sources */,
-				A1B2C3D4E5F60001000014 /* ChatDetailView.swift in Sources */,
-				A1B2C3D4E5F60001000015 /* ChatsListView.swift in Sources */,
-				A1B2C3D4E5F60001000016 /* ConversationCard.swift in Sources */,
-				A1B2C3D4E5F60001000017 /* MessageBubble.swift in Sources */,
-				A1B2C3D4E5F60001000018 /* ContentPortalView.swift in Sources */,
-				A1B2C3D4E5F60001000019 /* NewListingForm.swift in Sources */,
+				B71A2F3C4D5E6F0100000001 /* CallowayApp.swift in Sources */,
+				B71A2F3C4D5E6F0100000002 /* AvatarView.swift in Sources */,
+				B71A2F3C4D5E6F0100000003 /* FilterChip.swift in Sources */,
+				B71A2F3C4D5E6F0100000004 /* BriefingModels.swift in Sources */,
+				B71A2F3C4D5E6F0100000005 /* ConversationModels.swift in Sources */,
+				B71A2F3C4D5E6F0100000006 /* ListingModels.swift in Sources */,
+				B71A2F3C4D5E6F0100000007 /* APIClient.swift in Sources */,
+				B71A2F3C4D5E6F0100000008 /* AuthService.swift in Sources */,
+				B71A2F3C4D5E6F0100000009 /* CallowayTheme.swift in Sources */,
+				B71A2F3C4D5E6F0100000010 /* MainTabView.swift in Sources */,
+				B71A2F3C4D5E6F0100000011 /* AssistantSummaryCard.swift in Sources */,
+				B71A2F3C4D5E6F0100000012 /* BriefingView.swift in Sources */,
+				B71A2F3C4D5E6F0100000013 /* ScheduleEventCard.swift in Sources */,
+				B71A2F3C4D5E6F0100000014 /* ChatDetailView.swift in Sources */,
+				B71A2F3C4D5E6F0100000015 /* ChatsListView.swift in Sources */,
+				B71A2F3C4D5E6F0100000016 /* ConversationCard.swift in Sources */,
+				B71A2F3C4D5E6F0100000017 /* MessageBubble.swift in Sources */,
+				B71A2F3C4D5E6F0100000018 /* ContentPortalView.swift in Sources */,
+				B71A2F3C4D5E6F0100000019 /* NewListingForm.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		A1B2C3D4E5F6000A000001 /* Debug */ = {
+		B71A2F3C4D5E6F0A00000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -330,7 +330,7 @@
 			};
 			name = Debug;
 		};
-		A1B2C3D4E5F6000A000002 /* Release */ = {
+		B71A2F3C4D5E6F0A00000002 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -386,7 +386,7 @@
 			};
 			name = Release;
 		};
-		A1B2C3D4E5F6000A000003 /* Debug */ = {
+		B71A2F3C4D5E6F0A00000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -417,7 +417,7 @@
 			};
 			name = Debug;
 		};
-		A1B2C3D4E5F6000A000004 /* Release */ = {
+		B71A2F3C4D5E6F0A00000004 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -451,25 +451,25 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A1B2C3D4E5F60009000001 /* Build configuration list for PBXNativeTarget "Calloway" */ = {
+		B71A2F3C4D5E6F0900000001 /* Build configuration list for PBXNativeTarget "Calloway" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A1B2C3D4E5F6000A000003 /* Debug */,
-				A1B2C3D4E5F6000A000004 /* Release */,
+				B71A2F3C4D5E6F0A00000003 /* Debug */,
+				B71A2F3C4D5E6F0A00000004 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A1B2C3D4E5F60009000002 /* Build configuration list for PBXProject "Calloway" */ = {
+		B71A2F3C4D5E6F0900000002 /* Build configuration list for PBXProject "Calloway" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A1B2C3D4E5F6000A000001 /* Debug */,
-				A1B2C3D4E5F6000A000002 /* Release */,
+				B71A2F3C4D5E6F0A00000001 /* Debug */,
+				B71A2F3C4D5E6F0A00000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = A1B2C3D4E5F60008000001 /* Project object */;
+	rootObject = B71A2F3C4D5E6F0800000001 /* Project object */;
 }
