@@ -11,6 +11,7 @@ from app.api.conversations import router as conversations_router
 from app.api.onboarding import router as onboarding_router
 from app.api.console import router as console_router
 from app.api.harness import router as harness_router
+from app.api.mobile import router as mobile_router
 
 
 @asynccontextmanager
@@ -41,6 +42,7 @@ app.include_router(conversations_router)
 app.include_router(onboarding_router)
 app.include_router(console_router)
 app.include_router(harness_router)
+app.include_router(mobile_router)
 
 # Static files for console
 STATIC_DIR = Path(__file__).resolve().parent / "static"

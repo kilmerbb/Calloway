@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     CONSOLE_PASSWORD: str = "changeme"
     CONSOLE_SESSION_SECRET: str = "console-secret-change-in-production"
 
+    # Mobile App JWT
+    MOBILE_JWT_SECRET: str = "mobile-jwt-secret-change-in-production"
+
     # Environment
     ENVIRONMENT: str = "development"
 
