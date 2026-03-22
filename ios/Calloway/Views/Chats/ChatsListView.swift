@@ -148,7 +148,12 @@ struct ChatsListView: View {
     }
 }
 
-#Preview {
+#Preview("Dark") {
     ChatsListView()
         .preferredColorScheme(.dark)
+}
+
+#Preview("Light") {
+    ChatsListView()
+        .preferredColorScheme(.light)
 }

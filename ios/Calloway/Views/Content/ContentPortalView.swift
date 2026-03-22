@@ -230,7 +230,12 @@ private struct ListingCard: View {
     }
 }
 
-#Preview {
+#Preview("Dark") {
     ContentPortalView()
         .preferredColorScheme(.dark)
+}
+
+#Preview("Light") {
+    ContentPortalView()
+        .preferredColorScheme(.light)
 }

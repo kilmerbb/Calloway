@@ -216,7 +216,7 @@ struct ChatDetailView: View {
     }
 }
 
-#Preview {
+#Preview("Dark") {
     NavigationStack {
         ChatDetailView(
             conversationId: "conv-001",
@@ -226,4 +226,16 @@ struct ChatDetailView: View {
         )
     }
     .preferredColorScheme(.dark)
+}
+
+#Preview("Light") {
+    NavigationStack {
+        ChatDetailView(
+            conversationId: "conv-001",
+            contactName: "John Doe",
+            contactInitials: "JD",
+            contactAvatarColor: "#4F46E5"
+        )
+    }
+    .preferredColorScheme(.light)
 }

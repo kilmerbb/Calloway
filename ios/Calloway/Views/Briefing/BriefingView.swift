@@ -110,10 +110,18 @@ struct BriefingView: View {
     }
 }
 
-#Preview {
+#Preview("Dark") {
     BriefingView()
         .onAppear {
             // Ensure mock data loads for preview
         }
         .preferredColorScheme(.dark)
+}
+
+#Preview("Light") {
+    BriefingView()
+        .onAppear {
+            // Ensure mock data loads for preview
+        }
+        .preferredColorScheme(.light)
 }

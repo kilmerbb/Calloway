@@ -83,7 +83,12 @@ struct MainTabView: View {
     }
 }
 
-#Preview {
+#Preview("Dark") {
     MainTabView()
         .preferredColorScheme(.dark)
+}
+
+#Preview("Light") {
+    MainTabView()
+        .preferredColorScheme(.light)
 }

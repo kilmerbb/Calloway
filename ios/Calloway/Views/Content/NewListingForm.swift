@@ -127,7 +127,7 @@ private struct FormField: View {
     }
 }
 
-#Preview {
+#Preview("Dark") {
     ScrollView {
         NewListingForm(
             address: .constant(""),
@@ -141,4 +141,20 @@ private struct FormField: View {
     }
     .background(CallowayColors.background)
     .preferredColorScheme(.dark)
+}
+
+#Preview("Light") {
+    ScrollView {
+        NewListingForm(
+            address: .constant(""),
+            price: .constant(""),
+            beds: .constant(""),
+            baths: .constant(""),
+            description: .constant(""),
+            onSubmit: {}
+        )
+        .padding()
+    }
+    .background(CallowayColors.background)
+    .preferredColorScheme(.light)
 }

@@ -13,7 +13,6 @@ struct CallowayApp: App {
                     LoginView()
                 }
             }
-            .preferredColorScheme(.dark)
         }
     }
 }
@@ -135,12 +134,22 @@ struct LoginView: View {
     }
 }
 
-#Preview("Login") {
+#Preview("Login - Dark") {
     LoginView()
         .preferredColorScheme(.dark)
 }
 
-#Preview("Main App") {
+#Preview("Login - Light") {
+    LoginView()
+        .preferredColorScheme(.light)
+}
+
+#Preview("Main App - Dark") {
     MainTabView()
         .preferredColorScheme(.dark)
+}
+
+#Preview("Main App - Light") {
+    MainTabView()
+        .preferredColorScheme(.light)
 }
